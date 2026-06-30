@@ -3869,7 +3869,13 @@ function switchLimpiezaSubtab(sub) {
 
 function updateFleetBadge() {
   const hoy=new Date(); let alertas=0;
-  mantenimientoCache.forEach(m=>{ REVISIONES.forEach(rev=>{ const key=revKey(rev); if(m[key]){ const dias=Math.ceil((new Date(m[key])-hoy)/(1000*60*60*24)); if(dias<=DIAS_AVISO) alertas++; } }); });
+  mantenimientoCache.forEach(m=>{ REVISIONES.forEach(rev=>{
+    const key=revKey(rev); const keyUltima=key+'_ultima'; const keyNoAplica=key+'_noaplica';
+    if(m[key]){ const dias=Math.ceil((new Date(m[key])-hoy)/(1000*60*60*24)); if(dias<=DIAS_AVISO) alertas++; }
+    // Si tiene "última vez" apuntada pero todavía no hay próxima fecha (y no está marcado
+    // "no aplica"), se cuenta igualmente como pendiente para no perderlo de vista.
+    else if(m[keyUltima] && !m[keyNoAplica]) alertas++;
+  }); });
   document.getElementById('ftab-btn-mantenimiento').textContent=alertas>0?`Mantenimiento 🔴${alertas}`:'Mantenimiento';
 }
 
@@ -4052,17 +4058,23 @@ function renderMantenimiento() {
           const fechaUltimaStr=m[keyUltima];
           const noAplica=!fecha && !!m[keyNoAplica];
           const dias=fecha?Math.ceil((fecha-hoy)/(1000*60*60*24)):null;
+          // Si hay "Última vez" pero todavía no se sabe la próxima (ej: el vehículo está
+          // en el taller esperando a pasarla), lo tratamos como pendiente/vencido, para
+          // que no se pierda de vista solo porque aún no hay fecha futura puesta.
+          const pendienteSinFecha = !fecha && !noAplica && !!fechaUltimaStr;
           let color='var(--text-muted)';
           if(dias!==null){ if(dias<0) color='var(--danger)'; else if(dias<=DIAS_AVISO) color='var(--warning)'; else color='var(--success)'; }
+          else if (pendienteSinFecha) color='var(--danger)';
           return `<div class="mant-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
             <div style="display:flex;justify-content:space-between;width:100%;align-items:center;">
-              <span style="font-weight:500;">${rev} ${dias!==null && dias<=DIAS_AVISO?`<span style="background:${color};color:#111;padding:1px 8px;border-radius:10px;font-size:10px;font-weight:700;margin-left:4px;">${dias<0?'VENCIDA':'PRÓXIMA'}</span>`:''}</span>
+              <span style="font-weight:500;">${rev} ${(dias!==null && dias<=DIAS_AVISO) || pendienteSinFecha?`<span style="background:${color};color:#111;padding:1px 8px;border-radius:10px;font-size:10px;font-weight:700;margin-left:4px;">${pendienteSinFecha?'PENDIENTE':dias<0?'VENCIDA':'PRÓXIMA'}</span>`:''}</span>
               <div style="display:flex;align-items:center;gap:0.5rem;">
-                <span style="color:${noAplica?'var(--text-muted)':color};font-size:13px;font-style:${noAplica?'italic':'normal'};">${fecha?fecha.toLocaleDateString('es-ES'):(noAplica?`No tiene ${rev}`:'Sin fecha')}</span>
+                <span style="color:${noAplica?'var(--text-muted)':color};font-size:13px;font-style:${noAplica?'italic':'normal'};">${fecha?fecha.toLocaleDateString('es-ES'):(noAplica?`No tiene ${rev}`:pendienteSinFecha?'Sin próxima fecha':'Sin fecha')}</span>
                 <button class="btn-sm" onclick="editMant('${mat}','${rev}')">Editar</button>
               </div>
             </div>
             ${dias!==null?`<div style="font-size:12px;color:${color};font-weight:600;">${dias<0?`Vencida hace ${Math.abs(dias)} días`:dias===0?'Vence hoy':`Vence en ${dias} días`}</div>`:''}
+            ${pendienteSinFecha?`<div style="font-size:12px;color:${color};font-weight:600;">⚠️ Pendiente de pasar, sin próxima fecha aún</div>`:''}
             ${fechaUltimaStr?`<div style="font-size:11px;color:var(--text-muted);">Última vez: ${new Date(fechaUltimaStr).toLocaleDateString('es-ES')}</div>`:''}
           </div>`;
         }).join('')}
