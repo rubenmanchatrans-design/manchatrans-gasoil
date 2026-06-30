@@ -4037,11 +4037,12 @@ window.editMant = (mat, rev) => {
   const key=revKey(rev);
   const keyUltima=key+'_ultima';
   const tieneFecha = !!m[key];
-  // ITV se pasa cada 6 meses y Tacógrafo cada 2 años (lo habitual en la mayoría de
-  // camiones). Con esto, en cuanto se mete "Última vez", se calcula sola la "Próxima
-  // fecha" sumando ese periodo — así no hay que adivinarla a mano cada vez.
-  const periodicidad = rev === 'ITV' ? {meses:6} : {anios:2};
-  const textoPeriodo = rev === 'ITV' ? 'cada 6 meses' : 'cada 2 años';
+  // El cálculo automático solo aplica a ITV (cada 6 meses). El Tacógrafo no tiene una
+  // periodicidad fija aplicable aquí: tú ya conoces la próxima fecha exacta de cada
+  // camión (a veces a varios años vista), así que para Tacógrafo se mete directamente.
+  const esITV = rev === 'ITV';
+  const periodicidad = {meses:6};
+  const textoPeriodo = 'cada 6 meses';
   const modal=document.createElement('div');
   modal.id='mant-modal';
   modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999;display:flex;align-items:center;justify-content:center;padding:1rem;';
@@ -4050,8 +4051,10 @@ window.editMant = (mat, rev) => {
       <div style="font-size:16px;font-weight:700;margin-bottom:1.25rem;color:var(--accent);">🔧 ${rev} — ${mat}</div>
       <div class="form-group"><label class="form-label">Última vez que se pasó <span style="color:var(--text-muted);font-weight:400;">(opcional)</span></label>
       <input class="form-input" type="date" id="mant-fecha-ultima" value="${m[keyUltima]||''}"></div>
+      ${esITV ? `
       <div style="font-size:11.5px;color:var(--text-muted);margin:-0.5rem 0 0.75rem 0;">💡 ${rev} se pasa ${textoPeriodo}. Pon la última fecha y pulsa "Calcular" para rellenar sola la próxima.</div>
       <button type="button" id="btn-calcular-mant" style="width:100%;margin-bottom:0.75rem;padding:0.55rem;background:var(--navy-light);color:var(--text);border:1px solid var(--card-border);border-radius:var(--radius-sm);font-size:13px;cursor:pointer;">🧮 Calcular próxima fecha (${textoPeriodo})</button>
+      ` : ''}
       <div class="form-group"><label class="form-label">Próxima fecha</label>
       <input class="form-input" type="date" id="mant-fecha" value="${m[key]||''}"></div>
       <div style="display:flex;gap:0.5rem;">
@@ -4062,7 +4065,8 @@ window.editMant = (mat, rev) => {
       <div id="mant-modal-alert" class="alert" style="margin-top:0.75rem;"></div>
     </div>`;
   document.body.appendChild(modal);
-  document.getElementById('btn-calcular-mant').addEventListener('click', () => {
+  const btnCalcular = document.getElementById('btn-calcular-mant');
+  if (btnCalcular) btnCalcular.addEventListener('click', () => {
     const al = document.getElementById('mant-modal-alert');
     const valorUltima = document.getElementById('mant-fecha-ultima').value;
     if (!valorUltima) { showAlert(al, '⚠️ Indica primero la fecha de "Última vez que se pasó"', true); return; }
