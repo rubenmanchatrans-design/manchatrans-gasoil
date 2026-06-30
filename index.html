@@ -4087,7 +4087,7 @@ window.editMant = (mat, rev) => {
       <input class="form-input" type="date" id="mant-fecha-ultima" value="${m[keyUltima]||''}"></div>
       <div style="font-size:11.5px;color:var(--text-muted);margin:-0.5rem 0 0.75rem 0;">💡 ${rev} se pasa ${textoPeriodo}. Pon la última fecha y pulsa "Calcular" para rellenar sola la próxima.</div>
       <button type="button" id="btn-calcular-mant" style="width:100%;margin-bottom:0.75rem;padding:0.55rem;background:var(--navy-light);color:var(--text);border:1px solid var(--card-border);border-radius:var(--radius-sm);font-size:13px;cursor:pointer;">🧮 Calcular próxima fecha (${textoPeriodo})</button>
-      <div class="form-group"><label class="form-label">Próxima fecha</label>
+      <div class="form-group"><label class="form-label">Próxima fecha <span style="color:var(--text-muted);font-weight:400;">(opcional si está en el taller y aún no se sabe)</span></label>
       <input class="form-input" type="date" id="mant-fecha" value="${m[key]||''}"></div>
       <div style="display:flex;gap:0.5rem;">
         <button id="btn-save-mant" style="flex:1;padding:0.75rem;background:var(--accent);color:#111;border:none;border-radius:var(--radius-sm);font-size:15px;font-weight:700;cursor:pointer;">Guardar</button>
@@ -4122,11 +4122,11 @@ window.editMant = (mat, rev) => {
     const fecha=document.getElementById('mant-fecha').value;
     const fechaUltima=document.getElementById('mant-fecha-ultima').value;
     const al=document.getElementById('mant-modal-alert');
-    if (!fecha) { showAlert(al,'Selecciona la próxima fecha',true); return; }
+    if (!fecha && !fechaUltima) { showAlert(al,'Indica al menos una fecha (la última vez, o la próxima)',true); return; }
     try {
       const fechaAnterior = m[key];
       const idx=mantenimientoCache.findIndex(x=>x.matricula===mat);
-      const updates = {[key]:fecha, [keyUltima]:fechaUltima||null, [key+'_noaplica']:false};
+      const updates = {[key]:fecha||null, [keyUltima]:fechaUltima||null, [key+'_noaplica']:false};
       if(idx>=0) { Object.assign(mantenimientoCache[idx],updates); await setDoc(doc(dbFleet,'mantenimiento',mat),mantenimientoCache[idx]); }
       else { const nuevo={matricula:mat,...updates}; mantenimientoCache.push(nuevo); await setDoc(doc(dbFleet,'mantenimiento',mat),nuevo); }
 
