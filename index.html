@@ -4002,9 +4002,11 @@ function renderMantenimiento() {
         ${REVISIONES.map(rev=>{
           const key=revKey(rev);
           const keyUltima=key+'_ultima';
+          const keyNoAplica=key+'_noaplica';
           const fechaStr=m[key];
           const fecha=fechaStr?new Date(fechaStr):null;
           const fechaUltimaStr=m[keyUltima];
+          const noAplica=!fecha && !!m[keyNoAplica];
           const dias=fecha?Math.ceil((fecha-hoy)/(1000*60*60*24)):null;
           let color='var(--text-muted)';
           if(dias!==null){ if(dias<0) color='var(--danger)'; else if(dias<=DIAS_AVISO) color='var(--warning)'; else color='var(--success)'; }
@@ -4012,18 +4014,45 @@ function renderMantenimiento() {
             <div style="display:flex;justify-content:space-between;width:100%;align-items:center;">
               <span style="font-weight:500;">${rev} ${dias!==null && dias<=DIAS_AVISO?`<span style="background:${color};color:#111;padding:1px 8px;border-radius:10px;font-size:10px;font-weight:700;margin-left:4px;">${dias<0?'VENCIDA':'PRÓXIMA'}</span>`:''}</span>
               <div style="display:flex;align-items:center;gap:0.5rem;">
-                <span style="color:${color};font-size:13px;">${fecha?fecha.toLocaleDateString('es-ES'):'Sin fecha'}</span>
+                <span style="color:${noAplica?'var(--text-muted)':color};font-size:13px;font-style:${noAplica?'italic':'normal'};">${fecha?fecha.toLocaleDateString('es-ES'):(noAplica?`No tiene ${rev}`:'Sin fecha')}</span>
                 <button class="btn-sm" onclick="editMant('${mat}','${rev}')">Editar</button>
               </div>
             </div>
             ${dias!==null?`<div style="font-size:12px;color:${color};font-weight:600;">${dias<0?`Vencida hace ${Math.abs(dias)} días`:dias===0?'Vence hoy':`Vence en ${dias} días`}</div>`:''}
             ${fechaUltimaStr?`<div style="font-size:11px;color:var(--text-muted);">Última vez: ${new Date(fechaUltimaStr).toLocaleDateString('es-ES')}</div>`:''}
+            ${rev==='Tacógrafo' && !fecha && !noAplica ? `<button class="btn-sm" onclick="marcarNoTieneMant('${mat}','${rev}')" style="font-size:11px;">🚫 No tiene ${rev}</button>` : ''}
+            ${rev==='Tacógrafo' && noAplica ? `<button class="btn-sm" onclick="quitarNoTieneMant('${mat}','${rev}')" style="font-size:11px;">↩️ Sí lo necesita</button>` : ''}
           </div>`;
         }).join('')}
       </div>
     </div>`;
   }).join('');
 }
+
+window.marcarNoTieneMant = async (mat, rev) => {
+  const key = revKey(rev);
+  const m = mantenimientoCache.find(x=>x.matricula===mat) || {matricula:mat};
+  const datos = { ...m, [key+'_noaplica']: true };
+  try {
+    await setDoc(doc(dbFleet,'mantenimiento',mat), datos);
+    const idx = mantenimientoCache.findIndex(x=>x.matricula===mat);
+    if (idx>=0) mantenimientoCache[idx] = datos; else mantenimientoCache.push(datos);
+    renderMantenimiento(); updateFleetBadge();
+  } catch(e) { alert('Error: '+e.message); }
+};
+
+window.quitarNoTieneMant = async (mat, rev) => {
+  const key = revKey(rev);
+  const m = mantenimientoCache.find(x=>x.matricula===mat);
+  if (!m) return;
+  const datos = { ...m, [key+'_noaplica']: false };
+  try {
+    await setDoc(doc(dbFleet,'mantenimiento',mat), datos);
+    const idx = mantenimientoCache.findIndex(x=>x.matricula===mat);
+    if (idx>=0) mantenimientoCache[idx] = datos;
+    renderMantenimiento(); updateFleetBadge();
+  } catch(e) { alert('Error: '+e.message); }
+};
 
 window.toggleMant = (safeId) => {
   const body = document.getElementById('mant-body-'+safeId);
@@ -4081,7 +4110,7 @@ window.editMant = (mat, rev) => {
     try {
       const fechaAnterior = m[key];
       const idx=mantenimientoCache.findIndex(x=>x.matricula===mat);
-      const updates = {[key]:fecha, [keyUltima]:fechaUltima||null};
+      const updates = {[key]:fecha, [keyUltima]:fechaUltima||null, [key+'_noaplica']:false};
       if(idx>=0) { Object.assign(mantenimientoCache[idx],updates); await setDoc(doc(dbFleet,'mantenimiento',mat),mantenimientoCache[idx]); }
       else { const nuevo={matricula:mat,...updates}; mantenimientoCache.push(nuevo); await setDoc(doc(dbFleet,'mantenimiento',mat),nuevo); }
 
