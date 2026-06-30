@@ -4016,7 +4016,7 @@ function renderMantenimiento() {
   if (!list) return;
   const alertasEl=document.getElementById('mant-alertas');
   const hoy=new Date();
-  let alertasHtml='';
+  const alertasItems=[]; // { html, dias } — dias=null para "pendiente sin fecha" (más urgente)
   const todasMat = ['TOROS CESAB',...matriculasCache,...remolquesCache];
 
   mantenimientoCache.forEach(m=>{
@@ -4030,16 +4030,24 @@ function renderMantenimiento() {
         if (dias<=DIAS_AVISO) {
           const color=dias<0?'var(--danger)':dias<=5?'#ff6b00':'var(--warning)';
           const txt=dias<0?`Vencida hace ${Math.abs(dias)} días`:`Vence en ${dias} días`;
-          alertasHtml+=`<div style="background:#3a1e1e;border:1px solid ${color};border-radius:var(--radius-sm);padding:0.75rem 1rem;margin-bottom:0.5rem;font-size:13px;">⚠️ <strong>${m.matricula}</strong> — ${rev}: <span style="color:${color};font-weight:700;">${txt}</span> (${fecha.toLocaleDateString('es-ES')})</div>`;
+          alertasItems.push({ dias, html:`<div style="background:#3a1e1e;border:1px solid ${color};border-radius:var(--radius-sm);padding:0.75rem 1rem;margin-bottom:0.5rem;font-size:13px;">⚠️ <strong>${m.matricula}</strong> — ${rev}: <span style="color:${color};font-weight:700;">${txt}</span> (${fecha.toLocaleDateString('es-ES')})</div>` });
         }
       } else if (m[keyUltima] && !m[keyNoAplica]) {
         // Tiene "última vez" apuntada pero todavía no se sabe la próxima fecha (ej: el
         // vehículo está en el taller esperando a pasarla). Se muestra igualmente para
-        // que no se pierda de vista.
-        alertasHtml+=`<div style="background:#3a1e1e;border:1px solid var(--danger);border-radius:var(--radius-sm);padding:0.75rem 1rem;margin-bottom:0.5rem;font-size:13px;">⚠️ <strong>${m.matricula}</strong> — ${rev}: <span style="color:var(--danger);font-weight:700;">Pendiente, sin próxima fecha aún</span></div>`;
+        // que no se pierda de vista, y se trata como lo más urgente (dias=-Infinity).
+        alertasItems.push({ dias:-Infinity, html:`<div style="background:#3a1e1e;border:1px solid var(--danger);border-radius:var(--radius-sm);padding:0.75rem 1rem;margin-bottom:0.5rem;font-size:13px;">⚠️ <strong>${m.matricula}</strong> — ${rev}: <span style="color:var(--danger);font-weight:700;">Pendiente, sin próxima fecha aún</span></div>` });
       }
     });
   });
+
+  // Las más urgentes (vencidas y pendientes sin fecha) primero, luego por días restantes.
+  alertasItems.sort((a,b)=>a.dias-b.dias);
+  let alertasHtml = '';
+  if (alertasItems.length) {
+    alertasHtml = `<div id="mant-alertas-ocultas" style="display:none;">${alertasItems.map(it=>it.html).join('')}</div>
+      <button class="btn-sm" data-texto="⚠️ Ver ${alertasItems.length} aviso${alertasItems.length>1?'s':''} de ITV/Tacógrafo" onclick="toggleSeccionAnios('mant-alertas-ocultas', this)" style="width:100%;font-size:12px;">⚠️ Ver ${alertasItems.length} aviso${alertasItems.length>1?'s':''} de ITV/Tacógrafo</button>`;
+  }
   alertasEl.innerHTML=alertasHtml?`<div style="margin-bottom:1.25rem;">${alertasHtml}</div>`:'';
 
   if (!mantFiltroMat) {
@@ -4330,7 +4338,7 @@ function renderMantenimientoConductores() {
   if (!list) return;
   const alertasEl=document.getElementById('mantcond-alertas');
   const hoy=new Date();
-  let alertasHtml='';
+  const alertasItemsCond=[];
 
   mantConductoresCache.forEach(m=>{
     REVISIONES_CONDUCTOR.forEach(rev=>{
@@ -4341,10 +4349,16 @@ function renderMantenimientoConductores() {
       if (dias<=DIAS_AVISO_CONDUCTOR) {
         const color=dias<0?'var(--danger)':dias<=5?'#ff6b00':'var(--warning)';
         const txt=dias<0?`Vencida hace ${Math.abs(dias)} días`:`Vence en ${dias} días`;
-        alertasHtml+=`<div style="background:#3a1e1e;border:1px solid ${color};border-radius:var(--radius-sm);padding:0.75rem 1rem;margin-bottom:0.5rem;font-size:13px;">⚠️ <strong>${nombreConductorPorCodigo(m.id)}</strong> — ${rev}: <span style="color:${color};font-weight:700;">${txt}</span> (${fecha.toLocaleDateString('es-ES')})</div>`;
+        alertasItemsCond.push({ dias, html:`<div style="background:#3a1e1e;border:1px solid ${color};border-radius:var(--radius-sm);padding:0.75rem 1rem;margin-bottom:0.5rem;font-size:13px;">⚠️ <strong>${nombreConductorPorCodigo(m.id)}</strong> — ${rev}: <span style="color:${color};font-weight:700;">${txt}</span> (${fecha.toLocaleDateString('es-ES')})</div>` });
       }
     });
   });
+  alertasItemsCond.sort((a,b)=>a.dias-b.dias);
+  let alertasHtml = '';
+  if (alertasItemsCond.length) {
+    alertasHtml = `<div id="mantcond-alertas-ocultas" style="display:none;">${alertasItemsCond.map(it=>it.html).join('')}</div>
+      <button class="btn-sm" data-texto="⚠️ Ver ${alertasItemsCond.length} aviso${alertasItemsCond.length>1?'s':''} de ADR/CAP" onclick="toggleSeccionAnios('mantcond-alertas-ocultas', this)" style="width:100%;font-size:12px;">⚠️ Ver ${alertasItemsCond.length} aviso${alertasItemsCond.length>1?'s':''} de ADR/CAP</button>`;
+  }
   alertasEl.innerHTML=alertasHtml?`<div style="margin-bottom:1.25rem;">${alertasHtml}</div>`:'';
 
   if (!mantCondFiltroCod) {
