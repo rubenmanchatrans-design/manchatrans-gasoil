@@ -3529,10 +3529,12 @@ function renderMatList() {
 
   list.innerHTML = activos.map(v=>{
     const propietarioNombre = v.propietario ? (driversCache.find(d=>d.code===v.propietario)?.name.split(' ').slice(0,2).join(' ') || v.propietario) : null;
+    const infoITV = v.fechaMatriculacion ? calcularPeriodicidadITV(v.fechaMatriculacion, v.mma) : null;
     return `<div class="driver-list-item">
       <div>
         <div class="driver-info">🚗 ${v.matricula}</div>
         <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${v.gasoil?'⛽ Gasoil ':''}${v.flota?'🚛 Flota':''}${propietarioNombre?` · 👤 Propio de ${propietarioNombre}`:''}</div>
+        ${infoITV ? `<div style="font-size:11px;color:var(--accent);margin-top:2px;">📋 ${infoITV.texto}</div>` : ''}
       </div>
       <div style="display:flex;gap:0.5rem;">
         <button onclick="editVehiculo('${v.matricula}')" style="padding:4px 10px;background:var(--navy-light);color:var(--text);border:1px solid var(--card-border);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;">Editar</button>
@@ -3632,6 +3634,26 @@ window.addMat = async () => {
   btnAddMat.disabled = false; btnAddMat.textContent = textoBtnMatOriginal;
 };
 
+// Calcula cada cuánto le toca la ITV a un vehículo según su antigüedad y MMA, conforme
+// al Real Decreto 920/2017 (Manual de Procedimiento ITV vigente 2026):
+// - MMA > 3.500 kg (camiones, cabezas tractoras): hasta 10 años, anual; más de 10, cada 6 meses.
+// - MMA hasta 3.500 kg (furgonetas): hasta 6 años, cada 2 años; de 6 a 10, anual; más de 10, cada 6 meses.
+function calcularPeriodicidadITV(fechaMatriculacion, mma) {
+  if (!fechaMatriculacion) return { texto: 'Indica la fecha de matriculación para calcular la periodicidad.', meses: 6 };
+  const hoy = new Date();
+  const fechaMat = new Date(fechaMatriculacion+'T00:00:00');
+  let edadAnios = hoy.getFullYear() - fechaMat.getFullYear();
+  const aunNoCumplido = (hoy.getMonth() < fechaMat.getMonth()) || (hoy.getMonth()===fechaMat.getMonth() && hoy.getDate()<fechaMat.getDate());
+  if (aunNoCumplido) edadAnios--;
+  if (mma === 'hasta3500') {
+    if (edadAnios < 6) return { texto: `Tiene ${edadAnios} años. Le toca ITV cada 2 años (hasta los 6 años de antigüedad).`, meses: 24 };
+    if (edadAnios < 10) return { texto: `Tiene ${edadAnios} años. Le toca ITV anual (de 6 a 10 años de antigüedad).`, meses: 12 };
+    return { texto: `Tiene ${edadAnios} años. Le toca ITV cada 6 meses (más de 10 años de antigüedad).`, meses: 6 };
+  }
+  if (edadAnios < 10) return { texto: `Tiene ${edadAnios} años. Le toca ITV anual (hasta los 10 años de antigüedad).`, meses: 12 };
+  return { texto: `Tiene ${edadAnios} años. Le toca ITV cada 6 meses (más de 10 años de antigüedad).`, meses: 6 };
+}
+
 window.editVehiculo = (mat) => {
   const v = vehiculosCache.find(x=>x.matricula===mat);
   if (!v) return;
@@ -3657,19 +3679,41 @@ window.editVehiculo = (mat) => {
           ${opcionesDrivers}
         </select>
       </div>
+      <div class="form-group">
+        <label class="form-label">Fecha de primera matriculación <span style="color:var(--text-muted);font-weight:400;">(opcional, para calcular la ITV)</span></label>
+        <input class="form-input" type="date" id="edit-veh-fecha-matriculacion" value="${v.fechaMatriculacion||''}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">MMA <span style="color:var(--text-muted);font-weight:400;">(masa máxima autorizada)</span></label>
+        <select class="form-input" id="edit-veh-mma">
+          <option value="mas3500" ${(v.mma||'mas3500')==='mas3500'?'selected':''}>Más de 3.500 kg (camión/cabeza tractora)</option>
+          <option value="hasta3500" ${v.mma==='hasta3500'?'selected':''}>Hasta 3.500 kg (furgoneta)</option>
+        </select>
+      </div>
+      <div id="edit-veh-periodicidad-info" style="font-size:12px;color:var(--accent);background:var(--navy-light);border-radius:var(--radius-sm);padding:0.6rem 0.75rem;margin-bottom:1rem;"></div>
       <div style="display:flex;gap:0.5rem;">
         <button id="btn-save-veh" style="flex:1;padding:0.75rem;background:var(--accent);color:#111;border:none;border-radius:var(--radius-sm);font-size:15px;font-weight:700;cursor:pointer;">Guardar</button>
         <button onclick="document.getElementById('edit-veh-modal').remove()" style="flex:1;padding:0.75rem;background:var(--navy-light);color:var(--text);border:1px solid var(--card-border);border-radius:var(--radius-sm);font-size:15px;cursor:pointer;">Cancelar</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
+  const actualizarInfoPeriodicidad = () => {
+    const fm = document.getElementById('edit-veh-fecha-matriculacion').value;
+    const mma = document.getElementById('edit-veh-mma').value;
+    document.getElementById('edit-veh-periodicidad-info').textContent = '💡 ' + calcularPeriodicidadITV(fm, mma).texto;
+  };
+  actualizarInfoPeriodicidad();
+  document.getElementById('edit-veh-fecha-matriculacion').addEventListener('change', actualizarInfoPeriodicidad);
+  document.getElementById('edit-veh-mma').addEventListener('change', actualizarInfoPeriodicidad);
   document.getElementById('btn-save-veh').addEventListener('click', async ()=>{
     const gasoil = document.getElementById('edit-veh-gasoil').checked;
     const flota = document.getElementById('edit-veh-flota').checked;
     const propietario = document.getElementById('edit-veh-propietario').value || null;
+    const fechaMatriculacion = document.getElementById('edit-veh-fecha-matriculacion').value || null;
+    const mma = document.getElementById('edit-veh-mma').value;
     if (!gasoil && !flota) { alert('Marca al menos Gasoil o Flota'); return; }
     try {
-      v.gasoil = gasoil; v.flota = flota; v.propietario = propietario;
+      v.gasoil = gasoil; v.flota = flota; v.propietario = propietario; v.fechaMatriculacion = fechaMatriculacion; v.mma = mma;
       await setDoc(doc(db,'vehiculos',mat),v);
       document.getElementById('edit-veh-modal').remove();
       renderMatList();
@@ -4066,11 +4110,13 @@ window.editMant = (mat, rev) => {
   const keyNoAplica=key+'_noaplica';
   const tieneFecha = !!m[key];
   const noAplica = !tieneFecha && !!m[keyNoAplica];
-  // ITV se pasa cada 6 meses y Tacógrafo cada 2 años (lo habitual en la mayoría de
-  // camiones). En cuanto se mete "Última vez", el botón calcula sola la "Próxima fecha"
-  // sumando ese periodo — así, en lo sucesivo, no hay que adivinarla cada vez.
-  const periodicidad = rev === 'ITV' ? {meses:6} : {anios:2};
-  const textoPeriodo = rev === 'ITV' ? 'cada 6 meses' : 'cada 2 años';
+  // Para ITV usamos la periodicidad real según la normativa (antigüedad y MMA del
+  // vehículo, calculada con los datos de Configuración → Vehículos). Si no se ha metido
+  // la fecha de matriculación, se usa 6 meses por defecto (lo más común en flota pesada).
+  const vehiculoInfo = vehiculosCache.find(x=>x.matricula===mat);
+  const infoPeriodicidadITV = vehiculoInfo ? calcularPeriodicidadITV(vehiculoInfo.fechaMatriculacion, vehiculoInfo.mma) : { meses:6 };
+  const periodicidad = rev === 'ITV' ? {meses: infoPeriodicidadITV.meses} : {anios:2};
+  const textoPeriodo = rev === 'ITV' ? (infoPeriodicidadITV.meses===24?'cada 2 años':infoPeriodicidadITV.meses===12?'cada año':'cada 6 meses') : 'cada 2 años';
   const modal=document.createElement('div');
   modal.id='mant-modal';
   modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999;display:flex;align-items:center;justify-content:center;padding:1rem;';
