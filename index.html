@@ -4022,13 +4022,21 @@ function renderMantenimiento() {
   mantenimientoCache.forEach(m=>{
     REVISIONES.forEach(rev=>{
       const key=revKey(rev);
-      if (!m[key]) return;
-      const fecha=new Date(m[key]);
-      const dias=Math.ceil((fecha-hoy)/(1000*60*60*24));
-      if (dias<=DIAS_AVISO) {
-        const color=dias<0?'var(--danger)':dias<=5?'#ff6b00':'var(--warning)';
-        const txt=dias<0?`Vencida hace ${Math.abs(dias)} días`:`Vence en ${dias} días`;
-        alertasHtml+=`<div style="background:#3a1e1e;border:1px solid ${color};border-radius:var(--radius-sm);padding:0.75rem 1rem;margin-bottom:0.5rem;font-size:13px;">⚠️ <strong>${m.matricula}</strong> — ${rev}: <span style="color:${color};font-weight:700;">${txt}</span> (${fecha.toLocaleDateString('es-ES')})</div>`;
+      const keyUltima=key+'_ultima';
+      const keyNoAplica=key+'_noaplica';
+      if (m[key]) {
+        const fecha=new Date(m[key]);
+        const dias=Math.ceil((fecha-hoy)/(1000*60*60*24));
+        if (dias<=DIAS_AVISO) {
+          const color=dias<0?'var(--danger)':dias<=5?'#ff6b00':'var(--warning)';
+          const txt=dias<0?`Vencida hace ${Math.abs(dias)} días`:`Vence en ${dias} días`;
+          alertasHtml+=`<div style="background:#3a1e1e;border:1px solid ${color};border-radius:var(--radius-sm);padding:0.75rem 1rem;margin-bottom:0.5rem;font-size:13px;">⚠️ <strong>${m.matricula}</strong> — ${rev}: <span style="color:${color};font-weight:700;">${txt}</span> (${fecha.toLocaleDateString('es-ES')})</div>`;
+        }
+      } else if (m[keyUltima] && !m[keyNoAplica]) {
+        // Tiene "última vez" apuntada pero todavía no se sabe la próxima fecha (ej: el
+        // vehículo está en el taller esperando a pasarla). Se muestra igualmente para
+        // que no se pierda de vista.
+        alertasHtml+=`<div style="background:#3a1e1e;border:1px solid var(--danger);border-radius:var(--radius-sm);padding:0.75rem 1rem;margin-bottom:0.5rem;font-size:13px;">⚠️ <strong>${m.matricula}</strong> — ${rev}: <span style="color:var(--danger);font-weight:700;">Pendiente, sin próxima fecha aún</span></div>`;
       }
     });
   });
