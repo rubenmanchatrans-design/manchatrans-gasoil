@@ -298,7 +298,7 @@ input[type="number"] { -moz-appearance: textfield; }
         </button>
         <button class="modulo-home-btn" id="home-btn-fleet">
           <span style="font-size:28px;">🚛</span>
-          <span style="font-size:16px;font-weight:700;">Flota</span>
+          <span style="font-size:16px;font-weight:700;">Flota <span id="home-badge-flota" style="font-size:12px;"></span></span>
         </button>
         <button class="modulo-home-btn" id="home-btn-ropa">
           <span style="font-size:28px;">👔</span>
@@ -2496,7 +2496,7 @@ window.submitRepostaje = async () => {
 // ══════════════════════════════
 // ADMIN
 // ══════════════════════════════
-function renderAdminPage() { populateFilters(); renderAdminStats(); renderDriverList(); updateAdrCapBadge(); updateSegurosBadge(); }
+function renderAdminPage() { populateFilters(); renderAdminStats(); renderDriverList(); updateAdrCapBadge(); updateSegurosBadge(); updateFleetBadge(); }
 
 function populateFilters() {
   // Conductores (todos, incluidos los de baja, para poder filtrar su histórico)
@@ -3877,6 +3877,8 @@ function updateFleetBadge() {
     else if(m[keyUltima] && !m[keyNoAplica]) alertas++;
   }); });
   document.getElementById('ftab-btn-mantenimiento').textContent=alertas>0?`Mantenimiento 🔴${alertas}`:'Mantenimiento';
+  const badgeHome = document.getElementById('home-badge-flota');
+  if (badgeHome) badgeHome.textContent = alertas>0 ? `🔴${alertas}` : '';
 }
 
 function updateAdrCapBadge() {
