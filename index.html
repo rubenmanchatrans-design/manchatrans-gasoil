@@ -4020,8 +4020,6 @@ function renderMantenimiento() {
             </div>
             ${dias!==null?`<div style="font-size:12px;color:${color};font-weight:600;">${dias<0?`Vencida hace ${Math.abs(dias)} días`:dias===0?'Vence hoy':`Vence en ${dias} días`}</div>`:''}
             ${fechaUltimaStr?`<div style="font-size:11px;color:var(--text-muted);">Última vez: ${new Date(fechaUltimaStr).toLocaleDateString('es-ES')}</div>`:''}
-            ${rev==='Tacógrafo' && !fecha && !noAplica ? `<button class="btn-sm" onclick="marcarNoTieneMant('${mat}','${rev}')" style="font-size:11px;">🚫 No tiene ${rev}</button>` : ''}
-            ${rev==='Tacógrafo' && noAplica ? `<button class="btn-sm" onclick="quitarNoTieneMant('${mat}','${rev}')" style="font-size:11px;">↩️ Sí lo necesita</button>` : ''}
           </div>`;
         }).join('')}
       </div>
@@ -4065,7 +4063,9 @@ window.editMant = (mat, rev) => {
   const m=mantenimientoCache.find(x=>x.matricula===mat)||{matricula:mat};
   const key=revKey(rev);
   const keyUltima=key+'_ultima';
+  const keyNoAplica=key+'_noaplica';
   const tieneFecha = !!m[key];
+  const noAplica = !tieneFecha && !!m[keyNoAplica];
   // ITV se pasa cada 6 meses y Tacógrafo cada 2 años (lo habitual en la mayoría de
   // camiones). En cuanto se mete "Última vez", el botón calcula sola la "Próxima fecha"
   // sumando ese periodo — así, en lo sucesivo, no hay que adivinarla cada vez.
@@ -4077,6 +4077,12 @@ window.editMant = (mat, rev) => {
   modal.innerHTML=`
     <div style="background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:1.5rem;width:100%;max-width:380px;">
       <div style="font-size:16px;font-weight:700;margin-bottom:1.25rem;color:var(--accent);">🔧 ${rev} — ${mat}</div>
+      ${rev==='Tacógrafo' ? `
+      <div style="margin-bottom:1rem;">
+        ${noAplica ? `<button type="button" id="btn-quitar-noaplica-mant" style="width:100%;padding:0.6rem;background:var(--navy-light);color:var(--text);border:1px solid var(--card-border);border-radius:var(--radius-sm);font-size:13px;cursor:pointer;">↩️ Este vehículo sí necesita Tacógrafo</button>`
+        : `<button type="button" id="btn-marcar-noaplica-mant" style="width:100%;padding:0.6rem;background:var(--navy-light);color:var(--text);border:1px solid var(--card-border);border-radius:var(--radius-sm);font-size:13px;cursor:pointer;">🚫 Este vehículo no tiene Tacógrafo</button>`}
+      </div>
+      ` : ''}
       <div class="form-group"><label class="form-label">Última vez que se pasó <span style="color:var(--text-muted);font-weight:400;">(opcional)</span></label>
       <input class="form-input" type="date" id="mant-fecha-ultima" value="${m[keyUltima]||''}"></div>
       <div style="font-size:11.5px;color:var(--text-muted);margin:-0.5rem 0 0.75rem 0;">💡 ${rev} se pasa ${textoPeriodo}. Pon la última fecha y pulsa "Calcular" para rellenar sola la próxima.</div>
@@ -4091,6 +4097,16 @@ window.editMant = (mat, rev) => {
       <div id="mant-modal-alert" class="alert" style="margin-top:0.75rem;"></div>
     </div>`;
   document.body.appendChild(modal);
+  const btnMarcarNoAplica = document.getElementById('btn-marcar-noaplica-mant');
+  if (btnMarcarNoAplica) btnMarcarNoAplica.addEventListener('click', async () => {
+    await window.marcarNoTieneMant(mat, rev);
+    document.getElementById('mant-modal').remove();
+  });
+  const btnQuitarNoAplica = document.getElementById('btn-quitar-noaplica-mant');
+  if (btnQuitarNoAplica) btnQuitarNoAplica.addEventListener('click', async () => {
+    await window.quitarNoTieneMant(mat, rev);
+    document.getElementById('mant-modal').remove();
+  });
   const btnCalcular = document.getElementById('btn-calcular-mant');
   if (btnCalcular) btnCalcular.addEventListener('click', () => {
     const al = document.getElementById('mant-modal-alert');
