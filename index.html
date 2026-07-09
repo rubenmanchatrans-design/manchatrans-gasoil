@@ -1350,24 +1350,48 @@ async function initApp() {
   }, 8000);
 
   try {
-    // Cargar conductores (Gasoil)
-    // IMPORTANTE: antes, si Firestore devolvía la colección vacía (por ejemplo por un
-    // problema de conexión puntual), la app la "rellenaba" sola con una lista básica de
-    // reserva (solo nombre y código), sobrescribiendo a todos los empleados reales y
-    // borrando el resto de sus datos. Esto causó una pérdida de datos real. Ahora NUNCA
-    // se escribe nada automáticamente aquí: solo se carga lo que haya en Firestore, sea
-    // lo que sea. Si algún día la colección está vacía de verdad, los empleados se añaden
-    // a mano desde Configuración, nunca de forma automática.
-    const dSnap = await getDocs(collection(db, 'conductores'));
+    // Carga inicial paralela: en vez de pedir las colecciones una por una (lo que suma
+    // varios segundos de espera), las pedimos todas a la vez con Promise.all y Firebase
+    // las resuelve en paralelo. Solo se mantienen en secuencia las que dependen de otra
+    // (por ejemplo, la migración de seguros necesita tener primero los datos cargados).
+    const [
+      dSnap, vehSnap,
+      rSnap, rcSnap,
+      hSnap, mSnap, hmSnap,
+      mcSnap, hmcSnap,
+      credSnap, cursosSnap,
+      segVehSnap, segPolSnap, segExtraDoc,
+      lvSnap, liSnap,
+      ropaEmpSnap, ropaHistSnap, ropaInvSnap,
+      codigosSnap
+    ] = await Promise.all([
+      getDocs(collection(db, 'conductores')),
+      getDocs(collection(db, 'vehiculos')),
+      getDocs(query(collection(db, 'repostajes'), orderBy('fecha', 'desc'))),
+      getDocs(query(collection(db, 'recargas'), orderBy('fecha', 'desc'))),
+      getDocs(query(collection(dbFleet, 'historial'), orderBy('fecha', 'desc'))),
+      getDocs(collection(dbFleet, 'mantenimiento')),
+      getDocs(query(collection(dbFleet, 'historialMantenimiento'), orderBy('fecha', 'desc'))),
+      getDocs(collection(dbFleet, 'mantenimientoConductores')),
+      getDocs(query(collection(dbFleet, 'historialMantConductores'), orderBy('fecha', 'desc'))),
+      getDocs(collection(dbFleet, 'creditosFormacion')),
+      getDocs(query(collection(dbFleet, 'cursosFormacion'), orderBy('fechaCurso', 'desc'))),
+      getDocs(collection(dbFleet, 'segurosVehiculos')),
+      getDocs(collection(dbFleet, 'segurosPolizas')),
+      getDocs(query(collection(dbFleet, 'segurosConfig'))),
+      getDocs(query(collection(dbFleet, 'limpiezaVehiculos'), orderBy('fecha', 'desc'))),
+      getDocs(query(collection(dbFleet, 'limpiezaInstalaciones'), orderBy('fecha', 'desc'))),
+      getDocs(collection(db, 'ropaEmpleados')),
+      getDocs(query(collection(db, 'ropaHistorial'), orderBy('fecha', 'desc'))),
+      getDocs(collection(db, 'ropaInventario')),
+      getDocs(collection(db, 'configuracion')),
+    ]);
+
+    // Conductores
     driversCache = dSnap.docs.map(d => d.data());
 
-    // Cargar vehículos (unificado: Gasoil + Flota con casillas)
-    // Mismo arreglo que en conductores: nunca se sobrescribe la colección entera por
-    // verla vacía. Solo se cargan los vehículos que haya, tal cual estén en Firestore.
-    const vehSnap = await getDocs(collection(db, 'vehiculos'));
+    // Vehículos
     vehiculosCache = vehSnap.docs.map(d => d.data());
-    // Comprobación segura: solo AÑADE los 3 vehículos propios si de verdad no existen
-    // todavía (nunca sobrescribe ni toca los que ya están).
     const propiosCheck = [
       {matricula:'8182-MFM', gasoil:true, flota:false, propietario:'3006', activo:true},
       {matricula:'8343-LXM', gasoil:true, flota:false, propietario:'3007', activo:true},
@@ -1382,44 +1406,22 @@ async function initApp() {
     matriculasCache = vehiculosCache.filter(v=>v.gasoil && v.activo!==false).map(v=>v.matricula);
     remolquesCache = vehiculosCache.filter(v=>v.flota && v.activo!==false).map(v=>v.matricula);
 
-    // Cargar repostajes
-    const rSnap = await getDocs(query(collection(db, 'repostajes'), orderBy('fecha', 'desc')));
+    // Gasoil
     recordsCache = rSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-    // Cargar recargas
-    const rcSnap = await getDocs(query(collection(db, 'recargas'), orderBy('fecha', 'desc')));
     recargasCache = rcSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    // Cargar historial de cambios (Fleet)
-    const hSnap = await getDocs(query(collection(dbFleet, 'historial'), orderBy('fecha', 'desc')));
+    // Flota
     historialCache = hSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-    // Cargar mantenimiento (Fleet)
-    const mSnap = await getDocs(collection(dbFleet, 'mantenimiento'));
     mantenimientoCache = mSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-    // Cargar historial de mantenimiento (Fleet)
-    const hmSnap = await getDocs(query(collection(dbFleet, 'historialMantenimiento'), orderBy('fecha', 'desc')));
     historialMantCache = hmSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-    // Cargar ADR/CAP de conductores (Fleet)
-    const mcSnap = await getDocs(collection(dbFleet, 'mantenimientoConductores'));
     mantConductoresCache = mcSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-    // Cargar historial de ADR/CAP de conductores (Fleet)
-    const hmcSnap = await getDocs(query(collection(dbFleet, 'historialMantConductores'), orderBy('fecha', 'desc')));
     historialMantCondCache = hmcSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    // Cargar créditos de formación por empresa/año (Fleet)
-    const credSnap = await getDocs(collection(dbFleet, 'creditosFormacion'));
+    // ADR/CAP
     creditosFormacionCache = credSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-    // Cargar cursos de formación registrados (Fleet)
-    const cursosSnap = await getDocs(query(collection(dbFleet, 'cursosFormacion'), orderBy('fechaCurso', 'desc')));
     cursosFormacionCache = cursosSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    // Cargar seguros de vehículos (Fleet)
-    const segVehSnap = await getDocs(collection(dbFleet, 'segurosVehiculos'));
+    // Seguros — la migración de importes va DESPUÉS de cargar los datos
     segurosVehiculosCache = segVehSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
     // Migración: el importe del seguro era un único valor (campo "importe") y ahora se
@@ -1436,7 +1438,6 @@ async function initApp() {
         } catch(err) { console.error('Error migrando importe de seguro:', v.id, err); }
       }
     }
-
     // Corrección: una primera versión de esta migración usó por error el año de la
     // caducidad en vez del año anterior. Solo corregimos el patrón exacto que generó ese
     // fallo (un único año que coincide con la caducidad Y cuyo valor es igual al importe
@@ -1454,13 +1455,9 @@ async function initApp() {
       }
     }
 
-    // Cargar pólizas de seguros (Fleet)
-    const segPolSnap = await getDocs(collection(dbFleet, 'segurosPolizas'));
     segurosPolizasCache = segPolSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    // Migración: el importe de la póliza también era un único valor y ahora se guarda
-    // por años, igual que en vehículos. Pasamos el valor antiguo al año anterior a la
-    // fecha de caducidad, y además marcamos como activas las que no tuvieran ese campo.
+    // Migración pólizas (igual que vehículos)
     for (const p of segurosPolizasCache) {
       const yaTieneImportePorAnio = p.importePorAnio && Object.keys(p.importePorAnio).length > 0;
       if (p.importe != null && !yaTieneImportePorAnio) {
@@ -1478,43 +1475,25 @@ async function initApp() {
       }
     }
 
-    // Cargar lista adicional de elementos asegurables (carretillas, etc.) — solo para Seguros
-    const segExtraDoc = await getDocs(query(collection(dbFleet, 'segurosConfig')));
+    // Seguros config (elementos extra + notas)
     const segExtraFound = segExtraDoc.docs.find(d => d.id === 'elementosExtra');
     segurosElementosExtraCache = segExtraFound ? (segExtraFound.data().items||[]) : [];
-
-    // Cargar notas generales de Vehículos/Carretillas y de Pólizas
     const segNotasVehFound = segExtraDoc.docs.find(d => d.id === 'notasVehiculos');
     segurosNotasVehCache = segNotasVehFound ? (segNotasVehFound.data().texto||'') : '';
     const segNotasPolFound = segExtraDoc.docs.find(d => d.id === 'notasPolizas');
     segurosNotasPolCache = segNotasPolFound ? (segNotasPolFound.data().texto||'') : '';
 
-    // Cargar limpieza de vehículos (Fleet)
-    const lvSnap = await getDocs(query(collection(dbFleet, 'limpiezaVehiculos'), orderBy('fecha', 'desc')));
+    // Limpieza
     limpiezaVehCache = lvSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-    // Cargar limpieza de instalaciones (Fleet)
-    const liSnap = await getDocs(query(collection(dbFleet, 'limpiezaInstalaciones'), orderBy('fecha', 'desc')));
     limpiezaInstCache = liSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    // Cargar empleados de Ropa (la migración inicial ya se hizo; los datos viven en Firestore)
-    const ropaEmpSnap = await getDocs(collection(db, 'ropaEmpleados'));
+    // Ropa
     ropaEmpleadosCache = ropaEmpSnap.docs.map(d => ({id:d.id, ...d.data()}));
-
-    // Vincular automáticamente por nombre los empleados de Ropa que ya existían antes
-    // de unificar con Configuración (para que sus tallas no se queden "huérfanas").
     await migrarTallasLegacy();
-
-    // Cargar historial de entregas de ropa
-    const ropaHistSnap = await getDocs(query(collection(db, 'ropaHistorial'), orderBy('fecha', 'desc')));
     ropaHistorialCache = ropaHistSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-    // Cargar inventario de ropa
-    const ropaInvSnap = await getDocs(collection(db, 'ropaInventario'));
     ropaInventarioCache = ropaInvSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    // Cargar códigos de acceso a módulos (con migración inicial)
-    const codigosSnap = await getDocs(collection(db, 'configuracion'));
+    // Códigos de acceso a módulos (con migración inicial)
     const codigosDoc = codigosSnap.docs.find(d => d.id === 'moduloCodigos');
     if (codigosDoc) {
       MODULO_CODIGOS = codigosDoc.data();
