@@ -1550,8 +1550,8 @@ async function initApp() {
   document.getElementById('loading-overlay').style.display = 'none';
   buildLoginForm();
   showScreen('login');
-  // Cargar usuarios de chat y pedir permisos de notificación (no bloquean el arranque)
-  initChatUsuarios().catch(e=>console.warn('Chat usuarios:', e));
+  // Cargar usuarios de chat (no bloquea el arranque)
+  cargarChatUsuarios().catch(e=>console.warn('Chat usuarios:', e));
   pedirPermisoNotificaciones();
 
   // Logout buttons
