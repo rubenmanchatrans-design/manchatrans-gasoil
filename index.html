@@ -1550,8 +1550,7 @@ async function initApp() {
   document.getElementById('loading-overlay').style.display = 'none';
   buildLoginForm();
   showScreen('login');
-  // Cargar usuarios de chat (no bloquea el arranque)
-  pedirPermisoNotificaciones();
+  // (chat se inicializa desde el IIFE de arranque)
 
   // Logout buttons
   document.getElementById('btn-logout-driver').addEventListener('click', doLogout);
@@ -8844,6 +8843,7 @@ window.renderAdminRecords = renderAdminRecords;
     try {
       await initApp();
       cargarChatUsuarios().catch(e=>console.warn('Chat:', e));
+      if ('Notification' in window && Notification.permission==='default') Notification.requestPermission().catch(()=>{});
       return; // Éxito — salimos del bucle
     } catch(e) {
       console.error(`Error Firebase (intento ${intento+1}):`, e);
