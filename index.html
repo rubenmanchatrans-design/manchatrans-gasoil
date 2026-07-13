@@ -1551,7 +1551,6 @@ async function initApp() {
   buildLoginForm();
   showScreen('login');
   // Cargar usuarios de chat (no bloquea el arranque)
-  cargarChatUsuarios().catch(e=>console.warn('Chat usuarios:', e));
   pedirPermisoNotificaciones();
 
   // Logout buttons
@@ -8844,6 +8843,7 @@ window.renderAdminRecords = renderAdminRecords;
   for (let intento = 0; intento <= esperas.length; intento++) {
     try {
       await initApp();
+      cargarChatUsuarios().catch(e=>console.warn('Chat:', e));
       return; // Éxito — salimos del bucle
     } catch(e) {
       console.error(`Error Firebase (intento ${intento+1}):`, e);
