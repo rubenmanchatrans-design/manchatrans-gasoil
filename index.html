@@ -233,9 +233,9 @@ input[type="number"] { -moz-appearance: textfield; }
     <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
       <div id="chat-header" style="padding:0.85rem 1rem;border-bottom:1px solid var(--card-border);font-weight:700;font-size:15px;background:var(--card);">Selecciona una conversación</div>
       <div id="chat-messages" style="flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:0.5rem;"></div>
-      <div id="chat-input-area" style="display:none;padding:0.75rem;border-top:1px solid var(--card-border);background:var(--card);gap:0.5rem;">
-        <input class="form-input" type="text" id="chat-input" placeholder="Escribe un mensaje..." style="flex:1;" autocomplete="off">
-        <button class="btn btn-primary" id="btn-chat-send" style="flex-shrink:0;">Enviar</button>
+      <div id="chat-input-area" style="display:none;padding:0.75rem;border-top:1px solid var(--card-border);background:var(--card);gap:0.5rem;align-items:center;">
+        <input class="form-input" type="text" id="chat-input" placeholder="Escribe un mensaje..." style="flex:1;min-width:0;" autocomplete="off">
+        <button class="btn btn-primary" id="btn-chat-send" style="flex-shrink:0;white-space:nowrap;">Enviar</button>
       </div>
     </div>
   </div>
@@ -1508,7 +1508,7 @@ window.seleccionarConvChat = (otherId) => {
   document.getElementById('chat-header').textContent = esGrupal ? '👥 Grupo Oficina' : `💬 ${otroUsuario?.nombre||otherId}`;
   // Mostrar el input PRIMERO, antes de cualquier query que pueda fallar
   const inputArea = document.getElementById('chat-input-area');
-  if (inputArea) inputArea.style.display='flex';
+  if (inputArea) { inputArea.style.display='flex'; inputArea.style.alignItems='center'; }
   const inputEl = document.getElementById('chat-input');
   if (inputEl) inputEl.focus();
   // Resaltar conv activa
