@@ -1515,9 +1515,9 @@ window.seleccionarConvChat = (otherId) => {
   // Escuchar mensajes en tiempo real
   const convId = chatConversacionActual;
   if (chatUnsubscribes['msgs_'+convId]) chatUnsubscribes['msgs_'+convId]();
-  const q = query(collection(dbFleet,'chatMensajes'), where('convId','==',convId), orderBy('ts','asc'));
+  const q = query(collection(dbFleet,'chatMensajes'), where('convId','==',convId));
   chatUnsubscribes['msgs_'+convId] = onSnapshot(q, snap=>{
-    chatMensajesCache[convId] = snap.docs.map(d=>({id:d.id,...d.data()}));
+    chatMensajesCache[convId] = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.ts-b.ts);
     renderMensajesChat(convId);
     // Marcar como leídos los mensajes de esta conv
     snap.docs.forEach(d=>{
