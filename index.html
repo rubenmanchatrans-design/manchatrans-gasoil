@@ -1406,7 +1406,7 @@ async function cargarChatUsuarios() {
   // Primera vez: crear los usuarios por defecto si no existen
   for (const u of CHAT_USUARIOS_DEFAULT) {
     if (!chatUsuariosCache.find(x=>x.id===u.id)) {
-      await setDoc(doc(dbFleet,'chatUsuarios',u.id), u);
+      await setDoc(doc(db,'chatUsuarios',u.id), u);
       chatUsuariosCache.push(u);
     }
   }
@@ -1485,7 +1485,7 @@ function escucharNoLeidos() {
     if (chatUnsubscribes['noleido_'+convId]) return;
     try {
       // Sin orderBy para evitar índice compuesto — solo filtramos por convId y noLeidos
-      const q = query(collection(dbFleet,'chatMensajes'), where('convId','==',convId), where('noLeidos','array-contains', chatUsuarioActual.id));
+      const q = query(collection(db,'chatMensajes'), where('convId','==',convId), where('noLeidos','array-contains', chatUsuarioActual.id));
       chatUnsubscribes['noleido_'+convId] = onSnapshot(q, snap=>{
         const count = snap.docs.length;
         const otherId = convId==='grupal' ? 'grupal' : convId.replace(chatUsuarioActual.id+'_','').replace('_'+chatUsuarioActual.id,'');
@@ -1515,7 +1515,7 @@ window.seleccionarConvChat = (otherId) => {
   // Escuchar mensajes en tiempo real
   const convId = chatConversacionActual;
   if (chatUnsubscribes['msgs_'+convId]) chatUnsubscribes['msgs_'+convId]();
-  const q = query(collection(dbFleet,'chatMensajes'), where('convId','==',convId));
+  const q = query(collection(db,'chatMensajes'), where('convId','==',convId));
   chatUnsubscribes['msgs_'+convId] = onSnapshot(q, snap=>{
     chatMensajesCache[convId] = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.ts-b.ts);
     renderMensajesChat(convId);
@@ -1524,7 +1524,7 @@ window.seleccionarConvChat = (otherId) => {
       const data = d.data();
       if (data.noLeidos?.includes(chatUsuarioActual.id)) {
         const nuevosNoLeidos = data.noLeidos.filter(x=>x!==chatUsuarioActual.id);
-        updateDoc(doc(dbFleet,'chatMensajes',d.id), {noLeidos:nuevosNoLeidos}).catch(()=>{});
+        updateDoc(doc(db,'chatMensajes',d.id), {noLeidos:nuevosNoLeidos}).catch(()=>{});
       }
     });
   });
@@ -1568,7 +1568,7 @@ async function enviarMensajeChat() {
   const todosIds = chatUsuariosCache.map(u=>u.id);
   const noLeidos = esGrupal ? todosIds.filter(id=>id!==chatUsuarioActual.id) : convId.split('_').filter(id=>id!==chatUsuarioActual.id);
   try {
-    await addDoc(collection(dbFleet,'chatMensajes'), {
+    await addDoc(collection(db,'chatMensajes'), {
       convId, texto, userId:chatUsuarioActual.id, userName:chatUsuarioActual.nombre,
       ts: Date.now(), noLeidos
     });
@@ -1616,7 +1616,7 @@ window.resetPassChatUsuario = async (userId) => {
   const nuevaPass = prompt(`Nueva contraseña para ${u.nombre}:`);
   if (!nuevaPass) return;
   try {
-    await updateDoc(doc(dbFleet,'chatUsuarios',userId),{pass:nuevaPass});
+    await updateDoc(doc(db,'chatUsuarios',userId),{pass:nuevaPass});
     u.pass = nuevaPass;
     alert(`✓ Contraseña de ${u.nombre} actualizada`);
   } catch(e) { alert('Error: '+e.message); }
@@ -1627,7 +1627,7 @@ window.eliminarChatUsuario = async (userId) => {
   if (!u) return;
   if (!confirm(`¿Eliminar usuario "${u.nombre}"? No se borran sus mensajes.`)) return;
   try {
-    await deleteDoc(doc(dbFleet,'chatUsuarios',userId));
+    await deleteDoc(doc(db,'chatUsuarios',userId));
     chatUsuariosCache = chatUsuariosCache.filter(x=>x.id!==userId);
     renderChatUsuariosAdmin();
     alert(`✓ Usuario ${u.nombre} eliminado`);
@@ -1642,7 +1642,7 @@ window.anadirChatUsuario = async () => {
   if (chatUsuariosCache.find(x=>x.id===id)) { alert('Ya existe un usuario con ese nombre'); return; }
   try {
     const nuevo = {id, nombre, pass, esAdmin:false};
-    await setDoc(doc(dbFleet,'chatUsuarios',id), nuevo);
+    await setDoc(doc(db,'chatUsuarios',id), nuevo);
     chatUsuariosCache.push(nuevo);
     document.getElementById('nuevo-chat-nombre').value='';
     document.getElementById('nuevo-chat-pass').value='';
