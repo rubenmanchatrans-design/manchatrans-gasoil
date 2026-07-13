@@ -1330,6 +1330,16 @@ const DEFAULT_DRIVERS = [
 
 let currentUser = null;
 let loginMode = 'driver';
+
+// Capturar errores JS no capturados para que no rompan la app silenciosamente
+window.addEventListener('unhandledrejection', e => {
+  console.error('Promise rechazada sin capturar:', e.reason);
+  e.preventDefault(); // evita que el navegador haga algo raro
+});
+window.onerror = (msg, src, line, col, err) => {
+  console.error('Error global:', msg, 'línea:', line, err);
+  return false;
+};
 let recordsCache = [];
 let recargasCache = [];
 let driversCache = [];
@@ -8937,20 +8947,22 @@ function chatConvId(userId1, userId2) {
 }
 
 function renderChatSidebar() {
-  const list = document.getElementById('chat-conv-list');
-  const otros = chatUsuariosCache.filter(u=>u.id!==chatUsuarioActual.id).sort((a,b)=>a.nombre.localeCompare(b.nombre));
-  list.innerHTML = `
-    <div onclick="window.seleccionarConvChat('grupal')" id="chat-conv-grupal"
-      style="padding:0.75rem 1rem;cursor:pointer;border-bottom:1px solid var(--card-border);font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center;">
-      <span>👥 Grupo Oficina</span><span id="badge-grupal" style="font-size:11px;"></span>
-    </div>
-    ${otros.map(u=>`
-    <div onclick="window.seleccionarConvChat('${u.id}')" id="chat-conv-${u.id}"
-      style="padding:0.65rem 1rem;cursor:pointer;border-bottom:1px solid var(--card-border);font-size:13px;display:flex;justify-content:space-between;align-items:center;">
-      <span>${u.nombre}</span><span id="badge-${u.id}" style="font-size:11px;color:var(--accent);font-weight:700;"></span>
-    </div>`).join('')}`;
-  // Escuchar no leídos en todas las conversaciones
-  escucharNoLeidos();
+  try {
+    const list = document.getElementById('chat-conv-list');
+    if (!list) return;
+    const otros = chatUsuariosCache.filter(u=>u.id!==chatUsuarioActual.id).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+    list.innerHTML = `
+      <div onclick="window.seleccionarConvChat('grupal')" id="chat-conv-grupal"
+        style="padding:0.75rem 1rem;cursor:pointer;border-bottom:1px solid var(--card-border);font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center;">
+        <span>👥 Grupo Oficina</span><span id="badge-grupal" style="font-size:11px;"></span>
+      </div>
+      ${otros.map(u=>`
+      <div onclick="window.seleccionarConvChat('${u.id}')" id="chat-conv-${u.id}"
+        style="padding:0.65rem 1rem;cursor:pointer;border-bottom:1px solid var(--card-border);font-size:13px;display:flex;justify-content:space-between;align-items:center;">
+        <span>${u.nombre}</span><span id="badge-${u.id}" style="font-size:11px;color:var(--accent);font-weight:700;"></span>
+      </div>`).join('')}`;
+    escucharNoLeidos();
+  } catch(e) { console.error('Error renderChatSidebar:', e); }
 }
 
 // ── Escuchar mensajes no leídos en cada conversación ──
@@ -8958,13 +8970,20 @@ function escucharNoLeidos() {
   const convIds = ['grupal', ...chatUsuariosCache.filter(u=>u.id!==chatUsuarioActual.id).map(u=>chatConvId(chatUsuarioActual.id, u.id))];
   convIds.forEach(convId=>{
     if (chatUnsubscribes['noleido_'+convId]) return;
-    const q = query(collection(dbFleet,'chatMensajes'), where('convId','==',convId), where('noLeidos','array-contains', chatUsuarioActual.id), orderBy('ts','desc'));
-    chatUnsubscribes['noleido_'+convId] = onSnapshot(q, snap=>{
-      const count = snap.docs.length;
-      const badge = document.getElementById(convId==='grupal'?'badge-grupal':'badge-'+convId.replace(chatUsuarioActual.id+'_','').replace('_'+chatUsuarioActual.id,''));
-      if (badge) badge.textContent = count>0?`🔴${count}`:'';
-      if (count>0 && convId!==chatConversacionActual) notificarChatNuevo(convId, snap.docs[0]?.data());
-    });
+    try {
+      // Sin orderBy para evitar índice compuesto — solo filtramos por convId y noLeidos
+      const q = query(collection(dbFleet,'chatMensajes'), where('convId','==',convId), where('noLeidos','array-contains', chatUsuarioActual.id));
+      chatUnsubscribes['noleido_'+convId] = onSnapshot(q, snap=>{
+        const count = snap.docs.length;
+        const otherId = convId==='grupal' ? 'grupal' : convId.replace(chatUsuarioActual.id+'_','').replace('_'+chatUsuarioActual.id,'');
+        const badge = document.getElementById('badge-'+otherId);
+        if (badge) badge.textContent = count>0?`🔴${count}`:'';
+        if (count>0 && convId!==chatConversacionActual) {
+          const ultimo = snap.docs[snap.docs.length-1]?.data();
+          notificarChatNuevo(convId, ultimo);
+        }
+      }, err=>console.warn('Chat noLeidos error:', err));
+    } catch(e) { console.warn('Error escucharNoLeidos:', e); }
   });
 }
 
