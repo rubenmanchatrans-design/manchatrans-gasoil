@@ -7388,17 +7388,31 @@ function populateRopaSelects() {
   const selFilter = document.getElementById('ropa-hist-filter');
   if (!sel) return;
   const resueltos = ropaEmpleadosCache.map(resolverEmpleadoRopa);
-  const ordenados = resueltos.filter(e=>e.activo!==false).sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
+  // Deduplicar por nombre: si el mismo nombre aparece dos veces (uno antiguo sin
+  // conductorCode y uno vinculado), nos quedamos solo con el vinculado.
+  const vistos = new Map();
+  resueltos.forEach(e=>{
+    const nombre = (e.nombre||'').trim().toUpperCase();
+    if (!nombre) return;
+    const existente = vistos.get(nombre);
+    if (!existente) { vistos.set(nombre, e); return; }
+    // Si el nuevo tiene conductorCode y el existente no, sustituye.
+    const emp = ropaEmpleadosCache.find(x=>x.id===e.id);
+    const exEmp = ropaEmpleadosCache.find(x=>x.id===existente.id);
+    if (emp?.conductorCode && !exEmp?.conductorCode) vistos.set(nombre, e);
+  });
+  const sinDuplicados = [...vistos.values()];
+  const ordenados = sinDuplicados.filter(e=>e.activo!==false).sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
   sel.innerHTML = '<option value="">— Selecciona empleado —</option>';
   ordenados.forEach(e=>{ sel.innerHTML += `<option value="${e.id}">${e.nombre||'(sin nombre)'}</option>`; });
   if (selFilter) {
     selFilter.innerHTML = '<option value="">Todos los empleados</option>';
-    [...resueltos].sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||'')).forEach(e=>{ selFilter.innerHTML += `<option value="${e.id}">${e.nombre||'(sin nombre)'}${e.activo===false?' (baja)':''}</option>`; });
+    [...sinDuplicados].sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||'')).forEach(e=>{ selFilter.innerHTML += `<option value="${e.id}">${e.nombre||'(sin nombre)'}${e.activo===false?' (baja)':''}</option>`; });
   }
   const zipSel = document.getElementById('zip-sel-empleado');
   if (zipSel) {
     zipSel.innerHTML = '<option value="">Todos los empleados</option>';
-    [...resueltos].sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||'')).forEach(e=>{ zipSel.innerHTML += `<option value="${e.id}">${e.nombre||'(sin nombre)'}${e.activo===false?' (baja)':''}</option>`; });
+    [...sinDuplicados].sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||'')).forEach(e=>{ zipSel.innerHTML += `<option value="${e.id}">${e.nombre||'(sin nombre)'}${e.activo===false?' (baja)':''}</option>`; });
   }
 }
 
