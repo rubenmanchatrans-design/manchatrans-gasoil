@@ -1486,11 +1486,7 @@ async function initApp() {
   } catch(e) {
     clearTimeout(timeoutId);
     clearTimeout(timeoutId2);
-    console.error('Error Firebase:', e);
-    document.getElementById('loading-msg').textContent = 'Error: ' + (e.message || e.code || String(e));
-    document.getElementById('loading-msg').style.color = 'var(--danger)';
-    setTimeout(() => location.reload(), 8000);
-    return;
+    throw e; // Lo gestiona el bucle de reintentos de arriba
   }
 
   document.getElementById('loading-overlay').style.display = 'none';
@@ -8681,7 +8677,71 @@ window.importarBackup = async (file) => {
 window.renderAdminRecords = renderAdminRecords;
 
 // ARRANCAR
-initApp();
+// ══════════════════════════════
+// ARRANQUE CON REINTENTOS
+// ══════════════════════════════
+// En vez de recargar la página entera al fallar (lo que causaba el bucle infinito),
+// reintentamos initApp() con espera progresiva: 3s → 6s → 12s → 24s.
+// Así, si Firebase tiene un problema temporal, la app se recupera sola.
+(async () => {
+  const esperas = [3000, 6000, 12000, 24000];
+  const msgEl = document.getElementById('loading-msg');
+  const spinnerEl = document.getElementById('loading-spinner');
+  const btnRetry = document.getElementById('btn-retry');
+
+  // Al pulsar "Reintentar", cancela el temporizador y lo intenta ya.
+  let temporizadorReintento = null;
+  btnRetry.onclick = () => {
+    clearTimeout(temporizadorReintento);
+    btnRetry.style.display = 'none';
+    spinnerEl.style.display = 'block';
+    msgEl.textContent = 'Conectando con el servidor...';
+    msgEl.style.color = 'var(--text-muted)';
+    initApp();
+  };
+
+  for (let intento = 0; intento <= esperas.length; intento++) {
+    try {
+      await initApp();
+      return; // Éxito — salimos del bucle
+    } catch(e) {
+      console.error(`Error Firebase (intento ${intento+1}):`, e);
+      const esUltimoIntento = intento >= esperas.length;
+      const espera = esUltimoIntento ? null : esperas[intento];
+      const mensajeError = e.message || e.code || String(e);
+
+      spinnerEl.style.display = 'none';
+      msgEl.style.color = 'var(--danger)';
+
+      if (esUltimoIntento) {
+        msgEl.innerHTML = `Error al conectar. Pulsa "Reintentar" cuando quieras.<br><small style="color:var(--text-muted);font-size:11px;">${mensajeError}</small>`;
+        btnRetry.style.display = 'block';
+        return; // Dejamos de reintentar automáticamente
+      }
+
+      let seg = Math.round(espera / 1000);
+      msgEl.innerHTML = `Error al conectar. Reintentando en <strong>${seg}s</strong>...<br><small style="color:var(--text-muted);font-size:11px;">${mensajeError}</small>`;
+      btnRetry.style.display = 'block';
+
+      // Cuenta atrás visible
+      const intervalo = setInterval(() => {
+        seg--;
+        if (seg > 0) {
+          msgEl.innerHTML = `Error al conectar. Reintentando en <strong>${seg}s</strong>...<br><small style="color:var(--text-muted);font-size:11px;">${mensajeError}</small>`;
+        }
+      }, 1000);
+
+      await new Promise(resolve => { temporizadorReintento = setTimeout(resolve, espera); });
+      clearInterval(intervalo);
+
+      // Preparar para el siguiente intento
+      btnRetry.style.display = 'none';
+      spinnerEl.style.display = 'block';
+      msgEl.textContent = `Reintentando... (intento ${intento+2})`;
+      msgEl.style.color = 'var(--text-muted)';
+    }
+  }
+})();
 </script>
 </body>
 </html>
