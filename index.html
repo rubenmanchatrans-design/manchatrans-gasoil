@@ -2314,7 +2314,7 @@ function mostrarPantallaSuperAdmin() {
             <input class="form-input" type="text" id="nuevo-chat-nombre" placeholder="Nombre (mayúsculas)" style="font-size:13px;">
             <input class="form-input" type="text" id="nuevo-chat-pass" placeholder="Contraseña inicial" style="font-size:13px;">
           </div>
-          <button class="btn btn-primary" id="btn-anadir-chat-usuario" style="width:100%;margin-top:0.5rem;font-size:13px;">➕ Añadir usuario de chat</button>
+          <button class="btn btn-primary" onclick="window.anadirChatUsuario()" style="width:100%;margin-top:0.5rem;font-size:13px;">➕ Añadir usuario de chat</button>
         </div>
       </div>
     </div>`;
@@ -2348,7 +2348,6 @@ function mostrarPantallaSuperAdmin() {
   });
 
   renderChatUsuariosAdmin();
-  document.getElementById('btn-anadir-chat-usuario').addEventListener('click', ()=>window.anadirChatUsuario());
 }
 
 window.toggleLoginMode = () => {
@@ -2409,6 +2408,7 @@ window.doLogout = () => {
 
 function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-chat').style.display='none';
   document.getElementById('screen-'+name).classList.add('active');
 }
 
@@ -8914,27 +8914,33 @@ window.doLoginChat = () => {
 };
 
 function entrarAlChat() {
-  document.querySelectorAll('.screen').forEach(s=>s.style.display='none');
-  document.getElementById('screen-chat').style.display='flex';
+  document.querySelectorAll('.screen').forEach(s=>{ s.classList.remove('active'); });
+  const chatScreen = document.getElementById('screen-chat');
+  chatScreen.style.display='flex';
   document.getElementById('chat-user-display').textContent = chatUsuarioActual.nombre;
   renderChatSidebar();
-  // Listener de logout
-  document.getElementById('btn-logout-chat').onclick = () => {
+  const logoutBtn = document.getElementById('btn-logout-chat');
+  logoutBtn.onclick = () => {
     chatUsuarioActual = null;
     chatConversacionActual = null;
-    Object.values(chatUnsubscribes).forEach(u=>u());
+    Object.values(chatUnsubscribes).forEach(u=>{ try{u();}catch(e){} });
     chatUnsubscribes = {};
     chatMensajesCache = {};
-    document.getElementById('screen-chat').style.display='none';
+    chatScreen.style.display='none';
     loginMode='driver';
     buildLoginForm();
     showScreen('login');
     document.getElementById('login-sub').textContent='Introduce tu código de acceso';
   };
-  // Enter para enviar
   const input = document.getElementById('chat-input');
-  input.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); enviarMensajeChat(); } });
-  document.getElementById('btn-chat-send').addEventListener('click', enviarMensajeChat);
+  // Evitar duplicar listeners
+  const newInput = input.cloneNode(true);
+  input.parentNode.replaceChild(newInput, input);
+  newInput.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); enviarMensajeChat(); } });
+  const sendBtn = document.getElementById('btn-chat-send');
+  const newBtn = sendBtn.cloneNode(true);
+  sendBtn.parentNode.replaceChild(newBtn, sendBtn);
+  newBtn.addEventListener('click', enviarMensajeChat);
 }
 
 // ── Sidebar de conversaciones ──
