@@ -1506,28 +1506,32 @@ window.seleccionarConvChat = (otherId) => {
   const esGrupal = otherId==='grupal';
   const otroUsuario = chatUsuariosCache.find(u=>u.id===otherId);
   document.getElementById('chat-header').textContent = esGrupal ? '👥 Grupo Oficina' : `💬 ${otroUsuario?.nombre||otherId}`;
-  document.getElementById('chat-input-area').style.display='flex';
-  document.getElementById('chat-input').focus();
+  // Mostrar el input PRIMERO, antes de cualquier query que pueda fallar
+  const inputArea = document.getElementById('chat-input-area');
+  if (inputArea) inputArea.style.display='flex';
+  const inputEl = document.getElementById('chat-input');
+  if (inputEl) inputEl.focus();
   // Resaltar conv activa
   document.querySelectorAll('#chat-conv-list > div').forEach(d=>d.style.background='');
   const actEl = document.getElementById(esGrupal?'chat-conv-grupal':'chat-conv-'+otherId);
   if (actEl) actEl.style.background='var(--card)';
   // Escuchar mensajes en tiempo real
   const convId = chatConversacionActual;
-  if (chatUnsubscribes['msgs_'+convId]) chatUnsubscribes['msgs_'+convId]();
-  const q = query(collection(db,'chatMensajes'), where('convId','==',convId));
-  chatUnsubscribes['msgs_'+convId] = onSnapshot(q, snap=>{
-    chatMensajesCache[convId] = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.ts-b.ts);
-    renderMensajesChat(convId);
-    // Marcar como leídos los mensajes de esta conv
-    snap.docs.forEach(d=>{
-      const data = d.data();
-      if (data.noLeidos?.includes(chatUsuarioActual.id)) {
-        const nuevosNoLeidos = data.noLeidos.filter(x=>x!==chatUsuarioActual.id);
-        updateDoc(doc(db,'chatMensajes',d.id), {noLeidos:nuevosNoLeidos}).catch(()=>{});
-      }
-    });
-  });
+  if (chatUnsubscribes['msgs_'+convId]) { try { chatUnsubscribes['msgs_'+convId](); } catch(e){} }
+  try {
+    const q = query(collection(db,'chatMensajes'), where('convId','==',convId));
+    chatUnsubscribes['msgs_'+convId] = onSnapshot(q, snap=>{
+      chatMensajesCache[convId] = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.ts-b.ts);
+      renderMensajesChat(convId);
+      snap.docs.forEach(d=>{
+        const data = d.data();
+        if (data.noLeidos?.includes(chatUsuarioActual.id)) {
+          const nuevosNoLeidos = data.noLeidos.filter(x=>x!==chatUsuarioActual.id);
+          updateDoc(doc(db,'chatMensajes',d.id), {noLeidos:nuevosNoLeidos}).catch(()=>{});
+        }
+      });
+    }, err=>console.warn('Chat mensajes error:', err));
+  } catch(e) { console.warn('Error onSnapshot chat:', e); }
 };
 
 // ── Renderizar mensajes ──
