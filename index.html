@@ -1530,8 +1530,6 @@ async function initApp() {
 
     // Activar sincronización en tiempo real entre dispositivos
     activarListenersTiempoReal();
-    await initChatUsuarios();
-    pedirPermisoNotificaciones();
 
   } catch(e) {
     clearTimeout(timeoutId);
@@ -1542,6 +1540,9 @@ async function initApp() {
   document.getElementById('loading-overlay').style.display = 'none';
   buildLoginForm();
   showScreen('login');
+  // Cargar usuarios de chat y pedir permisos de notificación (no bloquean el arranque)
+  initChatUsuarios().catch(e=>console.warn('Chat usuarios:', e));
+  pedirPermisoNotificaciones();
 
   // Logout buttons
   document.getElementById('btn-logout-driver').addEventListener('click', doLogout);
