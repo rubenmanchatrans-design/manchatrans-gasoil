@@ -1487,9 +1487,9 @@ async function initApp() {
     clearTimeout(timeoutId);
     clearTimeout(timeoutId2);
     console.error('Error Firebase:', e);
-    document.getElementById('loading-msg').textContent = 'Error de conexión. Recargando...';
+    document.getElementById('loading-msg').textContent = 'Error: ' + (e.message || e.code || String(e));
     document.getElementById('loading-msg').style.color = 'var(--danger)';
-    setTimeout(() => location.reload(), 2000);
+    setTimeout(() => location.reload(), 8000);
     return;
   }
 
