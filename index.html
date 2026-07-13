@@ -2155,7 +2155,12 @@ function resetCamposConfirmadosRepostaje() {
 // LOGIN
 // ══════════════════════════════
 function buildLoginForm() {
-  const card = document.querySelector('.login-card');
+  // Reemplazar el card entero para eliminar todos los event listeners acumulados
+  const oldCard = document.querySelector('.login-card');
+  const card = document.createElement('div');
+  card.className = 'login-card';
+  oldCard.parentNode.replaceChild(card, oldCard);
+
   if (loginMode === 'driver') {
     card.innerHTML = `
       <div class="form-group">
@@ -2168,16 +2173,12 @@ function buildLoginForm() {
         <span style="font-size:13px;color:var(--accent);cursor:pointer;font-weight:600;" id="link-oficina">💬 Chat de Oficina</span>
       </div>
       <div class="error-msg" id="login-error"></div>`;
-    setTimeout(()=>{
-      const el=document.getElementById('login-code');
-      if(el) { el.addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); }); el.focus(); }
-      const btn=document.getElementById('btn-login');
-      if(btn) btn.addEventListener('click', doLogin);
-      const lnk=document.getElementById('link-admin');
-      if(lnk) lnk.addEventListener('click', toggleLoginMode);
-      const lnkOficina=document.getElementById('link-oficina');
-      if(lnkOficina) lnkOficina.addEventListener('click', ()=>{ loginMode='oficina'; buildLoginForm(); document.getElementById('login-sub').textContent='Chat de Oficina'; });
-    },50);
+    const el=document.getElementById('login-code');
+    if(el) { el.addEventListener('keydown',e=>{ if(e.key==='Enter') window.doLogin(); }); el.focus(); }
+    document.getElementById('btn-login').addEventListener('click', window.doLogin);
+    document.getElementById('link-admin').addEventListener('click', toggleLoginMode);
+    document.getElementById('link-oficina').addEventListener('click', ()=>{ loginMode='oficina'; buildLoginForm(); document.getElementById('login-sub').textContent='Chat de Oficina'; });
+
   } else if (loginMode === 'admin') {
     card.innerHTML = `
       <div class="form-group">
@@ -2190,16 +2191,12 @@ function buildLoginForm() {
         <span style="font-size:12px;color:var(--text-muted);cursor:pointer;opacity:0.65;" id="link-superadmin">🔑 Admin Superior</span>
       </div>
       <div class="error-msg" id="login-error"></div>`;
-    setTimeout(()=>{
-      const el=document.getElementById('admin-code');
-      if(el) { el.addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); }); el.focus(); }
-      const btn=document.getElementById('btn-login-admin');
-      if(btn) btn.addEventListener('click', doLogin);
-      const lnk=document.getElementById('link-driver');
-      if(lnk) lnk.addEventListener('click', toggleLoginMode);
-      const lnkSuper=document.getElementById('link-superadmin');
-      if(lnkSuper) lnkSuper.addEventListener('click', ()=>{ loginMode='superadmin'; buildLoginForm(); document.getElementById('login-sub').textContent='Acceso Admin Superior'; });
-    },50);
+    const el=document.getElementById('admin-code');
+    if(el) { el.addEventListener('keydown',e=>{ if(e.key==='Enter') window.doLogin(); }); el.focus(); }
+    document.getElementById('btn-login-admin').addEventListener('click', window.doLogin);
+    document.getElementById('link-driver').addEventListener('click', toggleLoginMode);
+    document.getElementById('link-superadmin').addEventListener('click', ()=>{ loginMode='superadmin'; buildLoginForm(); document.getElementById('login-sub').textContent='Acceso Admin Superior'; });
+
   } else if (loginMode === 'oficina') {
     card.innerHTML = `
       <div class="form-group">
@@ -2211,47 +2208,38 @@ function buildLoginForm() {
       </div>
       <div class="form-group">
         <label class="form-label">Contraseña</label>
-        <input class="form-input" type="password" id="chat-login-pass" placeholder="••••••" autocomplete="off">
+        <input class="form-input" type="password" id="chat-login-pass" placeholder="••••••" autocomplete="new-password">
       </div>
       <button class="btn btn-primary" id="btn-chat-login">Entrar al chat</button>
       <div style="text-align:center;margin-top:1rem;">
         <span style="font-size:13px;color:var(--text-muted);cursor:pointer;" id="link-driver-from-chat">← Volver</span>
       </div>
       <div class="error-msg" id="login-error"></div>`;
-    setTimeout(()=>{
-      const btn = document.getElementById('btn-chat-login');
-      if(btn) btn.addEventListener('click', ()=>window.doLoginChat());
-      const lnk = document.getElementById('link-driver-from-chat');
-      if(lnk) lnk.addEventListener('click', ()=>{ loginMode='driver'; buildLoginForm(); document.getElementById('login-sub').textContent='Introduce tu código de acceso'; });
-      const pass = document.getElementById('chat-login-pass');
-      if(pass) pass.addEventListener('keydown', e=>{ if(e.key==='Enter') window.doLoginChat(); });
-    },50);
+    document.getElementById('btn-chat-login').addEventListener('click', ()=>window.doLoginChat());
+    document.getElementById('link-driver-from-chat').addEventListener('click', ()=>{ loginMode='driver'; buildLoginForm(); document.getElementById('login-sub').textContent='Introduce tu código de acceso'; });
+    document.getElementById('chat-login-pass').addEventListener('keydown', e=>{ if(e.key==='Enter') window.doLoginChat(); });
+
   } else {
+    // superadmin
     card.innerHTML = `
       <div class="form-group">
         <label class="form-label">Usuario</label>
-        <input class="form-input" type="text" id="admin-user" placeholder="admin" autocomplete="off">
+        <input class="form-input" type="text" id="superadmin-user" placeholder="superadmin" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
       </div>
       <div class="form-group">
         <label class="form-label">Contraseña</label>
-        <input class="form-input" type="password" id="admin-pass" placeholder="••••••" autocomplete="off">
+        <input class="form-input" type="password" id="superadmin-pass" placeholder="••••••" autocomplete="new-password">
       </div>
-      <button class="btn btn-primary" id="btn-login-admin">Entrar</button>
+      <button class="btn btn-primary" id="btn-login-superadmin">Entrar</button>
       <div style="text-align:center;margin-top:1rem;">
         <span style="font-size:13px;color:var(--text-muted);cursor:pointer;" id="link-driver">← Volver</span>
       </div>
       <div class="error-msg" id="login-error"></div>`;
-    setTimeout(()=>{
-      const btn=document.getElementById('btn-login-admin');
-      if(btn) btn.addEventListener('click', doLogin);
-      const lnk=document.getElementById('link-driver');
-      if(lnk) lnk.addEventListener('click', ()=>{ loginMode='admin'; buildLoginForm(); document.getElementById('login-sub').textContent='Acceso administrador'; });
-      const adminUser=document.getElementById('admin-user');
-      const adminPass=document.getElementById('admin-pass');
-      if(adminUser) adminUser.addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
-      if(adminPass) adminPass.addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
-      if(adminUser) adminUser.focus();
-    },50);
+    document.getElementById('btn-login-superadmin').addEventListener('click', window.doLogin);
+    document.getElementById('link-driver').addEventListener('click', ()=>{ loginMode='admin'; buildLoginForm(); document.getElementById('login-sub').textContent='Acceso administrador'; });
+    document.getElementById('superadmin-user').addEventListener('keydown',e=>{ if(e.key==='Enter') window.doLogin(); });
+    document.getElementById('superadmin-pass').addEventListener('keydown',e=>{ if(e.key==='Enter') window.doLogin(); });
+    document.getElementById('superadmin-user').focus();
   }
 }
 
@@ -2360,8 +2348,8 @@ window.toggleLoginMode = () => {
 window.doLogin = () => {
   const err = document.getElementById('login-error');
   if (loginMode === 'superadmin') {
-    const u = (document.getElementById('admin-user').value||'').trim().toLowerCase();
-    const p = (document.getElementById('admin-pass').value||'').trim();
+    const u = (document.getElementById('superadmin-user')?.value||'').trim().toLowerCase();
+    const p = (document.getElementById('superadmin-pass')?.value||'').trim();
     if (u===SUPERADMIN_USER && p===SUPERADMIN_PASS) {
       mostrarPantallaSuperAdmin();
       return;
