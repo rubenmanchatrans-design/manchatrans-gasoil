@@ -214,6 +214,33 @@ input[type="number"] { -moz-appearance: textfield; }
   <div style="margin-top:2rem;font-size:13px;color:var(--text-muted);text-align:center;opacity:0.8;">Diseñada por <span style="color:var(--accent);font-weight:600;">Rubén Díaz</span></div>
 </div>
 
+<!-- CHAT DE OFICINA -->
+<div id="screen-chat" class="screen" style="display:flex;flex-direction:column;height:100vh;overflow:hidden;">
+  <div class="topbar">
+    <span class="topbar-title">💬 Chat Oficina</span>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="topbar-user" id="chat-user-display"></span>
+      <button class="topbar-logout" id="btn-logout-chat">Salir</button>
+    </div>
+  </div>
+  <div style="display:flex;flex:1;overflow:hidden;">
+    <!-- Sidebar conversaciones -->
+    <div id="chat-sidebar" style="width:220px;min-width:180px;background:var(--navy-light);border-right:1px solid var(--card-border);display:flex;flex-direction:column;overflow:hidden;">
+      <div style="padding:0.75rem;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Conversaciones</div>
+      <div id="chat-conv-list" style="flex:1;overflow-y:auto;"></div>
+    </div>
+    <!-- Panel mensajes -->
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+      <div id="chat-header" style="padding:0.85rem 1rem;border-bottom:1px solid var(--card-border);font-weight:700;font-size:15px;background:var(--card);">Selecciona una conversación</div>
+      <div id="chat-messages" style="flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:0.5rem;"></div>
+      <div id="chat-input-area" style="display:none;padding:0.75rem;border-top:1px solid var(--card-border);background:var(--card);display:flex;gap:0.5rem;">
+        <input class="form-input" type="text" id="chat-input" placeholder="Escribe un mensaje..." style="flex:1;" autocomplete="off">
+        <button class="btn btn-primary" id="btn-chat-send" style="flex-shrink:0;">Enviar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- CONDUCTOR -->
 <div id="screen-driver" class="screen">
   <div class="topbar">
@@ -1103,7 +1130,7 @@ input[type="number"] { -moz-appearance: textfield; }
 <!-- Firebase SDKs -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, collection, doc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getFirestore, collection, doc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, where } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // ═══════════ FIREBASE GASOIL ═══════════
 const firebaseConfigGasoil = {
@@ -1141,6 +1168,27 @@ let ADMIN_CODE = '1234';
 // Admin Superior: único que puede cambiar los códigos de acceso a los módulos
 const SUPERADMIN_USER = 'superadmin';
 const SUPERADMIN_PASS = 'superadmin2026';
+
+// ── CHAT DE OFICINA ──────────────────────────────────────────────────────────
+// Usuarios predeterminados. La contraseña inicial es el nombre en minúsculas.
+// Se guardan en Firestore dbFleet/chatUsuarios/{id}. El Admin Superior puede
+// añadir, editar y borrar usuarios desde la pantalla de Admin Superior.
+const CHAT_USUARIOS_DEFAULT = [
+  {id:'ruben',    nombre:'RUBEN',         pass:'ruben',        esAdmin:true},
+  {id:'jesus',    nombre:'JESUS',         pass:'jesus',        esAdmin:false},
+  {id:'lucas',    nombre:'LUCAS',         pass:'lucas',        esAdmin:false},
+  {id:'mario',    nombre:'MARIO',         pass:'mario',        esAdmin:false},
+  {id:'joseluis', nombre:'JOSE LUIS',     pass:'joseluis',     esAdmin:false},
+  {id:'luisfernando', nombre:'LUIS FERNANDO', pass:'luisfernando', esAdmin:false},
+  {id:'alicia',   nombre:'ALICIA',        pass:'alicia',       esAdmin:false},
+  {id:'jaime',    nombre:'JAIME',         pass:'jaime',        esAdmin:false},
+  {id:'victor',   nombre:'VICTOR',        pass:'victor',       esAdmin:false},
+];
+let chatUsuariosCache = [];   // cargado de Firestore
+let chatUsuarioActual = null; // usuario de oficina logueado
+let chatConversacionActual = null; // 'grupal' o id del otro usuario
+let chatMensajesCache = {};   // { conversacionId: [mensajes] }
+let chatUnsubscribes = {};    // listeners activos de mensajes
 
 // Códigos de acceso parcial por módulo (valores por defecto, se cargan/editan desde Firestore)
 let MODULO_CODIGOS = {
@@ -1482,6 +1530,8 @@ async function initApp() {
 
     // Activar sincronización en tiempo real entre dispositivos
     activarListenersTiempoReal();
+    await initChatUsuarios();
+    pedirPermisoNotificaciones();
 
   } catch(e) {
     clearTimeout(timeoutId);
@@ -2112,8 +2162,9 @@ function buildLoginForm() {
         <input class="form-input" type="text" id="login-code" placeholder="••••••" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="numeric" style="-webkit-text-security:disc;">
       </div>
       <button class="btn btn-primary" id="btn-login">Entrar</button>
-      <div style="text-align:center;margin-top:1rem;">
+      <div style="text-align:center;margin-top:1rem;display:flex;flex-direction:column;gap:0.6rem;">
         <span style="font-size:13px;color:var(--text-muted);cursor:pointer;" id="link-admin">Acceso administrador</span>
+        <span style="font-size:13px;color:var(--accent);cursor:pointer;font-weight:600;" id="link-oficina">💬 Chat de Oficina</span>
       </div>
       <div class="error-msg" id="login-error"></div>`;
     setTimeout(()=>{
@@ -2123,6 +2174,8 @@ function buildLoginForm() {
       if(btn) btn.addEventListener('click', doLogin);
       const lnk=document.getElementById('link-admin');
       if(lnk) lnk.addEventListener('click', toggleLoginMode);
+      const lnkOficina=document.getElementById('link-oficina');
+      if(lnkOficina) lnkOficina.addEventListener('click', ()=>{ loginMode='oficina'; buildLoginForm(); document.getElementById('login-sub').textContent='Chat de Oficina'; });
     },50);
   } else if (loginMode === 'admin') {
     card.innerHTML = `
@@ -2146,8 +2199,33 @@ function buildLoginForm() {
       const lnkSuper=document.getElementById('link-superadmin');
       if(lnkSuper) lnkSuper.addEventListener('click', ()=>{ loginMode='superadmin'; buildLoginForm(); document.getElementById('login-sub').textContent='Acceso Admin Superior'; });
     },50);
+  } else if (loginMode === 'oficina') {
+    card.innerHTML = `
+      <div class="form-group">
+        <label class="form-label">Usuario</label>
+        <select class="form-input" id="chat-login-user">
+          <option value="">— Selecciona tu nombre —</option>
+          ${chatUsuariosCache.map(u=>`<option value="${u.id}">${u.nombre}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contraseña</label>
+        <input class="form-input" type="password" id="chat-login-pass" placeholder="••••••" autocomplete="off">
+      </div>
+      <button class="btn btn-primary" id="btn-chat-login">Entrar al chat</button>
+      <div style="text-align:center;margin-top:1rem;">
+        <span style="font-size:13px;color:var(--text-muted);cursor:pointer;" id="link-driver-from-chat">← Volver</span>
+      </div>
+      <div class="error-msg" id="login-error"></div>`;
+    setTimeout(()=>{
+      const btn = document.getElementById('btn-chat-login');
+      if(btn) btn.addEventListener('click', doLoginChat);
+      const lnk = document.getElementById('link-driver-from-chat');
+      if(lnk) lnk.addEventListener('click', ()=>{ loginMode='driver'; buildLoginForm(); document.getElementById('login-sub').textContent='Introduce tu código de acceso'; });
+      const pass = document.getElementById('chat-login-pass');
+      if(pass) pass.addEventListener('keydown', e=>{ if(e.key==='Enter') doLoginChat(); });
+    },50);
   } else {
-    // Admin Superior: sigue con usuario y contraseña, sin cambios
     card.innerHTML = `
       <div class="form-group">
         <label class="form-label">Usuario</label>
@@ -2224,6 +2302,20 @@ function mostrarPantallaSuperAdmin() {
         </div>
         <button class="btn btn-primary" id="btn-guardar-codigo-admin">💾 Guardar código de admin</button>
       </div>
+
+      <div class="section-title" style="margin-top:1.5rem;">💬 Usuarios del Chat de Oficina</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem;">Gestiona quién puede acceder al chat de oficina. La contraseña inicial de cada usuario es su nombre en minúsculas.</div>
+      <div class="refuel-card" style="margin-bottom:1rem;">
+        <div id="superadmin-chat-usuarios"></div>
+        <div style="margin-top:1rem;border-top:1px solid var(--card-border);padding-top:0.75rem;">
+          <div style="font-size:13px;font-weight:600;margin-bottom:0.5rem;">➕ Añadir usuario</div>
+          <div class="two-col">
+            <input class="form-input" type="text" id="nuevo-chat-nombre" placeholder="Nombre (mayúsculas)" style="font-size:13px;">
+            <input class="form-input" type="text" id="nuevo-chat-pass" placeholder="Contraseña inicial" style="font-size:13px;">
+          </div>
+          <button class="btn btn-primary" id="btn-anadir-chat-usuario" style="width:100%;margin-top:0.5rem;font-size:13px;">➕ Añadir usuario de chat</button>
+        </div>
+      </div>
     </div>`;
   document.body.appendChild(overlay);
 
@@ -2253,6 +2345,9 @@ function mostrarPantallaSuperAdmin() {
       showAlert(al, '✓ Códigos actualizados correctamente', false);
     } catch(e) { showAlert(al, 'Error al guardar: '+e.message, true); }
   });
+
+  renderChatUsuariosAdmin();
+  document.getElementById('btn-anadir-chat-usuario').addEventListener('click', anadirChatUsuario);
 }
 
 window.toggleLoginMode = () => {
@@ -8788,6 +8883,245 @@ window.renderAdminRecords = renderAdminRecords;
       msgEl.style.color = 'var(--text-muted)';
     }
   }
+// ════════════════════════════════════════════════════════════════════════════
+// CHAT DE OFICINA
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── Carga y migración de usuarios ──
+async function cargarChatUsuarios() {
+  const snap = await getDocs(collection(dbFleet, 'chatUsuarios'));
+  chatUsuariosCache = snap.docs.map(d=>({id:d.id,...d.data()}));
+  // Primera vez: crear los usuarios por defecto si no existen
+  for (const u of CHAT_USUARIOS_DEFAULT) {
+    if (!chatUsuariosCache.find(x=>x.id===u.id)) {
+      await setDoc(doc(dbFleet,'chatUsuarios',u.id), u);
+      chatUsuariosCache.push(u);
+    }
+  }
+}
+
+// ── Login de oficina ──
+window.doLoginChat = () => {
+  const userId = document.getElementById('chat-login-user').value;
+  const pass = document.getElementById('chat-login-pass').value;
+  const err = document.getElementById('login-error');
+  const usuario = chatUsuariosCache.find(u=>u.id===userId);
+  if (!usuario) { err.textContent='Selecciona tu nombre'; return; }
+  if (usuario.pass !== pass) { err.textContent='Contraseña incorrecta'; return; }
+  chatUsuarioActual = usuario;
+  entrarAlChat();
+};
+
+function entrarAlChat() {
+  document.querySelectorAll('.screen').forEach(s=>s.style.display='none');
+  document.getElementById('screen-chat').style.display='flex';
+  document.getElementById('chat-user-display').textContent = chatUsuarioActual.nombre;
+  renderChatSidebar();
+  // Listener de logout
+  document.getElementById('btn-logout-chat').onclick = () => {
+    chatUsuarioActual = null;
+    chatConversacionActual = null;
+    Object.values(chatUnsubscribes).forEach(u=>u());
+    chatUnsubscribes = {};
+    chatMensajesCache = {};
+    document.getElementById('screen-chat').style.display='none';
+    loginMode='driver';
+    buildLoginForm();
+    showScreen('login');
+    document.getElementById('login-sub').textContent='Introduce tu código de acceso';
+  };
+  // Enter para enviar
+  const input = document.getElementById('chat-input');
+  input.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); enviarMensajeChat(); } });
+  document.getElementById('btn-chat-send').addEventListener('click', enviarMensajeChat);
+}
+
+// ── Sidebar de conversaciones ──
+function chatConvId(userId1, userId2) {
+  return [userId1, userId2].sort().join('_');
+}
+
+function renderChatSidebar() {
+  const list = document.getElementById('chat-conv-list');
+  const otros = chatUsuariosCache.filter(u=>u.id!==chatUsuarioActual.id).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  list.innerHTML = `
+    <div onclick="seleccionarConvChat('grupal')" id="chat-conv-grupal"
+      style="padding:0.75rem 1rem;cursor:pointer;border-bottom:1px solid var(--card-border);font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center;">
+      <span>👥 Grupo Oficina</span><span id="badge-grupal" style="font-size:11px;"></span>
+    </div>
+    ${otros.map(u=>`
+    <div onclick="seleccionarConvChat('${u.id}')" id="chat-conv-${u.id}"
+      style="padding:0.65rem 1rem;cursor:pointer;border-bottom:1px solid var(--card-border);font-size:13px;display:flex;justify-content:space-between;align-items:center;">
+      <span>${u.nombre}</span><span id="badge-${u.id}" style="font-size:11px;color:var(--accent);font-weight:700;"></span>
+    </div>`).join('')}`;
+  // Escuchar no leídos en todas las conversaciones
+  escucharNoLeidos();
+}
+
+// ── Escuchar mensajes no leídos en cada conversación ──
+function escucharNoLeidos() {
+  const convIds = ['grupal', ...chatUsuariosCache.filter(u=>u.id!==chatUsuarioActual.id).map(u=>chatConvId(chatUsuarioActual.id, u.id))];
+  convIds.forEach(convId=>{
+    if (chatUnsubscribes['noleido_'+convId]) return;
+    const q = query(collection(dbFleet,'chatMensajes'), where('convId','==',convId), where('noLeidos','array-contains', chatUsuarioActual.id), orderBy('ts','desc'));
+    chatUnsubscribes['noleido_'+convId] = onSnapshot(q, snap=>{
+      const count = snap.docs.length;
+      const badge = document.getElementById(convId==='grupal'?'badge-grupal':'badge-'+convId.replace(chatUsuarioActual.id+'_','').replace('_'+chatUsuarioActual.id,''));
+      if (badge) badge.textContent = count>0?`🔴${count}`:'';
+      if (count>0 && convId!==chatConversacionActual) notificarChatNuevo(convId, snap.docs[0]?.data());
+    });
+  });
+}
+
+// ── Seleccionar conversación ──
+window.seleccionarConvChat = (otherId) => {
+  chatConversacionActual = otherId==='grupal' ? 'grupal' : chatConvId(chatUsuarioActual.id, otherId);
+  const esGrupal = otherId==='grupal';
+  const otroUsuario = chatUsuariosCache.find(u=>u.id===otherId);
+  document.getElementById('chat-header').textContent = esGrupal ? '👥 Grupo Oficina' : `💬 ${otroUsuario?.nombre||otherId}`;
+  document.getElementById('chat-input-area').style.display='flex';
+  document.getElementById('chat-input').focus();
+  // Resaltar conv activa
+  document.querySelectorAll('#chat-conv-list > div').forEach(d=>d.style.background='');
+  const actEl = document.getElementById(esGrupal?'chat-conv-grupal':'chat-conv-'+otherId);
+  if (actEl) actEl.style.background='var(--card)';
+  // Escuchar mensajes en tiempo real
+  const convId = chatConversacionActual;
+  if (chatUnsubscribes['msgs_'+convId]) chatUnsubscribes['msgs_'+convId]();
+  const q = query(collection(dbFleet,'chatMensajes'), where('convId','==',convId), orderBy('ts','asc'));
+  chatUnsubscribes['msgs_'+convId] = onSnapshot(q, snap=>{
+    chatMensajesCache[convId] = snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderMensajesChat(convId);
+    // Marcar como leídos los mensajes de esta conv
+    snap.docs.forEach(d=>{
+      const data = d.data();
+      if (data.noLeidos?.includes(chatUsuarioActual.id)) {
+        const nuevosNoLeidos = data.noLeidos.filter(x=>x!==chatUsuarioActual.id);
+        updateDoc(doc(dbFleet,'chatMensajes',d.id), {noLeidos:nuevosNoLeidos}).catch(()=>{});
+      }
+    });
+  });
+};
+
+// ── Renderizar mensajes ──
+function renderMensajesChat(convId) {
+  const container = document.getElementById('chat-messages');
+  if (!container) return;
+  const msgs = chatMensajesCache[convId]||[];
+  if (!msgs.length) {
+    container.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:13px;margin-top:2rem;">Todavía no hay mensajes. ¡Sé el primero en escribir!</div>';
+    return;
+  }
+  container.innerHTML = msgs.map(m=>{
+    const esMio = m.userId===chatUsuarioActual.id;
+    const fecha = m.ts ? new Date(m.ts).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}) : '';
+    const fechaDia = m.ts ? new Date(m.ts).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit'}) : '';
+    return `<div style="display:flex;flex-direction:column;align-items:${esMio?'flex-end':'flex-start'};">
+      ${!esMio?`<div style="font-size:11px;color:var(--accent);font-weight:700;margin-bottom:2px;">${m.userName}</div>`:''}
+      <div style="max-width:70%;background:${esMio?'var(--accent)':'var(--card)'};color:${esMio?'#111':'var(--text)'};padding:0.6rem 0.85rem;border-radius:${esMio?'12px 12px 4px 12px':'12px 12px 12px 4px'};font-size:14px;line-height:1.4;word-break:break-word;">${escapeHtml(m.texto)}</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${fechaDia} ${fecha}</div>
+    </div>`;
+  }).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+function escapeHtml(str) {
+  return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+// ── Enviar mensaje ──
+async function enviarMensajeChat() {
+  const input = document.getElementById('chat-input');
+  const texto = input.value.trim();
+  if (!texto || !chatConversacionActual) return;
+  input.value='';
+  const convId = chatConversacionActual;
+  const esGrupal = convId==='grupal';
+  // Lista de usuarios que deben recibir notificación de no leído
+  const todosIds = chatUsuariosCache.map(u=>u.id);
+  const noLeidos = esGrupal ? todosIds.filter(id=>id!==chatUsuarioActual.id) : convId.split('_').filter(id=>id!==chatUsuarioActual.id);
+  try {
+    await addDoc(collection(dbFleet,'chatMensajes'), {
+      convId, texto, userId:chatUsuarioActual.id, userName:chatUsuarioActual.nombre,
+      ts: Date.now(), noLeidos
+    });
+  } catch(e) { console.error('Error enviando mensaje:', e); }
+}
+
+// ── Notificaciones web ──
+async function pedirPermisoNotificaciones() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') await Notification.requestPermission();
+}
+
+function notificarChatNuevo(convId, msg) {
+  if (!msg || Notification.permission!=='granted') return;
+  if (document.visibilityState==='visible' && convId===chatConversacionActual) return;
+  const esGrupal = convId==='grupal';
+  const titulo = esGrupal ? '👥 Grupo Oficina' : `💬 ${msg.userName}`;
+  const cuerpo = `${esGrupal?msg.userName+': ':''}${msg.texto}`;
+  const n = new Notification(titulo, {body:cuerpo.slice(0,100), icon:'icon.png', tag:convId});
+  n.onclick = ()=>{ window.focus(); seleccionarConvChat(esGrupal?'grupal':convId.replace(chatUsuarioActual.id+'_','').replace('_'+chatUsuarioActual.id,'')); };
+}
+
+// Cargar usuarios de chat al arrancar la app (se llama desde initApp)
+async function initChatUsuarios() {
+  try { await cargarChatUsuarios(); } catch(e) { console.error('Error cargando usuarios de chat:', e); }
+}
+
+// ── Gestión de usuarios de chat desde Admin Superior ──
+function renderChatUsuariosAdmin() {
+  const cont = document.getElementById('superadmin-chat-usuarios');
+  if (!cont) return;
+  cont.innerHTML = chatUsuariosCache.sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(u=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid var(--card-border);font-size:13px;">
+      <span>${u.nombre}${u.esAdmin?' 👑':''}</span>
+      <div style="display:flex;gap:0.5rem;">
+        <button onclick="resetPassChatUsuario('${u.id}')" style="padding:3px 8px;background:var(--navy-light);color:var(--text);border:1px solid var(--card-border);border-radius:4px;font-size:11px;cursor:pointer;">🔑 Reset pass</button>
+        <button onclick="eliminarChatUsuario('${u.id}')" style="padding:3px 8px;background:none;color:var(--danger);border:1px solid var(--danger);border-radius:4px;font-size:11px;cursor:pointer;">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+window.resetPassChatUsuario = async (userId) => {
+  const u = chatUsuariosCache.find(x=>x.id===userId);
+  if (!u) return;
+  const nuevaPass = prompt(`Nueva contraseña para ${u.nombre}:`);
+  if (!nuevaPass) return;
+  try {
+    await updateDoc(doc(dbFleet,'chatUsuarios',userId),{pass:nuevaPass});
+    u.pass = nuevaPass;
+    alert(`✓ Contraseña de ${u.nombre} actualizada`);
+  } catch(e) { alert('Error: '+e.message); }
+};
+
+window.eliminarChatUsuario = async (userId) => {
+  const u = chatUsuariosCache.find(x=>x.id===userId);
+  if (!u) return;
+  if (!confirm(`¿Eliminar usuario "${u.nombre}"? No se borran sus mensajes.`)) return;
+  try {
+    await deleteDoc(doc(dbFleet,'chatUsuarios',userId));
+    chatUsuariosCache = chatUsuariosCache.filter(x=>x.id!==userId);
+    renderChatUsuariosAdmin();
+    alert(`✓ Usuario ${u.nombre} eliminado`);
+  } catch(e) { alert('Error: '+e.message); }
+};
+
+window.anadirChatUsuario = async () => {
+  const nombre = document.getElementById('nuevo-chat-nombre').value.trim().toUpperCase();
+  const pass = document.getElementById('nuevo-chat-pass').value.trim();
+  if (!nombre || !pass) { alert('Rellena nombre y contraseña'); return; }
+  const id = nombre.toLowerCase().replace(/\s+/g,'');
+  if (chatUsuariosCache.find(x=>x.id===id)) { alert('Ya existe un usuario con ese nombre'); return; }
+  try {
+    const nuevo = {id, nombre, pass, esAdmin:false};
+    await setDoc(doc(dbFleet,'chatUsuarios',id), nuevo);
+    chatUsuariosCache.push(nuevo);
+    document.getElementById('nuevo-chat-nombre').value='';
+    document.getElementById('nuevo-chat-pass').value='';
+    renderChatUsuariosAdmin();
+  } catch(e) { alert('Error: '+e.message); }
+};
 })();
 </script>
 </body>
