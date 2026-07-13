@@ -7471,8 +7471,23 @@ function renderRopaEmpleadosList() {
   const bajaList = document.getElementById('ropa-emp-baja-list');
   if (!list || !bajaList) return;
   const resueltos = ropaEmpleadosCache.map(resolverEmpleadoRopa);
-  const activos = resueltos.filter(e=>e.activo!==false && (!ropaEmpFiltroCategoria || e.categoria===ropaEmpFiltroCategoria)).sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
-  const bajas = resueltos.filter(e=>e.activo===false).sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
+
+  // Deduplicar por nombre — si hay un antiguo sin conductorCode y uno vinculado
+  // con el mismo nombre, nos quedamos solo con el vinculado.
+  const vistos = new Map();
+  resueltos.forEach(e=>{
+    const nombre = (e.nombre||'').trim().toUpperCase();
+    if (!nombre) return;
+    const existente = vistos.get(nombre);
+    if (!existente) { vistos.set(nombre, e); return; }
+    const emp = ropaEmpleadosCache.find(x=>x.id===e.id);
+    const exEmp = ropaEmpleadosCache.find(x=>x.id===existente.id);
+    if (emp?.conductorCode && !exEmp?.conductorCode) vistos.set(nombre, e);
+  });
+  const sinDuplicados = [...vistos.values()];
+
+  const activos = sinDuplicados.filter(e=>e.activo!==false && (!ropaEmpFiltroCategoria || e.categoria===ropaEmpFiltroCategoria)).sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
+  const bajas = sinDuplicados.filter(e=>e.activo===false).sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
   document.querySelectorAll('.ropa-emp-count').forEach(s=>s.textContent = activos.length);
   document.getElementById('ropa-emp-baja-count').textContent = bajas.length;
 
