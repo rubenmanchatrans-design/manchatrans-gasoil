@@ -2220,11 +2220,11 @@ function buildLoginForm() {
       <div class="error-msg" id="login-error"></div>`;
     setTimeout(()=>{
       const btn = document.getElementById('btn-chat-login');
-      if(btn) btn.addEventListener('click', doLoginChat);
+      if(btn) btn.addEventListener('click', ()=>window.doLoginChat());
       const lnk = document.getElementById('link-driver-from-chat');
       if(lnk) lnk.addEventListener('click', ()=>{ loginMode='driver'; buildLoginForm(); document.getElementById('login-sub').textContent='Introduce tu código de acceso'; });
       const pass = document.getElementById('chat-login-pass');
-      if(pass) pass.addEventListener('keydown', e=>{ if(e.key==='Enter') doLoginChat(); });
+      if(pass) pass.addEventListener('keydown', e=>{ if(e.key==='Enter') window.doLoginChat(); });
     },50);
   } else {
     card.innerHTML = `
@@ -2348,7 +2348,7 @@ function mostrarPantallaSuperAdmin() {
   });
 
   renderChatUsuariosAdmin();
-  document.getElementById('btn-anadir-chat-usuario').addEventListener('click', anadirChatUsuario);
+  document.getElementById('btn-anadir-chat-usuario').addEventListener('click', ()=>window.anadirChatUsuario());
 }
 
 window.toggleLoginMode = () => {
@@ -8946,12 +8946,12 @@ function renderChatSidebar() {
   const list = document.getElementById('chat-conv-list');
   const otros = chatUsuariosCache.filter(u=>u.id!==chatUsuarioActual.id).sort((a,b)=>a.nombre.localeCompare(b.nombre));
   list.innerHTML = `
-    <div onclick="seleccionarConvChat('grupal')" id="chat-conv-grupal"
+    <div onclick="window.seleccionarConvChat('grupal')" id="chat-conv-grupal"
       style="padding:0.75rem 1rem;cursor:pointer;border-bottom:1px solid var(--card-border);font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center;">
       <span>👥 Grupo Oficina</span><span id="badge-grupal" style="font-size:11px;"></span>
     </div>
     ${otros.map(u=>`
-    <div onclick="seleccionarConvChat('${u.id}')" id="chat-conv-${u.id}"
+    <div onclick="window.seleccionarConvChat('${u.id}')" id="chat-conv-${u.id}"
       style="padding:0.65rem 1rem;cursor:pointer;border-bottom:1px solid var(--card-border);font-size:13px;display:flex;justify-content:space-between;align-items:center;">
       <span>${u.nombre}</span><span id="badge-${u.id}" style="font-size:11px;color:var(--accent);font-weight:700;"></span>
     </div>`).join('')}`;
@@ -9078,8 +9078,8 @@ function renderChatUsuariosAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid var(--card-border);font-size:13px;">
       <span>${u.nombre}${u.esAdmin?' 👑':''}</span>
       <div style="display:flex;gap:0.5rem;">
-        <button onclick="resetPassChatUsuario('${u.id}')" style="padding:3px 8px;background:var(--navy-light);color:var(--text);border:1px solid var(--card-border);border-radius:4px;font-size:11px;cursor:pointer;">🔑 Reset pass</button>
-        <button onclick="eliminarChatUsuario('${u.id}')" style="padding:3px 8px;background:none;color:var(--danger);border:1px solid var(--danger);border-radius:4px;font-size:11px;cursor:pointer;">✕</button>
+        <button onclick="window.resetPassChatUsuario('${u.id}')" style="padding:3px 8px;background:var(--navy-light);color:var(--text);border:1px solid var(--card-border);border-radius:4px;font-size:11px;cursor:pointer;">🔑 Reset pass</button>
+        <button onclick="window.eliminarChatUsuario('${u.id}')" style="padding:3px 8px;background:none;color:var(--danger);border:1px solid var(--danger);border-radius:4px;font-size:11px;cursor:pointer;">✕</button>
       </div>
     </div>`).join('');
 }
