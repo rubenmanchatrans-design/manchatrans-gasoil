@@ -1395,6 +1395,261 @@ let modulosDesbloqueados = {};
 // ══════════════════════════════
 // FIREBASE — CARGA INICIAL
 // ══════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════
+// CHAT DE OFICINA
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── Carga y migración de usuarios ──
+async function cargarChatUsuarios() {
+  const snap = await getDocs(collection(dbFleet, 'chatUsuarios'));
+  chatUsuariosCache = snap.docs.map(d=>({id:d.id,...d.data()}));
+  // Primera vez: crear los usuarios por defecto si no existen
+  for (const u of CHAT_USUARIOS_DEFAULT) {
+    if (!chatUsuariosCache.find(x=>x.id===u.id)) {
+      await setDoc(doc(dbFleet,'chatUsuarios',u.id), u);
+      chatUsuariosCache.push(u);
+    }
+  }
+}
+
+// ── Login de oficina ──
+window.doLoginChat = () => {
+  const userId = document.getElementById('chat-login-user').value;
+  const pass = document.getElementById('chat-login-pass').value;
+  const err = document.getElementById('login-error');
+  const usuario = chatUsuariosCache.find(u=>u.id===userId);
+  if (!usuario) { err.textContent='Selecciona tu nombre'; return; }
+  if (usuario.pass !== pass) { err.textContent='Contraseña incorrecta'; return; }
+  chatUsuarioActual = usuario;
+  entrarAlChat();
+};
+
+function entrarAlChat() {
+  document.querySelectorAll('.screen').forEach(s=>{ s.classList.remove('active'); });
+  const chatScreen = document.getElementById('screen-chat');
+  chatScreen.style.display='flex';
+  document.getElementById('chat-user-display').textContent = chatUsuarioActual.nombre;
+  renderChatSidebar();
+  const logoutBtn = document.getElementById('btn-logout-chat');
+  logoutBtn.onclick = () => {
+    chatUsuarioActual = null;
+    chatConversacionActual = null;
+    Object.values(chatUnsubscribes).forEach(u=>{ try{u();}catch(e){} });
+    chatUnsubscribes = {};
+    chatMensajesCache = {};
+    chatScreen.style.display='none';
+    loginMode='driver';
+    buildLoginForm();
+    showScreen('login');
+    document.getElementById('login-sub').textContent='Introduce tu código de acceso';
+  };
+  const input = document.getElementById('chat-input');
+  // Evitar duplicar listeners
+  const newInput = input.cloneNode(true);
+  input.parentNode.replaceChild(newInput, input);
+  newInput.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); enviarMensajeChat(); } });
+  const sendBtn = document.getElementById('btn-chat-send');
+  const newBtn = sendBtn.cloneNode(true);
+  sendBtn.parentNode.replaceChild(newBtn, sendBtn);
+  newBtn.addEventListener('click', enviarMensajeChat);
+}
+
+// ── Sidebar de conversaciones ──
+function chatConvId(userId1, userId2) {
+  return [userId1, userId2].sort().join('_');
+}
+
+function renderChatSidebar() {
+  try {
+    const list = document.getElementById('chat-conv-list');
+    if (!list) return;
+    const otros = chatUsuariosCache.filter(u=>u.id!==chatUsuarioActual.id).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+    list.innerHTML = `
+      <div onclick="window.seleccionarConvChat('grupal')" id="chat-conv-grupal"
+        style="padding:0.75rem 1rem;cursor:pointer;border-bottom:1px solid var(--card-border);font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center;">
+        <span>👥 Grupo Oficina</span><span id="badge-grupal" style="font-size:11px;"></span>
+      </div>
+      ${otros.map(u=>`
+      <div onclick="window.seleccionarConvChat('${u.id}')" id="chat-conv-${u.id}"
+        style="padding:0.65rem 1rem;cursor:pointer;border-bottom:1px solid var(--card-border);font-size:13px;display:flex;justify-content:space-between;align-items:center;">
+        <span>${u.nombre}</span><span id="badge-${u.id}" style="font-size:11px;color:var(--accent);font-weight:700;"></span>
+      </div>`).join('')}`;
+    escucharNoLeidos();
+  } catch(e) { console.error('Error renderChatSidebar:', e); }
+}
+
+// ── Escuchar mensajes no leídos en cada conversación ──
+function escucharNoLeidos() {
+  const convIds = ['grupal', ...chatUsuariosCache.filter(u=>u.id!==chatUsuarioActual.id).map(u=>chatConvId(chatUsuarioActual.id, u.id))];
+  convIds.forEach(convId=>{
+    if (chatUnsubscribes['noleido_'+convId]) return;
+    try {
+      // Sin orderBy para evitar índice compuesto — solo filtramos por convId y noLeidos
+      const q = query(collection(dbFleet,'chatMensajes'), where('convId','==',convId), where('noLeidos','array-contains', chatUsuarioActual.id));
+      chatUnsubscribes['noleido_'+convId] = onSnapshot(q, snap=>{
+        const count = snap.docs.length;
+        const otherId = convId==='grupal' ? 'grupal' : convId.replace(chatUsuarioActual.id+'_','').replace('_'+chatUsuarioActual.id,'');
+        const badge = document.getElementById('badge-'+otherId);
+        if (badge) badge.textContent = count>0?`🔴${count}`:'';
+        if (count>0 && convId!==chatConversacionActual) {
+          const ultimo = snap.docs[snap.docs.length-1]?.data();
+          notificarChatNuevo(convId, ultimo);
+        }
+      }, err=>console.warn('Chat noLeidos error:', err));
+    } catch(e) { console.warn('Error escucharNoLeidos:', e); }
+  });
+}
+
+// ── Seleccionar conversación ──
+window.seleccionarConvChat = (otherId) => {
+  chatConversacionActual = otherId==='grupal' ? 'grupal' : chatConvId(chatUsuarioActual.id, otherId);
+  const esGrupal = otherId==='grupal';
+  const otroUsuario = chatUsuariosCache.find(u=>u.id===otherId);
+  document.getElementById('chat-header').textContent = esGrupal ? '👥 Grupo Oficina' : `💬 ${otroUsuario?.nombre||otherId}`;
+  document.getElementById('chat-input-area').style.display='flex';
+  document.getElementById('chat-input').focus();
+  // Resaltar conv activa
+  document.querySelectorAll('#chat-conv-list > div').forEach(d=>d.style.background='');
+  const actEl = document.getElementById(esGrupal?'chat-conv-grupal':'chat-conv-'+otherId);
+  if (actEl) actEl.style.background='var(--card)';
+  // Escuchar mensajes en tiempo real
+  const convId = chatConversacionActual;
+  if (chatUnsubscribes['msgs_'+convId]) chatUnsubscribes['msgs_'+convId]();
+  const q = query(collection(dbFleet,'chatMensajes'), where('convId','==',convId), orderBy('ts','asc'));
+  chatUnsubscribes['msgs_'+convId] = onSnapshot(q, snap=>{
+    chatMensajesCache[convId] = snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderMensajesChat(convId);
+    // Marcar como leídos los mensajes de esta conv
+    snap.docs.forEach(d=>{
+      const data = d.data();
+      if (data.noLeidos?.includes(chatUsuarioActual.id)) {
+        const nuevosNoLeidos = data.noLeidos.filter(x=>x!==chatUsuarioActual.id);
+        updateDoc(doc(dbFleet,'chatMensajes',d.id), {noLeidos:nuevosNoLeidos}).catch(()=>{});
+      }
+    });
+  });
+};
+
+// ── Renderizar mensajes ──
+function renderMensajesChat(convId) {
+  const container = document.getElementById('chat-messages');
+  if (!container) return;
+  const msgs = chatMensajesCache[convId]||[];
+  if (!msgs.length) {
+    container.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:13px;margin-top:2rem;">Todavía no hay mensajes. ¡Sé el primero en escribir!</div>';
+    return;
+  }
+  container.innerHTML = msgs.map(m=>{
+    const esMio = m.userId===chatUsuarioActual.id;
+    const fecha = m.ts ? new Date(m.ts).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}) : '';
+    const fechaDia = m.ts ? new Date(m.ts).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit'}) : '';
+    return `<div style="display:flex;flex-direction:column;align-items:${esMio?'flex-end':'flex-start'};">
+      ${!esMio?`<div style="font-size:11px;color:var(--accent);font-weight:700;margin-bottom:2px;">${m.userName}</div>`:''}
+      <div style="max-width:70%;background:${esMio?'var(--accent)':'var(--card)'};color:${esMio?'#111':'var(--text)'};padding:0.6rem 0.85rem;border-radius:${esMio?'12px 12px 4px 12px':'12px 12px 12px 4px'};font-size:14px;line-height:1.4;word-break:break-word;">${escapeHtml(m.texto)}</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${fechaDia} ${fecha}</div>
+    </div>`;
+  }).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+function escapeHtml(str) {
+  return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+// ── Enviar mensaje ──
+async function enviarMensajeChat() {
+  const input = document.getElementById('chat-input');
+  const texto = input.value.trim();
+  if (!texto || !chatConversacionActual) return;
+  input.value='';
+  const convId = chatConversacionActual;
+  const esGrupal = convId==='grupal';
+  // Lista de usuarios que deben recibir notificación de no leído
+  const todosIds = chatUsuariosCache.map(u=>u.id);
+  const noLeidos = esGrupal ? todosIds.filter(id=>id!==chatUsuarioActual.id) : convId.split('_').filter(id=>id!==chatUsuarioActual.id);
+  try {
+    await addDoc(collection(dbFleet,'chatMensajes'), {
+      convId, texto, userId:chatUsuarioActual.id, userName:chatUsuarioActual.nombre,
+      ts: Date.now(), noLeidos
+    });
+  } catch(e) { console.error('Error enviando mensaje:', e); }
+}
+
+// ── Notificaciones web ──
+async function pedirPermisoNotificaciones() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') await Notification.requestPermission();
+}
+
+function notificarChatNuevo(convId, msg) {
+  if (!msg || Notification.permission!=='granted') return;
+  if (document.visibilityState==='visible' && convId===chatConversacionActual) return;
+  const esGrupal = convId==='grupal';
+  const titulo = esGrupal ? '👥 Grupo Oficina' : `💬 ${msg.userName}`;
+  const cuerpo = `${esGrupal?msg.userName+': ':''}${msg.texto}`;
+  const n = new Notification(titulo, {body:cuerpo.slice(0,100), icon:'icon.png', tag:convId});
+  n.onclick = ()=>{ window.focus(); seleccionarConvChat(esGrupal?'grupal':convId.replace(chatUsuarioActual.id+'_','').replace('_'+chatUsuarioActual.id,'')); };
+}
+
+// Cargar usuarios de chat al arrancar la app (se llama desde initApp)
+async function initChatUsuarios() {
+  try { await cargarChatUsuarios(); } catch(e) { console.error('Error cargando usuarios de chat:', e); }
+}
+
+// ── Gestión de usuarios de chat desde Admin Superior ──
+function renderChatUsuariosAdmin() {
+  const cont = document.getElementById('superadmin-chat-usuarios');
+  if (!cont) return;
+  cont.innerHTML = chatUsuariosCache.sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(u=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid var(--card-border);font-size:13px;">
+      <span>${u.nombre}${u.esAdmin?' 👑':''}</span>
+      <div style="display:flex;gap:0.5rem;">
+        <button onclick="window.resetPassChatUsuario('${u.id}')" style="padding:3px 8px;background:var(--navy-light);color:var(--text);border:1px solid var(--card-border);border-radius:4px;font-size:11px;cursor:pointer;">🔑 Reset pass</button>
+        <button onclick="window.eliminarChatUsuario('${u.id}')" style="padding:3px 8px;background:none;color:var(--danger);border:1px solid var(--danger);border-radius:4px;font-size:11px;cursor:pointer;">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+window.resetPassChatUsuario = async (userId) => {
+  const u = chatUsuariosCache.find(x=>x.id===userId);
+  if (!u) return;
+  const nuevaPass = prompt(`Nueva contraseña para ${u.nombre}:`);
+  if (!nuevaPass) return;
+  try {
+    await updateDoc(doc(dbFleet,'chatUsuarios',userId),{pass:nuevaPass});
+    u.pass = nuevaPass;
+    alert(`✓ Contraseña de ${u.nombre} actualizada`);
+  } catch(e) { alert('Error: '+e.message); }
+};
+
+window.eliminarChatUsuario = async (userId) => {
+  const u = chatUsuariosCache.find(x=>x.id===userId);
+  if (!u) return;
+  if (!confirm(`¿Eliminar usuario "${u.nombre}"? No se borran sus mensajes.`)) return;
+  try {
+    await deleteDoc(doc(dbFleet,'chatUsuarios',userId));
+    chatUsuariosCache = chatUsuariosCache.filter(x=>x.id!==userId);
+    renderChatUsuariosAdmin();
+    alert(`✓ Usuario ${u.nombre} eliminado`);
+  } catch(e) { alert('Error: '+e.message); }
+};
+
+window.anadirChatUsuario = async () => {
+  const nombre = document.getElementById('nuevo-chat-nombre').value.trim().toUpperCase();
+  const pass = document.getElementById('nuevo-chat-pass').value.trim();
+  if (!nombre || !pass) { alert('Rellena nombre y contraseña'); return; }
+  const id = nombre.toLowerCase().replace(/\s+/g,'');
+  if (chatUsuariosCache.find(x=>x.id===id)) { alert('Ya existe un usuario con ese nombre'); return; }
+  try {
+    const nuevo = {id, nombre, pass, esAdmin:false};
+    await setDoc(doc(dbFleet,'chatUsuarios',id), nuevo);
+    chatUsuariosCache.push(nuevo);
+    document.getElementById('nuevo-chat-nombre').value='';
+    document.getElementById('nuevo-chat-pass').value='';
+    renderChatUsuariosAdmin();
+  } catch(e) { alert('Error: '+e.message); }
+};
+
 async function initApp() {
   // Timeout — si tarda más de 2 segundos avisa, si pasa de 8 recarga automáticamente
   const timeoutId = setTimeout(() => {
@@ -8882,260 +9137,6 @@ window.renderAdminRecords = renderAdminRecords;
       msgEl.style.color = 'var(--text-muted)';
     }
   }
-// ════════════════════════════════════════════════════════════════════════════
-// CHAT DE OFICINA
-// ════════════════════════════════════════════════════════════════════════════
-
-// ── Carga y migración de usuarios ──
-async function cargarChatUsuarios() {
-  const snap = await getDocs(collection(dbFleet, 'chatUsuarios'));
-  chatUsuariosCache = snap.docs.map(d=>({id:d.id,...d.data()}));
-  // Primera vez: crear los usuarios por defecto si no existen
-  for (const u of CHAT_USUARIOS_DEFAULT) {
-    if (!chatUsuariosCache.find(x=>x.id===u.id)) {
-      await setDoc(doc(dbFleet,'chatUsuarios',u.id), u);
-      chatUsuariosCache.push(u);
-    }
-  }
-}
-
-// ── Login de oficina ──
-window.doLoginChat = () => {
-  const userId = document.getElementById('chat-login-user').value;
-  const pass = document.getElementById('chat-login-pass').value;
-  const err = document.getElementById('login-error');
-  const usuario = chatUsuariosCache.find(u=>u.id===userId);
-  if (!usuario) { err.textContent='Selecciona tu nombre'; return; }
-  if (usuario.pass !== pass) { err.textContent='Contraseña incorrecta'; return; }
-  chatUsuarioActual = usuario;
-  entrarAlChat();
-};
-
-function entrarAlChat() {
-  document.querySelectorAll('.screen').forEach(s=>{ s.classList.remove('active'); });
-  const chatScreen = document.getElementById('screen-chat');
-  chatScreen.style.display='flex';
-  document.getElementById('chat-user-display').textContent = chatUsuarioActual.nombre;
-  renderChatSidebar();
-  const logoutBtn = document.getElementById('btn-logout-chat');
-  logoutBtn.onclick = () => {
-    chatUsuarioActual = null;
-    chatConversacionActual = null;
-    Object.values(chatUnsubscribes).forEach(u=>{ try{u();}catch(e){} });
-    chatUnsubscribes = {};
-    chatMensajesCache = {};
-    chatScreen.style.display='none';
-    loginMode='driver';
-    buildLoginForm();
-    showScreen('login');
-    document.getElementById('login-sub').textContent='Introduce tu código de acceso';
-  };
-  const input = document.getElementById('chat-input');
-  // Evitar duplicar listeners
-  const newInput = input.cloneNode(true);
-  input.parentNode.replaceChild(newInput, input);
-  newInput.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); enviarMensajeChat(); } });
-  const sendBtn = document.getElementById('btn-chat-send');
-  const newBtn = sendBtn.cloneNode(true);
-  sendBtn.parentNode.replaceChild(newBtn, sendBtn);
-  newBtn.addEventListener('click', enviarMensajeChat);
-}
-
-// ── Sidebar de conversaciones ──
-function chatConvId(userId1, userId2) {
-  return [userId1, userId2].sort().join('_');
-}
-
-function renderChatSidebar() {
-  try {
-    const list = document.getElementById('chat-conv-list');
-    if (!list) return;
-    const otros = chatUsuariosCache.filter(u=>u.id!==chatUsuarioActual.id).sort((a,b)=>a.nombre.localeCompare(b.nombre));
-    list.innerHTML = `
-      <div onclick="window.seleccionarConvChat('grupal')" id="chat-conv-grupal"
-        style="padding:0.75rem 1rem;cursor:pointer;border-bottom:1px solid var(--card-border);font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center;">
-        <span>👥 Grupo Oficina</span><span id="badge-grupal" style="font-size:11px;"></span>
-      </div>
-      ${otros.map(u=>`
-      <div onclick="window.seleccionarConvChat('${u.id}')" id="chat-conv-${u.id}"
-        style="padding:0.65rem 1rem;cursor:pointer;border-bottom:1px solid var(--card-border);font-size:13px;display:flex;justify-content:space-between;align-items:center;">
-        <span>${u.nombre}</span><span id="badge-${u.id}" style="font-size:11px;color:var(--accent);font-weight:700;"></span>
-      </div>`).join('')}`;
-    escucharNoLeidos();
-  } catch(e) { console.error('Error renderChatSidebar:', e); }
-}
-
-// ── Escuchar mensajes no leídos en cada conversación ──
-function escucharNoLeidos() {
-  const convIds = ['grupal', ...chatUsuariosCache.filter(u=>u.id!==chatUsuarioActual.id).map(u=>chatConvId(chatUsuarioActual.id, u.id))];
-  convIds.forEach(convId=>{
-    if (chatUnsubscribes['noleido_'+convId]) return;
-    try {
-      // Sin orderBy para evitar índice compuesto — solo filtramos por convId y noLeidos
-      const q = query(collection(dbFleet,'chatMensajes'), where('convId','==',convId), where('noLeidos','array-contains', chatUsuarioActual.id));
-      chatUnsubscribes['noleido_'+convId] = onSnapshot(q, snap=>{
-        const count = snap.docs.length;
-        const otherId = convId==='grupal' ? 'grupal' : convId.replace(chatUsuarioActual.id+'_','').replace('_'+chatUsuarioActual.id,'');
-        const badge = document.getElementById('badge-'+otherId);
-        if (badge) badge.textContent = count>0?`🔴${count}`:'';
-        if (count>0 && convId!==chatConversacionActual) {
-          const ultimo = snap.docs[snap.docs.length-1]?.data();
-          notificarChatNuevo(convId, ultimo);
-        }
-      }, err=>console.warn('Chat noLeidos error:', err));
-    } catch(e) { console.warn('Error escucharNoLeidos:', e); }
-  });
-}
-
-// ── Seleccionar conversación ──
-window.seleccionarConvChat = (otherId) => {
-  chatConversacionActual = otherId==='grupal' ? 'grupal' : chatConvId(chatUsuarioActual.id, otherId);
-  const esGrupal = otherId==='grupal';
-  const otroUsuario = chatUsuariosCache.find(u=>u.id===otherId);
-  document.getElementById('chat-header').textContent = esGrupal ? '👥 Grupo Oficina' : `💬 ${otroUsuario?.nombre||otherId}`;
-  document.getElementById('chat-input-area').style.display='flex';
-  document.getElementById('chat-input').focus();
-  // Resaltar conv activa
-  document.querySelectorAll('#chat-conv-list > div').forEach(d=>d.style.background='');
-  const actEl = document.getElementById(esGrupal?'chat-conv-grupal':'chat-conv-'+otherId);
-  if (actEl) actEl.style.background='var(--card)';
-  // Escuchar mensajes en tiempo real
-  const convId = chatConversacionActual;
-  if (chatUnsubscribes['msgs_'+convId]) chatUnsubscribes['msgs_'+convId]();
-  const q = query(collection(dbFleet,'chatMensajes'), where('convId','==',convId), orderBy('ts','asc'));
-  chatUnsubscribes['msgs_'+convId] = onSnapshot(q, snap=>{
-    chatMensajesCache[convId] = snap.docs.map(d=>({id:d.id,...d.data()}));
-    renderMensajesChat(convId);
-    // Marcar como leídos los mensajes de esta conv
-    snap.docs.forEach(d=>{
-      const data = d.data();
-      if (data.noLeidos?.includes(chatUsuarioActual.id)) {
-        const nuevosNoLeidos = data.noLeidos.filter(x=>x!==chatUsuarioActual.id);
-        updateDoc(doc(dbFleet,'chatMensajes',d.id), {noLeidos:nuevosNoLeidos}).catch(()=>{});
-      }
-    });
-  });
-};
-
-// ── Renderizar mensajes ──
-function renderMensajesChat(convId) {
-  const container = document.getElementById('chat-messages');
-  if (!container) return;
-  const msgs = chatMensajesCache[convId]||[];
-  if (!msgs.length) {
-    container.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:13px;margin-top:2rem;">Todavía no hay mensajes. ¡Sé el primero en escribir!</div>';
-    return;
-  }
-  container.innerHTML = msgs.map(m=>{
-    const esMio = m.userId===chatUsuarioActual.id;
-    const fecha = m.ts ? new Date(m.ts).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}) : '';
-    const fechaDia = m.ts ? new Date(m.ts).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit'}) : '';
-    return `<div style="display:flex;flex-direction:column;align-items:${esMio?'flex-end':'flex-start'};">
-      ${!esMio?`<div style="font-size:11px;color:var(--accent);font-weight:700;margin-bottom:2px;">${m.userName}</div>`:''}
-      <div style="max-width:70%;background:${esMio?'var(--accent)':'var(--card)'};color:${esMio?'#111':'var(--text)'};padding:0.6rem 0.85rem;border-radius:${esMio?'12px 12px 4px 12px':'12px 12px 12px 4px'};font-size:14px;line-height:1.4;word-break:break-word;">${escapeHtml(m.texto)}</div>
-      <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${fechaDia} ${fecha}</div>
-    </div>`;
-  }).join('');
-  container.scrollTop = container.scrollHeight;
-}
-
-function escapeHtml(str) {
-  return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-}
-
-// ── Enviar mensaje ──
-async function enviarMensajeChat() {
-  const input = document.getElementById('chat-input');
-  const texto = input.value.trim();
-  if (!texto || !chatConversacionActual) return;
-  input.value='';
-  const convId = chatConversacionActual;
-  const esGrupal = convId==='grupal';
-  // Lista de usuarios que deben recibir notificación de no leído
-  const todosIds = chatUsuariosCache.map(u=>u.id);
-  const noLeidos = esGrupal ? todosIds.filter(id=>id!==chatUsuarioActual.id) : convId.split('_').filter(id=>id!==chatUsuarioActual.id);
-  try {
-    await addDoc(collection(dbFleet,'chatMensajes'), {
-      convId, texto, userId:chatUsuarioActual.id, userName:chatUsuarioActual.nombre,
-      ts: Date.now(), noLeidos
-    });
-  } catch(e) { console.error('Error enviando mensaje:', e); }
-}
-
-// ── Notificaciones web ──
-async function pedirPermisoNotificaciones() {
-  if (!('Notification' in window)) return;
-  if (Notification.permission === 'default') await Notification.requestPermission();
-}
-
-function notificarChatNuevo(convId, msg) {
-  if (!msg || Notification.permission!=='granted') return;
-  if (document.visibilityState==='visible' && convId===chatConversacionActual) return;
-  const esGrupal = convId==='grupal';
-  const titulo = esGrupal ? '👥 Grupo Oficina' : `💬 ${msg.userName}`;
-  const cuerpo = `${esGrupal?msg.userName+': ':''}${msg.texto}`;
-  const n = new Notification(titulo, {body:cuerpo.slice(0,100), icon:'icon.png', tag:convId});
-  n.onclick = ()=>{ window.focus(); seleccionarConvChat(esGrupal?'grupal':convId.replace(chatUsuarioActual.id+'_','').replace('_'+chatUsuarioActual.id,'')); };
-}
-
-// Cargar usuarios de chat al arrancar la app (se llama desde initApp)
-async function initChatUsuarios() {
-  try { await cargarChatUsuarios(); } catch(e) { console.error('Error cargando usuarios de chat:', e); }
-}
-
-// ── Gestión de usuarios de chat desde Admin Superior ──
-function renderChatUsuariosAdmin() {
-  const cont = document.getElementById('superadmin-chat-usuarios');
-  if (!cont) return;
-  cont.innerHTML = chatUsuariosCache.sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(u=>`
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid var(--card-border);font-size:13px;">
-      <span>${u.nombre}${u.esAdmin?' 👑':''}</span>
-      <div style="display:flex;gap:0.5rem;">
-        <button onclick="window.resetPassChatUsuario('${u.id}')" style="padding:3px 8px;background:var(--navy-light);color:var(--text);border:1px solid var(--card-border);border-radius:4px;font-size:11px;cursor:pointer;">🔑 Reset pass</button>
-        <button onclick="window.eliminarChatUsuario('${u.id}')" style="padding:3px 8px;background:none;color:var(--danger);border:1px solid var(--danger);border-radius:4px;font-size:11px;cursor:pointer;">✕</button>
-      </div>
-    </div>`).join('');
-}
-
-window.resetPassChatUsuario = async (userId) => {
-  const u = chatUsuariosCache.find(x=>x.id===userId);
-  if (!u) return;
-  const nuevaPass = prompt(`Nueva contraseña para ${u.nombre}:`);
-  if (!nuevaPass) return;
-  try {
-    await updateDoc(doc(dbFleet,'chatUsuarios',userId),{pass:nuevaPass});
-    u.pass = nuevaPass;
-    alert(`✓ Contraseña de ${u.nombre} actualizada`);
-  } catch(e) { alert('Error: '+e.message); }
-};
-
-window.eliminarChatUsuario = async (userId) => {
-  const u = chatUsuariosCache.find(x=>x.id===userId);
-  if (!u) return;
-  if (!confirm(`¿Eliminar usuario "${u.nombre}"? No se borran sus mensajes.`)) return;
-  try {
-    await deleteDoc(doc(dbFleet,'chatUsuarios',userId));
-    chatUsuariosCache = chatUsuariosCache.filter(x=>x.id!==userId);
-    renderChatUsuariosAdmin();
-    alert(`✓ Usuario ${u.nombre} eliminado`);
-  } catch(e) { alert('Error: '+e.message); }
-};
-
-window.anadirChatUsuario = async () => {
-  const nombre = document.getElementById('nuevo-chat-nombre').value.trim().toUpperCase();
-  const pass = document.getElementById('nuevo-chat-pass').value.trim();
-  if (!nombre || !pass) { alert('Rellena nombre y contraseña'); return; }
-  const id = nombre.toLowerCase().replace(/\s+/g,'');
-  if (chatUsuariosCache.find(x=>x.id===id)) { alert('Ya existe un usuario con ese nombre'); return; }
-  try {
-    const nuevo = {id, nombre, pass, esAdmin:false};
-    await setDoc(doc(dbFleet,'chatUsuarios',id), nuevo);
-    chatUsuariosCache.push(nuevo);
-    document.getElementById('nuevo-chat-nombre').value='';
-    document.getElementById('nuevo-chat-pass').value='';
-    renderChatUsuariosAdmin();
-  } catch(e) { alert('Error: '+e.message); }
-};
 })();
 </script>
 </body>
