@@ -1431,6 +1431,9 @@ function entrarAlChat() {
   const chatScreen = document.getElementById('screen-chat');
   chatScreen.style.display='flex';
   document.getElementById('chat-user-display').textContent = chatUsuarioActual.nombre;
+  document.getElementById('chat-header').textContent = '👋 Bienvenido, ' + chatUsuarioActual.nombre;
+  document.getElementById('chat-messages').innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:13px;margin-top:3rem;">Selecciona una conversación del panel izquierdo para empezar a chatear.</div>';
+  document.getElementById('chat-input-area').style.display = 'none';
   renderChatSidebar();
   const logoutBtn = document.getElementById('btn-logout-chat');
   logoutBtn.onclick = () => {
