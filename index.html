@@ -1552,10 +1552,17 @@ function renderMensajesChat(convId) {
     const esMio = m.userId===chatUsuarioActual.id;
     const fecha = m.ts ? new Date(m.ts).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}) : '';
     const fechaDia = m.ts ? new Date(m.ts).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit'}) : '';
+    // ✓ = enviado (nadie más lo ha leído todavía), ✓✓ = leído por todos
+    let estadoHtml = '';
+    if (esMio) {
+      const noLeidos = m.noLeidos || [];
+      const leido = noLeidos.length === 0;
+      estadoHtml = `<span style="font-size:11px;color:${leido?'var(--accent)':'var(--text-muted)'};">${leido?'✓✓ Leído':'✓ Enviado'}</span>`;
+    }
     return `<div style="display:flex;flex-direction:column;align-items:${esMio?'flex-end':'flex-start'};">
       ${!esMio?`<div style="font-size:11px;color:var(--accent);font-weight:700;margin-bottom:2px;">${m.userName}</div>`:''}
       <div style="max-width:70%;background:${esMio?'var(--accent)':'var(--card)'};color:${esMio?'#111':'var(--text)'};padding:0.6rem 0.85rem;border-radius:${esMio?'12px 12px 4px 12px':'12px 12px 12px 4px'};font-size:14px;line-height:1.4;word-break:break-word;">${escapeHtml(m.texto)}</div>
-      <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${fechaDia} ${fecha}</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:2px;display:flex;gap:6px;align-items:center;">${fechaDia} ${fecha} ${estadoHtml}</div>
     </div>`;
   }).join('');
   container.scrollTop = container.scrollHeight;
@@ -1611,9 +1618,12 @@ function renderChatUsuariosAdmin() {
   if (!cont) return;
   cont.innerHTML = chatUsuariosCache.sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(u=>`
     <div style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid var(--card-border);font-size:13px;">
-      <span>${u.nombre}${u.esAdmin?' 👑':''}</span>
+      <div>
+        <span>${u.nombre}${u.esAdmin?' 👑':''}</span>
+        <span style="font-size:11px;color:var(--text-muted);margin-left:8px;">🔑 ${u.pass||'—'}</span>
+      </div>
       <div style="display:flex;gap:0.5rem;">
-        <button onclick="window.resetPassChatUsuario('${u.id}')" style="padding:3px 8px;background:var(--navy-light);color:var(--text);border:1px solid var(--card-border);border-radius:4px;font-size:11px;cursor:pointer;">🔑 Reset pass</button>
+        <button onclick="window.resetPassChatUsuario('${u.id}')" style="padding:3px 8px;background:var(--navy-light);color:var(--text);border:1px solid var(--card-border);border-radius:4px;font-size:11px;cursor:pointer;">Cambiar</button>
         <button onclick="window.eliminarChatUsuario('${u.id}')" style="padding:3px 8px;background:none;color:var(--danger);border:1px solid var(--danger);border-radius:4px;font-size:11px;cursor:pointer;">✕</button>
       </div>
     </div>`).join('');
@@ -2485,7 +2495,7 @@ function buildLoginForm() {
     card.innerHTML = `
       <div class="form-group">
         <label class="form-label">Usuario</label>
-        <input class="form-input" type="text" id="superadmin-user" placeholder="superadmin" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <input class="form-input" type="text" id="superadmin-user" placeholder="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
       </div>
       <div class="form-group">
         <label class="form-label">Contraseña</label>
