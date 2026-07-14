@@ -206,7 +206,7 @@ input[type="number"] { -moz-appearance: textfield; }
 
 <!-- LOGIN -->
 <div id="screen-login" class="screen">
-  <div class="login-logo"><img src="icon.png" style="width:80px;height:80px;border-radius:18px;"></div>
+  <div class="login-logo" id="login-logo-tap"><img src="icon.png" style="width:80px;height:80px;border-radius:18px;"></div>
   <div class="login-company">NEXOFLOTA</div>
   <div class="login-title" id="login-title">Control de Gasoil</div>
   <div class="login-sub" id="login-sub">Introduce tu código de acceso</div>
@@ -2416,7 +2416,7 @@ function buildLoginForm() {
         <input class="form-input" type="text" id="login-code" placeholder="••••••" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="numeric" style="-webkit-text-security:disc;">
       </div>
       <button class="btn btn-primary" id="btn-login">Entrar</button>
-      <div style="text-align:center;margin-top:1rem;display:flex;flex-direction:column;gap:0.6rem;">
+      <div id="login-accesos-ocultos" style="display:none;text-align:center;margin-top:1rem;display:none;flex-direction:column;gap:0.6rem;">
         <span style="font-size:13px;color:var(--text-muted);cursor:pointer;" id="link-admin">Acceso administrador</span>
         <span style="font-size:13px;color:var(--accent);cursor:pointer;font-weight:600;" id="link-oficina">💬 Chat de Oficina</span>
       </div>
@@ -2426,6 +2426,19 @@ function buildLoginForm() {
     document.getElementById('btn-login').addEventListener('click', window.doLogin);
     document.getElementById('link-admin').addEventListener('click', toggleLoginMode);
     document.getElementById('link-oficina').addEventListener('click', ()=>{ loginMode='oficina'; buildLoginForm(); document.getElementById('login-sub').textContent='Chat de Oficina'; });
+    // 5 pulsaciones en el logo para mostrar los accesos ocultos
+    let tapCount = 0, tapTimer = null;
+    const logoTap = document.getElementById('login-logo-tap');
+    if (logoTap) logoTap.addEventListener('click', () => {
+      tapCount++;
+      clearTimeout(tapTimer);
+      tapTimer = setTimeout(() => { tapCount = 0; }, 1500);
+      if (tapCount >= 5) {
+        tapCount = 0;
+        const panel = document.getElementById('login-accesos-ocultos');
+        if (panel) { panel.style.display = panel.style.display === 'none' ? 'flex' : 'none'; panel.style.flexDirection = 'column'; }
+      }
+    });
 
   } else if (loginMode === 'admin') {
     card.innerHTML = `
