@@ -233,10 +233,10 @@ input[type="number"] { -moz-appearance: textfield; }
     <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
       <div id="chat-header" style="padding:0.85rem 1rem;border-bottom:1px solid var(--card-border);font-weight:700;font-size:15px;background:var(--card);">Selecciona una conversación</div>
       <div id="chat-messages" style="flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:0.5rem;"></div>
-      <div id="chat-input-area" style="display:none;padding:0.75rem;border-top:1px solid var(--card-border);background:var(--card);">
-        <div style="position:relative;width:100%;">
-          <input class="form-input" type="text" id="chat-input" placeholder="Escribe un mensaje..." style="width:100%;box-sizing:border-box;padding-right:90px;margin:0;" autocomplete="off">
-          <button class="btn btn-primary" id="btn-chat-send" style="position:absolute;right:0;top:0;bottom:0;padding:0 1rem;font-size:13px;border-radius:0 var(--radius-sm) var(--radius-sm) 0;">Enviar</button>
+      <div id="chat-input-area" style="display:none;padding:0.75rem 1rem;border-top:1px solid var(--card-border);background:var(--card);">
+        <div style="display:table;width:100%;border-collapse:separate;border-spacing:8px 0;">
+          <div style="display:table-cell;width:100%;"><input class="form-input" type="text" id="chat-input" placeholder="Escribe un mensaje..." style="width:100%;margin:0;" autocomplete="off"></div>
+          <div style="display:table-cell;vertical-align:middle;white-space:nowrap;"><button class="btn btn-primary" id="btn-chat-send" style="padding:0.55rem 1.1rem;font-size:13px;">➤</button></div>
         </div>
       </div>
     </div>
@@ -1669,15 +1669,14 @@ async function initApp() {
   }, 8000);
 
   try {
-    // Carga inicial: db y dbFleet en paralelo entre sí, pero dentro de cada Firebase
-    // las colecciones van en secuencia para no saturar la conexión. Esto es más seguro
-    // que un Promise.all masivo, que falla entero si cualquier colección da error.
-
-    // ── db (Gasoil/Ropa/Configuración) ──
-    const dSnap = await getDocs(collection(db, 'conductores'));
+    // ── CARGA ESENCIAL (conductores, vehículos, códigos) ──
+    // Solo lo necesario para mostrar el login — el resto carga en background.
+    const [dSnap, vehSnap, codigosSnap] = await Promise.all([
+      getDocs(collection(db, 'conductores')),
+      getDocs(collection(db, 'vehiculos')),
+      getDocs(collection(db, 'configuracion')),
+    ]);
     driversCache = dSnap.docs.map(d => d.data());
-
-    const vehSnap = await getDocs(collection(db, 'vehiculos'));
     vehiculosCache = vehSnap.docs.map(d => d.data());
     const propiosCheck = [
       {matricula:'8182-MFM', gasoil:true, flota:false, propietario:'3006', activo:true},
@@ -1692,29 +1691,49 @@ async function initApp() {
     }
     matriculasCache = vehiculosCache.filter(v=>v.gasoil && v.activo!==false).map(v=>v.matricula);
     remolquesCache = vehiculosCache.filter(v=>v.flota && v.activo!==false).map(v=>v.matricula);
+    // Códigos de acceso
+    const codigosDoc = codigosSnap.docs.find(d => d.id === 'moduloCodigos');
+    if (codigosDoc) {
+      const data = codigosDoc.data();
+      MODULO_CODIGOS.gasoil = data.gasoil || MODULO_CODIGOS.gasoil;
+      MODULO_CODIGOS.fleet = data.fleet || MODULO_CODIGOS.fleet;
+      MODULO_CODIGOS.ropa = data.ropa || MODULO_CODIGOS.ropa;
+      MODULO_CODIGOS.seguros = data.seguros || MODULO_CODIGOS.seguros;
+    } else {
+      await setDoc(doc(db, 'configuracion', 'moduloCodigos'), MODULO_CODIGOS);
+    }
+    const adminCodeDoc = codigosSnap.docs.find(d => d.id === 'adminCode');
+    if (adminCodeDoc) { ADMIN_CODE = adminCodeDoc.data().code; }
+    else { await setDoc(doc(db, 'configuracion', 'adminCode'), { code: ADMIN_CODE }); }
 
-    const [rSnap, rcSnap, ropaEmpSnap, ropaHistSnap, ropaInvSnap, codigosSnap] = await Promise.all([
+    clearTimeout(timeoutId);
+    clearTimeout(timeoutId2);
+
+    // Mostrar el login YA — el resto de datos carga en background
+    document.getElementById('loading-overlay').style.display = 'none';
+    buildLoginForm();
+    showScreen('login');
+
+    // Activar sincronización en tiempo real
+    activarListenersTiempoReal();
+
+    // ── CARGA EN BACKGROUND (no bloquea el login) ──
+    Promise.all([
       getDocs(query(collection(db, 'repostajes'), orderBy('fecha', 'desc'))),
       getDocs(query(collection(db, 'recargas'), orderBy('fecha', 'desc'))),
       getDocs(collection(db, 'ropaEmpleados')),
       getDocs(query(collection(db, 'ropaHistorial'), orderBy('fecha', 'desc'))),
       getDocs(collection(db, 'ropaInventario')),
-      getDocs(collection(db, 'configuracion')),
-    ]);
-    recordsCache = rSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    recargasCache = rcSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    ropaEmpleadosCache = ropaEmpSnap.docs.map(d => ({id:d.id, ...d.data()}));
-    await migrarTallasLegacy();
-    ropaHistorialCache = ropaHistSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    ropaInventarioCache = ropaInvSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    ]).then(async ([rSnap, rcSnap, ropaEmpSnap, ropaHistSnap, ropaInvSnap]) => {
+      recordsCache = rSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      recargasCache = rcSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      ropaEmpleadosCache = ropaEmpSnap.docs.map(d => ({id:d.id, ...d.data()}));
+      await migrarTallasLegacy();
+      ropaHistorialCache = ropaHistSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      ropaInventarioCache = ropaInvSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }).catch(e => console.warn('bg db:', e));
 
-    // ── dbFleet (Flota/ADR-CAP/Seguros/Limpieza) ──
-    const [
-      hSnap, mSnap, hmSnap, mcSnap, hmcSnap,
-      credSnap, cursosSnap,
-      segVehSnap, segPolSnap, segExtraDoc,
-      lvSnap, liSnap
-    ] = await Promise.all([
+    Promise.all([
       getDocs(query(collection(dbFleet, 'historial'), orderBy('fecha', 'desc'))),
       getDocs(collection(dbFleet, 'mantenimiento')),
       getDocs(query(collection(dbFleet, 'historialMantenimiento'), orderBy('fecha', 'desc'))),
@@ -1727,91 +1746,48 @@ async function initApp() {
       getDocs(query(collection(dbFleet, 'segurosConfig'))),
       getDocs(query(collection(dbFleet, 'limpiezaVehiculos'), orderBy('fecha', 'desc'))),
       getDocs(query(collection(dbFleet, 'limpiezaInstalaciones'), orderBy('fecha', 'desc'))),
-    ]);
-    historialCache = hSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    mantenimientoCache = mSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    historialMantCache = hmSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    mantConductoresCache = mcSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    historialMantCondCache = hmcSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    creditosFormacionCache = credSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    cursosFormacionCache = cursosSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-    // Seguros — migración tras carga
-    segurosVehiculosCache = segVehSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    for (const v of segurosVehiculosCache) {
-      const yaTieneImportePorAnio = v.importePorAnio && Object.keys(v.importePorAnio).length > 0;
-      if (v.importe != null && !yaTieneImportePorAnio) {
-        const anio = v.fechaCaducidad ? (new Date(v.fechaCaducidad).getFullYear() - 1) : new Date().getFullYear();
-        const nuevoMapa = { [anio]: v.importe };
-        try { await updateDoc(doc(dbFleet,'segurosVehiculos',v.id), { importePorAnio: nuevoMapa }); v.importePorAnio = nuevoMapa; } catch(err) { console.error('Error migrando importe de seguro:', v.id, err); }
+    ]).then(async ([hSnap, mSnap, hmSnap, mcSnap, hmcSnap, credSnap, cursosSnap, segVehSnap, segPolSnap, segExtraDoc, lvSnap, liSnap]) => {
+      historialCache = hSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      mantenimientoCache = mSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      historialMantCache = hmSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      mantConductoresCache = mcSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      historialMantCondCache = hmcSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      creditosFormacionCache = credSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      cursosFormacionCache = cursosSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      segurosVehiculosCache = segVehSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      for (const v of segurosVehiculosCache) {
+        const ya = v.importePorAnio && Object.keys(v.importePorAnio).length > 0;
+        if (v.importe != null && !ya) {
+          const anio = v.fechaCaducidad ? (new Date(v.fechaCaducidad).getFullYear()-1) : new Date().getFullYear();
+          try { await updateDoc(doc(dbFleet,'segurosVehiculos',v.id),{importePorAnio:{[anio]:v.importe}}); v.importePorAnio={[anio]:v.importe}; } catch(e){}
+        }
       }
-    }
-    for (const v of segurosVehiculosCache) {
-      if (!v.importePorAnio || !v.fechaCaducidad || v.importe == null) continue;
-      const claves = Object.keys(v.importePorAnio);
-      const anioCaducidad = new Date(v.fechaCaducidad).getFullYear();
-      if (claves.length === 1 && parseInt(claves[0]) === anioCaducidad && parseFloat(v.importePorAnio[claves[0]]) === parseFloat(v.importe)) {
-        const nuevoMapa = { [anioCaducidad - 1]: v.importe };
-        try { await updateDoc(doc(dbFleet,'segurosVehiculos',v.id), { importePorAnio: nuevoMapa }); v.importePorAnio = nuevoMapa; } catch(err) { console.error('Error corrigiendo año de importe:', v.id, err); }
+      segurosPolizasCache = segPolSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      for (const p of segurosPolizasCache) {
+        const ya = p.importePorAnio && Object.keys(p.importePorAnio).length > 0;
+        if (p.importe != null && !ya) {
+          const anio = p.fechaCaducidad ? (new Date(p.fechaCaducidad).getFullYear()-1) : new Date().getFullYear();
+          try { await updateDoc(doc(dbFleet,'segurosPolizas',p.id),{importePorAnio:{[anio]:p.importe},activo:p.activo!==false}); p.importePorAnio={[anio]:p.importe}; } catch(e){}
+        } else if (p.activo===undefined) { try { await updateDoc(doc(dbFleet,'segurosPolizas',p.id),{activo:true}); p.activo=true; } catch(e){} }
       }
-    }
-    segurosPolizasCache = segPolSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    for (const p of segurosPolizasCache) {
-      const yaTieneImportePorAnio = p.importePorAnio && Object.keys(p.importePorAnio).length > 0;
-      if (p.importe != null && !yaTieneImportePorAnio) {
-        const anio = p.fechaCaducidad ? (new Date(p.fechaCaducidad).getFullYear() - 1) : new Date().getFullYear();
-        const nuevoMapa = { [anio]: p.importe };
-        try { await updateDoc(doc(dbFleet,'segurosPolizas',p.id), { importePorAnio: nuevoMapa, activo: p.activo!==false }); p.importePorAnio = nuevoMapa; } catch(err) { console.error('Error migrando importe de póliza:', p.id, err); }
-      } else if (p.activo === undefined) {
-        try { await updateDoc(doc(dbFleet,'segurosPolizas',p.id), { activo: true }); p.activo = true; } catch(err) { console.error('Error marcando póliza como activa:', p.id, err); }
+      const segExtraFound = segExtraDoc.docs.find(d=>d.id==='elementosExtra');
+      segurosElementosExtraCache = segExtraFound?(segExtraFound.data().items||[]):[];
+      const segNotasVeh = segExtraDoc.docs.find(d=>d.id==='notasVehiculos');
+      segurosNotasVehCache = segNotasVeh?(segNotasVeh.data().texto||''):'';
+      const segNotasPol = segExtraDoc.docs.find(d=>d.id==='notasPolizas');
+      segurosNotasPolCache = segNotasPol?(segNotasPol.data().texto||''):'';
+      limpiezaVehCache = lvSnap.docs.map(d=>({id:d.id,...d.data()}));
+      limpiezaInstCache = liSnap.docs.map(d=>({id:d.id,...d.data()}));
+      if (currentUser && currentUser.isAdmin) {
+        updateAdrCapBadge(); updateSegurosBadge(); updateFleetBadge();
       }
-    }
-    const segExtraFound = segExtraDoc.docs.find(d => d.id === 'elementosExtra');
-    segurosElementosExtraCache = segExtraFound ? (segExtraFound.data().items||[]) : [];
-    const segNotasVehFound = segExtraDoc.docs.find(d => d.id === 'notasVehiculos');
-    segurosNotasVehCache = segNotasVehFound ? (segNotasVehFound.data().texto||'') : '';
-    const segNotasPolFound = segExtraDoc.docs.find(d => d.id === 'notasPolizas');
-    segurosNotasPolCache = segNotasPolFound ? (segNotasPolFound.data().texto||'') : '';
-
-    limpiezaVehCache = lvSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    limpiezaInstCache = liSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-    // Códigos de acceso a módulos (con migración inicial)
-    const codigosDoc = codigosSnap.docs.find(d => d.id === 'moduloCodigos');
-    if (codigosDoc) {
-      MODULO_CODIGOS = codigosDoc.data();
-      let faltaAlguno = false;
-      if (!MODULO_CODIGOS.adrcap) { MODULO_CODIGOS.adrcap = '4444'; faltaAlguno = true; }
-      if (!MODULO_CODIGOS.seguros) { MODULO_CODIGOS.seguros = '5555'; faltaAlguno = true; }
-      if (faltaAlguno) await setDoc(doc(db, 'configuracion', 'moduloCodigos'), MODULO_CODIGOS);
-    } else {
-      await setDoc(doc(db, 'configuracion', 'moduloCodigos'), MODULO_CODIGOS);
-    }
-
-    // Cargar el código de acceso del admin (con migración inicial)
-    const adminCodeDoc = codigosSnap.docs.find(d => d.id === 'adminCode');
-    if (adminCodeDoc) {
-      ADMIN_CODE = adminCodeDoc.data().code;
-    } else {
-      await setDoc(doc(db, 'configuracion', 'adminCode'), { code: ADMIN_CODE });
-    }
-
-    clearTimeout(timeoutId);
-    clearTimeout(timeoutId2);
-
-    // Activar sincronización en tiempo real entre dispositivos
-    activarListenersTiempoReal();
+    }).catch(e => console.warn('bg fleet:', e));
 
   } catch(e) {
     clearTimeout(timeoutId);
     clearTimeout(timeoutId2);
     throw e; // Lo gestiona el bucle de reintentos de arriba
   }
-
-  document.getElementById('loading-overlay').style.display = 'none';
-  buildLoginForm();
-  showScreen('login');
-  // (chat se inicializa desde el IIFE de arranque)
 
   // Logout buttons
   document.getElementById('btn-logout-driver').addEventListener('click', doLogout);
