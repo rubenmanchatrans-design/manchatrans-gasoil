@@ -8540,7 +8540,7 @@ function renderRopaHistorial() {
         </div>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
           <button class="btn-sm" style="flex:1;padding:8px;" onclick="verPdfRopa('${h.id}')">👁 Ver</button>
-          <button class="btn-sm" style="flex:1;padding:8px;" onclick="descargarPdfRopa('${h.id}')">⬇ Descargar</button>
+          <button class="btn-sm" style="flex:1;padding:8px;${_ropaDescargado(h.id)?'background:var(--success);color:#fff;':''}" id="btn-dl-ropa-${h.id}" onclick="descargarPdfRopa('${h.id}')">${_ropaDescargado(h.id)?'✓ Descargado':'⬇ Descargar'}</button>
           <button class="btn-sm" style="flex:1;padding:8px;" onclick="editarEntregaRopa('${h.id}')">✏️ Editar</button>
           <button class="btn-sm btn-sm-danger" style="flex:1;padding:8px;" onclick="eliminarEntregaRopa('${h.id}')">🗑 Eliminar</button>
         </div>
@@ -8774,6 +8774,20 @@ window.verPdfRopa = (id) => {
   } catch(e) { alert('Error al abrir el PDF: '+e.message); }
 };
 
+// Gestión de PDFs descargados (persiste en localStorage del navegador)
+function _ropaDescargado(id) {
+  try { return JSON.parse(localStorage.getItem('ropaDescargados')||'{}')[id] === true; } catch(e) { return false; }
+}
+function _marcarRopaDescargado(id) {
+  try {
+    const data = JSON.parse(localStorage.getItem('ropaDescargados')||'{}');
+    data[id] = true;
+    localStorage.setItem('ropaDescargados', JSON.stringify(data));
+    const btn = document.getElementById('btn-dl-ropa-'+id);
+    if (btn) { btn.textContent='✓ Descargado'; btn.style.background='var(--success)'; btn.style.color='#fff'; }
+  } catch(e) {}
+}
+
 window.descargarPdfRopa = (id) => {
   const h = ropaHistorialCache.find(x=>x.id===id);
   if (!h) return;
@@ -8788,6 +8802,7 @@ window.descargarPdfRopa = (id) => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    _marcarRopaDescargado(id);
   } catch(e) { alert('Error al descargar: '+e.message); }
 };
 
