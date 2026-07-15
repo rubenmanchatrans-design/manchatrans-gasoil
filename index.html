@@ -8571,7 +8571,10 @@ function renderRopaPendientes() {
         <span style="font-size:11px;color:var(--warning);font-weight:700;">⏳ PENDIENTE</span>
       </div>
       <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.6rem;">Preparada el ${h.fechaStr} · ${numArt} artículo${numArt!==1?'s':''}</div>
-      <button class="btn btn-primary" style="width:100%;" onclick="abrirFirmaPendiente('${h.id}')">✍️ Firmar ahora</button>
+      <div style="display:flex;gap:0.5rem;">
+        <button class="btn btn-secondary" style="flex:1;" onclick="window.verPdfRopa('${h.id}')">👁 Ver hoja</button>
+        <button class="btn btn-primary" style="flex:1;" onclick="abrirFirmaPendiente('${h.id}')">✍️ Firmar ahora</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -8780,7 +8783,7 @@ window.descargarPdfRopa = (id) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Ropa_${h.empleadoNombre.replace(/\s+/g,'_')}_${h.fechaStr.replace(/\//g,'-')}.pdf`;
+    a.download = `${h.empleadoNombre.replace(/\s+/g,'_')}_${h.fechaStr.replace(/\//g,'-')}.pdf`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
