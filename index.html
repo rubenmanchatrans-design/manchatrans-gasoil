@@ -8809,7 +8809,7 @@ async function descargarZipRopa() {
     const zip = new JSZip();
     f.forEach(h => {
       const bytes = Uint8Array.from(atob(h.pdfBase64), c => c.charCodeAt(0));
-      const nombreArchivo = `${h.empleadoNombre.replace(/\s+/g,'_')}_${h.fechaStr.replace(/\//g,'-')}_${h.id.slice(0,5)}.pdf`;
+      const nombreArchivo = `${h.empleadoNombre.replace(/\s+/g,'_')}_${h.fechaStr.replace(/\//g,'-')}.pdf`;
       zip.file(nombreArchivo, bytes);
     });
     const zipBlob = await zip.generateAsync({type:'blob'});
