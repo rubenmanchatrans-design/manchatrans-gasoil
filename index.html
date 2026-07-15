@@ -8523,11 +8523,12 @@ function renderRopaHistorial() {
     const safeId = h.id.replace(/[^a-zA-Z0-9]/g,'_');
     const numArt = h.articulos ? h.articulos.length : 0;
     const pendiente = h.firmado === false;
+    const descargado = _ropaDescargado(h.id);
     return `<div style="background:var(--card);border:1px solid ${pendiente?'var(--warning)':'var(--card-border)'};border-radius:var(--radius-sm);margin-bottom:0.5rem;overflow:hidden;">
       <div onclick="toggleRopaHist('${safeId}')" style="display:flex;justify-content:space-between;align-items:center;padding:0.85rem 1rem;cursor:pointer;">
         <div>
           <div style="font-weight:600;font-size:14px;">${h.empleadoNombre} ${pendiente?'<span style="font-size:11px;color:var(--warning);font-weight:700;">⏳ PENDIENTE</span>':''}</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">📅 ${h.fechaStr} ${h.horaStr} · ${numArt} artículo${numArt!==1?'s':''}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">📅 ${h.fechaStr} ${h.horaStr} · ${numArt} artículo${numArt!==1?'s':''} ${descargado?'<span style="color:var(--success);font-weight:600;">✓ Descargado</span>':''}</div>
         </div>
         <span id="ropa-arrow-${safeId}" style="color:var(--text-muted);font-size:12px;">▼</span>
       </div>
