@@ -1727,6 +1727,19 @@ async function initApp() {
     buildLoginForm();
     showScreen('login');
 
+    // Detector de 5 pulsaciones en el logo — se registra UNA sola vez al arrancar
+    let _tapCount = 0, _tapTimer = null;
+    document.getElementById('login-logo-tap').addEventListener('click', () => {
+      _tapCount++;
+      clearTimeout(_tapTimer);
+      _tapTimer = setTimeout(() => { _tapCount = 0; }, 1500);
+      if (_tapCount >= 5) {
+        _tapCount = 0;
+        const panel = document.getElementById('login-accesos-ocultos');
+        if (panel) { panel.style.display = panel.style.display==='flex'?'none':'flex'; panel.style.flexDirection='column'; }
+      }
+    });
+
     // Activar sincronización en tiempo real
     activarListenersTiempoReal();
 
@@ -2436,19 +2449,6 @@ function buildLoginForm() {
     document.getElementById('btn-login').addEventListener('click', window.doLogin);
     document.getElementById('link-admin').addEventListener('click', toggleLoginMode);
     document.getElementById('link-oficina').addEventListener('click', ()=>{ loginMode='oficina'; buildLoginForm(); document.getElementById('login-sub').textContent='Chat de Oficina'; });
-    // 5 pulsaciones en el logo para mostrar los accesos ocultos
-    let tapCount = 0, tapTimer = null;
-    const logoTap = document.getElementById('login-logo-tap');
-    if (logoTap) logoTap.addEventListener('click', () => {
-      tapCount++;
-      clearTimeout(tapTimer);
-      tapTimer = setTimeout(() => { tapCount = 0; }, 1500);
-      if (tapCount >= 5) {
-        tapCount = 0;
-        const panel = document.getElementById('login-accesos-ocultos');
-        if (panel) { panel.style.display = panel.style.display === 'none' ? 'flex' : 'none'; panel.style.flexDirection = 'column'; }
-      }
-    });
 
   } else if (loginMode === 'admin') {
     card.innerHTML = `
