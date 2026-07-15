@@ -8839,6 +8839,9 @@ async function descargarZipRopa() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    // Marcar todos los incluidos como descargados
+    f.forEach(h => _marcarRopaDescargado(h.id));
+    renderRopaHistorial();
   } catch(e) {
     alert('Error al generar el ZIP: '+e.message);
   } finally {
