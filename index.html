@@ -7788,7 +7788,13 @@ function seleccionarEmpleadoRopa(empId) {
   ropaArticulosSeleccionados = {};
   ropaPuestoSeleccionado = '';
   wrapper.style.display = 'block';
+  const hoy = new Date().toISOString().slice(0,10);
   wrapper.innerHTML = `
+    <div class="form-group" style="margin-bottom:1rem;">
+      <label class="form-label">Fecha de entrega</label>
+      <input class="form-input" type="date" id="ropa-fecha-entrega" value="${hoy}" style="max-width:220px;">
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Pon la fecha real en que le diste la ropa, aunque firme más tarde.</div>
+    </div>
     <div class="section-title">Puesto / Función</div>
     <div class="form-group" id="ropa-puesto-group" style="display:flex;gap:0.5rem;flex-wrap:wrap;">
       ${['conductor','limpieza','mecanico','mozo','oficina'].map(p=>{
@@ -8394,6 +8400,9 @@ async function guardarEntregaRopa(comoPendiente) {
     const pdfFinalBase64 = await generarPdfRopa(ropaEmpleadoSeleccionado, ropaPuestoSeleccionado, articulosData, firmaPngBytes);
 
     const now = new Date();
+    const fechaEntradaEl = document.getElementById('ropa-fecha-entrega');
+    const fechaManual = fechaEntradaEl ? fechaEntradaEl.value : null;
+    const fechaObj = fechaManual ? new Date(fechaManual+'T12:00:00') : now;
     const registro = {
       empleadoId: ropaEmpleadoSeleccionado.id,
       empleadoNombre: ropaEmpleadoSeleccionado.nombre,
@@ -8402,8 +8411,8 @@ async function guardarEntregaRopa(comoPendiente) {
       articulos: articulosData,
       pdfBase64: pdfFinalBase64,
       firmado: !comoPendiente,
-      fecha: now.toISOString(),
-      fechaStr: now.toLocaleDateString('es-ES'),
+      fecha: fechaObj.toISOString(),
+      fechaStr: fechaObj.toLocaleDateString('es-ES'),
       horaStr: now.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})
     };
     const ref = await addDoc(collection(db, 'ropaHistorial'), registro);
