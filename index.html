@@ -8425,6 +8425,15 @@ async function guardarEntregaRopa(comoPendiente) {
       horaStr: now.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})
     };
     const ref = await addDoc(collection(db, 'ropaHistorial'), registro);
+    // Si estábamos editando un pendiente existente, lo borramos ahora que ya
+    // tenemos el nuevo guardado correctamente.
+    if (window._editandoPendienteId) {
+      try {
+        await deleteDoc(doc(db,'ropaHistorial',window._editandoPendienteId));
+        ropaHistorialCache = ropaHistorialCache.filter(x=>x.id!==window._editandoPendienteId);
+      } catch(e) { console.warn('No se pudo borrar pendiente original:', e); }
+      window._editandoPendienteId = null;
+    }
     updatePendientesBadge();
 
     let avisos = [];
@@ -8590,9 +8599,10 @@ function renderRopaPendientes() {
         <span style="font-size:11px;color:var(--warning);font-weight:700;">⏳ PENDIENTE</span>
       </div>
       <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.6rem;">Preparada el ${h.fechaStr} · ${numArt} artículo${numArt!==1?'s':''}</div>
-      <div style="display:flex;gap:0.5rem;">
-        <button class="btn btn-secondary" style="flex:1;" onclick="window.verPdfRopa('${h.id}')">👁 Ver hoja</button>
-        <button class="btn btn-primary" style="flex:1;" onclick="abrirFirmaPendiente('${h.id}')">✍️ Firmar ahora</button>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <button class="btn btn-secondary" style="flex:1;" onclick="window.verPdfRopa('${h.id}')">👁 Ver</button>
+        <button class="btn btn-secondary" style="flex:1;" onclick="window.editarPendienteRopa('${h.id}')">✏️ Editar</button>
+        <button class="btn btn-primary" style="flex:1;" onclick="abrirFirmaPendiente('${h.id}')">✍️ Firmar</button>
         <button class="btn-del" onclick="eliminarEntregaRopa('${h.id}')" style="flex-shrink:0;">🗑</button>
       </div>
     </div>`;
@@ -8605,6 +8615,44 @@ function updatePendientesBadge() {
   const n = ropaHistorialCache.filter(h => h.firmado === false).length;
   btn.textContent = n > 0 ? `Pendientes de firma 🔴${n}` : 'Pendientes de firma';
 }
+
+window.editarPendienteRopa = async (id) => {
+  const h = ropaHistorialCache.find(x=>x.id===id);
+  if (!h) return;
+  // Ir a la pestaña de nueva entrega
+  document.querySelectorAll('.atab-btn').forEach(b=>b.classList.remove('btn-secondary'));
+  document.getElementById('rtab-btn-entregar').classList.add('btn-secondary');
+  document.querySelectorAll('.ropa-tab-pane').forEach(p=>p.style.display='none');
+  document.getElementById('ropa-screen-entregar').style.display='block';
+  // Seleccionar el empleado
+  const sel = document.getElementById('ropa-sel-empleado');
+  if (!sel) return;
+  sel.value = h.empleadoId;
+  sel.dispatchEvent(new Event('change'));
+  // Esperar a que se renderice el formulario y luego cargar los datos
+  await new Promise(r=>setTimeout(r,300));
+  // Fecha
+  const fechaEl = document.getElementById('ropa-fecha-entrega');
+  if (fechaEl && h.fecha) fechaEl.value = new Date(h.fecha).toISOString().slice(0,10);
+  // Puesto
+  if (h.puesto) { seleccionarPuestoRopa(h.puesto); }
+  // Artículos
+  if (h.articulos) {
+    for (const art of h.articulos) {
+      const check = document.getElementById('ropa-check-'+art.id);
+      if (check && !check.classList.contains('checked')) check.click();
+      await new Promise(r=>setTimeout(r,50));
+      const modelo = document.getElementById('ropa-modelo-'+art.id);
+      const talla = document.getElementById('ropa-talla-'+art.id);
+      const cant = document.getElementById('ropa-cant-'+art.id);
+      if (modelo) modelo.value = art.modelo||'';
+      if (talla) talla.value = art.talla||'';
+      if (cant) cant.value = art.cant||'';
+    }
+  }
+  // Guardar el id del pendiente que estamos editando para que al guardar lo reemplace
+  window._editandoPendienteId = id;
+};
 
 window.abrirFirmaPendiente = (id) => {
   const h = ropaHistorialCache.find(x=>x.id===id);
