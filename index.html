@@ -3498,7 +3498,7 @@ window.addDriver = async () => {
   const limpieza=document.getElementById('new-driver-limpieza').checked;
   const al=document.getElementById('admin-alert');
   if (!name) { showAlert(al,'Escribe el nombre del empleado',true); return; }
-  if (code && driversCache.find(d=>d.code===code)) { showAlert(al,'Ese código ya existe',true); return; }
+  if (code && driversCache.find(d=>d.code===code && d.activo!==false)) { showAlert(al,'Ese código ya existe',true); return; }
   // No todos los empleados necesitan código de acceso (ej. Oficina, Taller...). Si se deja
   // en blanco, generamos uno interno único para identificarlo, pero no se le comunica a
   // nadie y no sirve para entrar a Repostar (no es un código real, no es adivinable).
@@ -3668,7 +3668,7 @@ window.editDriver = (code) => {
     const newLimpieza = document.getElementById('edit-driver-limpieza').checked;
     const al = document.getElementById('edit-driver-alert');
     if (!newName) { showAlert(al,'Escribe el nombre del empleado',true); return; }
-    if (newCode && newCode !== code && driversCache.find(x=>x.code===newCode)) { showAlert(al,'Ese código ya existe',true); return; }
+    if (newCode && newCode !== code && driversCache.find(x=>x.code===newCode && x.activo!==false)) { showAlert(al,'Ese código ya existe',true); return; }
     const tieneCodigoReal = !!newCode;
     if (!newCode) newCode = 'SC' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2,5).toUpperCase();
     try {
