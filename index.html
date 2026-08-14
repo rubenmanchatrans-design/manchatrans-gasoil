@@ -2640,7 +2640,7 @@ window.doLogin = () => {
   }
   const code = (document.getElementById('login-code').value||'').trim();
   if (!code) { err.textContent = 'Introduce tu código'; return; }
-  const driver = driversCache.find(d => d.code === code);
+  const driver = driversCache.find(d => d.code === code && d.activo!==false) || driversCache.find(d => d.code === code);
   if (driver && driver.activo === false) {
     err.textContent = 'Este código ya no está activo. Contacta con tu jefe.'; return;
   }
