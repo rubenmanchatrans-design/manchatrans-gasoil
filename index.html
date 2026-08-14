@@ -8619,29 +8619,26 @@ function updatePendientesBadge() {
 window.editarPendienteRopa = async (id) => {
   const h = ropaHistorialCache.find(x=>x.id===id);
   if (!h) return;
-  // Ir a la pestaña de nueva entrega
-  document.querySelectorAll('.atab-btn').forEach(b=>b.classList.remove('btn-secondary'));
-  document.getElementById('rtab-btn-entregar').classList.add('btn-secondary');
-  document.querySelectorAll('.ropa-tab-pane').forEach(p=>p.style.display='none');
-  document.getElementById('ropa-screen-entregar').style.display='block';
+  // Ir a la pestaña de nueva entrega usando la función real
+  switchRopaTab('entregar');
   // Seleccionar el empleado
   const sel = document.getElementById('ropa-sel-empleado');
   if (!sel) return;
   sel.value = h.empleadoId;
   sel.dispatchEvent(new Event('change'));
-  // Esperar a que se renderice el formulario y luego cargar los datos
-  await new Promise(r=>setTimeout(r,300));
+  // Esperar a que se renderice el formulario
+  await new Promise(r=>setTimeout(r,400));
   // Fecha
   const fechaEl = document.getElementById('ropa-fecha-entrega');
   if (fechaEl && h.fecha) fechaEl.value = new Date(h.fecha).toISOString().slice(0,10);
   // Puesto
-  if (h.puesto) { seleccionarPuestoRopa(h.puesto); }
+  if (h.puesto) seleccionarPuestoRopa(h.puesto);
   // Artículos
   if (h.articulos) {
     for (const art of h.articulos) {
       const check = document.getElementById('ropa-check-'+art.id);
       if (check && !check.classList.contains('checked')) check.click();
-      await new Promise(r=>setTimeout(r,50));
+      await new Promise(r=>setTimeout(r,30));
       const modelo = document.getElementById('ropa-modelo-'+art.id);
       const talla = document.getElementById('ropa-talla-'+art.id);
       const cant = document.getElementById('ropa-cant-'+art.id);
@@ -8650,7 +8647,7 @@ window.editarPendienteRopa = async (id) => {
       if (cant) cant.value = art.cant||'';
     }
   }
-  // Guardar el id del pendiente que estamos editando para que al guardar lo reemplace
+  // Guardar el id del pendiente que editamos para borrarlo al guardar
   window._editandoPendienteId = id;
 };
 
