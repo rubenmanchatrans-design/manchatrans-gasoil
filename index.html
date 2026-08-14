@@ -3508,6 +3508,15 @@ window.addDriver = async () => {
   try {
     const nuevo = {name,code,activo:true,limpieza,dni,categoria,empresa,telParticular,telEmpresa,extension,email,permisoGasoil,sinCodigo:!tieneCodigoReal};
     await setDoc(doc(db,'conductores',code),nuevo);
+    // Si el código pertenecía a un empleado de baja, eliminamos sus datos de ropa
+    // para que no aparezcan las tallas del anterior al configurar el nuevo empleado.
+    const ropaAnterior = ropaEmpleadosCache.find(e=>e.conductorCode===code);
+    if (ropaAnterior) {
+      try {
+        await deleteDoc(doc(db,'ropaEmpleados',ropaAnterior.id));
+        ropaEmpleadosCache = ropaEmpleadosCache.filter(e=>e.id!==ropaAnterior.id);
+      } catch(err) { console.warn('No se pudo borrar ropa anterior:', err); }
+    }
     // No tocamos driversCache a mano: el listener onSnapshot de conductores ya lo
     // actualiza solo. Si lo hacemos aquí también, el empleado aparece duplicado.
     limpiarFormularioEmpleado();
