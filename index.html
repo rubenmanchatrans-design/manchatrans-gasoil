@@ -3656,6 +3656,30 @@ window.editDriver = (code) => {
     </div>`;
   document.body.appendChild(modal);
 
+  // Botón para limpiar el perfil de ropa vinculado a este código (útil al reutilizar código)
+  const ropaVinculada = ropaEmpleadosCache.find(e=>e.conductorCode===code);
+  if (ropaVinculada) {
+    const btnLimpiar = document.createElement('button');
+    btnLimpiar.textContent = '🔄 Limpiar perfil de Ropa (código reutilizado)';
+    btnLimpiar.style.cssText = 'width:100%;padding:8px;margin-top:8px;background:none;color:var(--warning);border:1px solid var(--warning);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;';
+    btnLimpiar.onclick = async () => {
+      if (!confirm(`¿Desvincular el perfil de ropa del código ${code}?\n\nEl historial de entregas firmadas se conserva. Solo se liberan las tallas para el nuevo empleado.`)) return;
+      try {
+        const codigoArchivo = `BAJA_${code}_${Date.now()}`;
+        const datosActualizados = {...ropaVinculada, conductorCode: codigoArchivo};
+        delete datosActualizados.id;
+        await setDoc(doc(db,'ropaEmpleados',ropaVinculada.id), datosActualizados);
+        const idx = ropaEmpleadosCache.findIndex(e=>e.id===ropaVinculada.id);
+        if (idx>=0) ropaEmpleadosCache[idx] = {...ropaVinculada, conductorCode: codigoArchivo};
+        btnLimpiar.textContent = '✓ Perfil de ropa liberado';
+        btnLimpiar.disabled = true;
+        btnLimpiar.style.color = 'var(--success)';
+        btnLimpiar.style.borderColor = 'var(--success)';
+      } catch(e) { alert('Error: '+e.message); }
+    };
+    modal.querySelector('.refuel-card').appendChild(btnLimpiar);
+  }
+
   let salarioDesbloqueado = false;
   document.getElementById('btn-ver-salario-edit').addEventListener('click', async () => {
     const ok = await pedirPasswordSuperadmin(`El salario y la cuenta bancaria de ${d.name} solo los puede ver el Admin Superior.`);
