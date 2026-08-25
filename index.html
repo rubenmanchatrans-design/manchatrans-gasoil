@@ -2688,7 +2688,6 @@ window.doLogin = () => {
   if (!code) { err.textContent = 'Introduce tu código'; return; }
   // Código de almacén
   if (code === MODULO_CODIGOS.almacen) {
-    showScreen('almacen');
     entrarAlmacen();
     return;
   }
@@ -9351,8 +9350,11 @@ function entrarAlmacen() {
     showScreen('login');
   };
   almReset();
-  almRenderPaso(1);
-  almCargarRegistros();
+  // Pequeño timeout para asegurar que el DOM está visible antes de escribir en él
+  setTimeout(() => {
+    almRenderPaso(1);
+    almCargarRegistros();
+  }, 50);
 }
 
 // ── Cargar registros desde Firestore ──
