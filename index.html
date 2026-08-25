@@ -214,6 +214,27 @@ input[type="number"] { -moz-appearance: textfield; }
   <div style="margin-top:2rem;font-size:13px;color:var(--text-muted);text-align:center;opacity:0.8;">Diseñada por <span style="color:var(--accent);font-weight:600;">Rubén Díaz</span></div>
 </div>
 
+<!-- ALMACÉN -->
+<div id="screen-almacen" class="screen">
+  <div class="topbar">
+    <span class="topbar-title">📦 Almacén</span>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button class="topbar-logout" id="btn-logout-almacen">Salir</button>
+    </div>
+  </div>
+  <div style="padding:1.25rem;max-width:600px;margin:0 auto">
+    <!-- Stepper -->
+    <div id="alm-stepper" style="display:flex;align-items:center;gap:6px;margin-bottom:1rem;flex-wrap:wrap"></div>
+    <!-- Pasos -->
+    <div id="alm-paso1"></div>
+    <div id="alm-paso2" style="display:none"></div>
+    <div id="alm-paso3" style="display:none"></div>
+    <div id="alm-paso4" style="display:none"></div>
+    <div id="alm-paso5" style="display:none"></div>
+    <div id="alm-paso-ok" style="display:none"></div>
+  </div>
+</div>
+
 <!-- CHAT DE OFICINA -->
 <div id="screen-chat" class="screen" style="display:none;flex-direction:column;height:100vh;overflow:hidden;">
   <div class="topbar">
@@ -341,6 +362,10 @@ input[type="number"] { -moz-appearance: textfield; }
           <span style="font-size:28px;">🛡️</span>
           <span style="font-size:16px;font-weight:700;">Seguros <span id="home-badge-seguros" style="font-size:12px;"></span></span>
         </button>
+        <button class="modulo-home-btn" id="home-btn-almacen">
+          <span style="font-size:28px;">📦</span>
+          <span style="font-size:16px;font-weight:700;">Almacén</span>
+        </button>
         <button class="modulo-home-btn" id="home-btn-gestion">
           <span style="font-size:28px;">⚙️</span>
           <span style="font-size:16px;font-weight:700;">Configuración</span>
@@ -421,6 +446,15 @@ input[type="number"] { -moz-appearance: textfield; }
     <!-- ═══════════ FIN MÓDULO GASOIL ═══════════ -->
 
     <!-- ═══════════ MÓDULO GESTIÓN (Conductores y Vehículos) ═══════════ -->
+    <div id="module-almacen" style="display:none;">
+      <div style="display:flex;gap:0.4rem;margin-bottom:1.25rem;flex-wrap:wrap;">
+        <button class="btn btn-secondary atab-btn" id="almtab-btn-registros">📋 Registros</button>
+        <button class="btn btn-ghost atab-btn" id="almtab-btn-resumen">📊 Resumen por agencia</button>
+      </div>
+      <div id="alm-admin-registros"></div>
+      <div id="alm-admin-resumen" style="display:none;"></div>
+    </div>
+
     <div id="module-gestion" style="display:none;">
     <div style="display:flex;gap:0.4rem;margin-bottom:1.25rem;flex-wrap:wrap;">
       <button class="btn btn-secondary atab-btn" id="atab-btn-conductores">Empleados</button>
@@ -1198,7 +1232,8 @@ let MODULO_CODIGOS = {
   fleet: '2222',
   ropa: '3333',
   adrcap: '4444',
-  seguros: '5555'
+  seguros: '5555',
+  almacen: '6666'
 };
 const DEPOSITO_CAP = 10000;
 const ALERTA_MIN = 1000;
@@ -1825,6 +1860,7 @@ async function initApp() {
   document.getElementById('home-btn-ropa').addEventListener('click', ()=>switchModule('ropa'));
   document.getElementById('home-btn-adrcap').addEventListener('click', ()=>switchModule('adrcap'));
   document.getElementById('home-btn-seguros').addEventListener('click', ()=>switchModule('seguros'));
+  document.getElementById('home-btn-almacen').addEventListener('click', ()=>switchModule('almacen'));
   document.getElementById('home-btn-gestion').addEventListener('click', ()=>switchModule('gestion'));
   document.getElementById('btn-cambiar-modulo').addEventListener('click', volverASeleccionModulo);
   document.getElementById('rtab-btn-entregar').addEventListener('click', ()=>switchRopaTab('entregar'));
@@ -2640,6 +2676,12 @@ window.doLogin = () => {
   }
   const code = (document.getElementById('login-code').value||'').trim();
   if (!code) { err.textContent = 'Introduce tu código'; return; }
+  // Código de almacén
+  if (code === MODULO_CODIGOS.almacen) {
+    showScreen('almacen');
+    entrarAlmacen();
+    return;
+  }
   const driver = driversCache.find(d => d.code === code && d.activo!==false) || driversCache.find(d => d.code === code);
   if (driver && driver.activo === false) {
     err.textContent = 'Este código ya no está activo. Contacta con tu jefe.'; return;
@@ -4079,11 +4121,8 @@ window.switchGestionTab = (tab) => {
 
 // ══════════════════════════════
 // SELECTOR DE MÓDULO GASOIL / FLEET
-// ══════════════════════════════
 function switchModule(mod) {
-  // El módulo "gestion" (Configuración: Conductores, Vehículos y Copia de seguridad)
-  // se abre directo, sin código — solo entra el admin que ya ha iniciado sesión.
-  if (mod !== 'gestion' && !modulosDesbloqueados[mod]) {
+  if (mod !== 'gestion' && mod !== 'almacen' && !modulosDesbloqueados[mod]) {
     pedirCodigoModulo(mod);
     return;
   }
@@ -4094,12 +4133,25 @@ function switchModule(mod) {
   document.getElementById('module-ropa').style.display = mod==='ropa' ? 'block' : 'none';
   document.getElementById('module-adrcap').style.display = mod==='adrcap' ? 'block' : 'none';
   document.getElementById('module-seguros').style.display = mod==='seguros' ? 'block' : 'none';
+  document.getElementById('module-almacen').style.display = mod==='almacen' ? 'block' : 'none';
   document.getElementById('module-gestion').style.display = mod==='gestion' ? 'block' : 'none';
   document.getElementById('btn-cambiar-modulo').style.display = 'inline-block';
-  const titulos = {gasoil:'⛽ Gasoil', fleet:'🚛 Flota', ropa:'👔 Ropa', adrcap:'🪪 ADR/CAP', seguros:'🛡️ Seguros', gestion:'⚙️ Configuración'};
-  document.getElementById('admin-topbar-title').textContent = titulos[mod];
+  const titulos = {gasoil:'⛽ Gasoil', fleet:'🚛 Flota', ropa:'👔 Ropa', adrcap:'🪪 ADR/CAP', seguros:'🛡️ Seguros', almacen:'📦 Almacén', gestion:'⚙️ Configuración'};
+  document.getElementById('admin-topbar-title').textContent = titulos[mod]||'';
   if (mod==='fleet') { renderHistorial(); renderMantenimiento(); updateFleetBadge(); }
   if (mod==='ropa') { populateRopaSelects(); updatePendientesBadge(); }
+  if (mod==='almacen') {
+    almCargarRegistros().then(()=>renderAlmacenAdmin());
+    document.getElementById('almtab-btn-registros').addEventListener('click', ()=>{
+      document.getElementById('alm-admin-registros').style.display='block';
+      document.getElementById('alm-admin-resumen').style.display='none';
+      renderAlmacenAdmin();
+    });
+    document.getElementById('almtab-btn-resumen').addEventListener('click', ()=>{
+      document.getElementById('alm-admin-registros').style.display='none';
+      document.getElementById('alm-admin-resumen').style.display='block';
+    });
+  }
   if (mod==='adrcap') {
     document.querySelectorAll('#module-adrcap .tab-pane').forEach(p=>p.classList.remove('active'));
     document.getElementById('ftab-mant-conductores').classList.add('active');
@@ -9262,6 +9314,350 @@ window.renderAdminRecords = renderAdminRecords;
       msgEl.style.color = 'var(--text-muted)';
     }
   }
+// ════════════════════════════════════════════════════════════════════════════
+// MÓDULO ALMACÉN
+// ════════════════════════════════════════════════════════════════════════════
+
+const AGENCIAS_ALM = ['CBL','XPO','ONTIME','NTL','RHENUS','CODITRAL'];
+const TIPOS_PALET = {
+  europeo:   {label:'Palet europeo',   dims:'1,20 × 0,80 m', largo:1.20, ancho:0.80},
+  americano: {label:'Palet americano', dims:'1,20 × 1,00 m', largo:1.20, ancho:1.00},
+  petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
+  largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
+};
+let almEstado = {};
+let almCache = [];  // expediciones guardadas en memoria + Firestore
+let almUnsubscribe = null;
+
+function almReset() {
+  almEstado = {codigo:'',agencia:'',medida:'',tipo:'',largo:0,ancho:0,alto:0,peso:0,volumen:0};
+}
+
+// ── LOGIN almacén ──
+function entrarAlmacen() {
+  showScreen('almacen');
+  document.getElementById('btn-logout-almacen').onclick = () => {
+    if (almUnsubscribe) { try{almUnsubscribe();}catch(e){} almUnsubscribe=null; }
+    showScreen('login');
+  };
+  almReset();
+  almRenderPaso(1);
+  almCargarRegistros();
+}
+
+// ── Cargar registros desde Firestore ──
+async function almCargarRegistros() {
+  try {
+    const snap = await getDocs(query(collection(db,'almacenExpediciones'), orderBy('ts','desc')));
+    almCache = snap.docs.map(d=>({id:d.id,...d.data()}));
+  } catch(e) { console.warn('Almacén:', e); }
+}
+
+// ── Stepper ──
+function almRenderStepper(paso) {
+  const pasos = ['Escanear','Agencia','Medidas','Confirmar'];
+  const el = document.getElementById('alm-stepper');
+  if (!el) return;
+  el.innerHTML = pasos.map((p,i)=>{
+    const n=i+1;
+    const cls = n===paso?'btn btn-secondary':'btn btn-ghost';
+    const style = n<paso?'opacity:0.6':'';
+    return `<span style="font-size:12px;padding:4px 10px;border-radius:20px;background:${n===paso?'var(--accent)':n<paso?'var(--navy-light)':'transparent'};color:${n===paso?'#111':'var(--text-muted)'};border:1px solid var(--card-border);${style}">${n<paso?'✓ ':''} ${p}</span>${i<pasos.length-1?'<span style="color:var(--text-muted)">›</span>':''}`;
+  }).join('');
+}
+
+// ── Renderizar pasos ──
+function almRenderPaso(paso) {
+  for(let i=1;i<=5;i++) {
+    const el = document.getElementById('alm-paso'+i) || document.getElementById('alm-paso-ok');
+    if (el) el.style.display='none';
+  }
+  document.getElementById('alm-paso-ok').style.display='none';
+  const target = document.getElementById('alm-paso'+paso);
+  if (target) target.style.display='block';
+  almRenderStepper(paso);
+
+  if (paso===1) almRenderPaso1();
+  else if (paso===2) almRenderPaso2();
+  else if (paso===3) almRenderPaso3();
+  else if (paso===4) almRenderPaso4();
+}
+
+function almRenderPaso1() {
+  const el = document.getElementById('alm-paso1');
+  el.innerHTML = `
+    <div class="refuel-card">
+      <div class="section-title">Código de expedición</div>
+      <div class="form-group">
+        <label class="form-label">Escanea o introduce el código</label>
+        <input class="form-input" type="text" id="alm-inp-codigo" placeholder="Escanea con el lector o escribe aquí..." autofocus autocomplete="off" style="font-size:18px;letter-spacing:2px;">
+      </div>
+      <button class="btn btn-primary" onclick="almUsarCodigo()">Continuar →</button>
+    </div>`;
+  const inp = document.getElementById('alm-inp-codigo');
+  if (inp) {
+    inp.focus();
+    inp.addEventListener('keydown', e => { if(e.key==='Enter') almUsarCodigo(); });
+  }
+}
+
+function almUsarCodigo() {
+  const cod = (document.getElementById('alm-inp-codigo').value||'').trim();
+  if (!cod) { alert('Introduce o escanea un código'); return; }
+  almEstado.codigo = cod;
+  almRenderPaso(2);
+}
+
+function almRenderPaso2() {
+  const el = document.getElementById('alm-paso2');
+  el.innerHTML = `
+    <div class="refuel-card">
+      <div class="section-title">Agencia — Expedición <span style="color:var(--accent);font-family:monospace">${almEstado.codigo}</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-bottom:1rem">
+        ${AGENCIAS_ALM.map(a=>`<button class="btn ${almEstado.agencia===a?'btn-secondary':'btn-ghost'}" onclick="almSelAgencia('${a}')" style="font-size:14px;font-weight:700;">${a}</button>`).join('')}
+      </div>
+      <button class="btn btn-ghost" onclick="almRenderPaso(1)">← Volver</button>
+    </div>`;
+}
+
+window.almSelAgencia = (ag) => {
+  almEstado.agencia = ag;
+  almRenderPaso(3);
+};
+
+function almRenderPaso3() {
+  const el = document.getElementById('alm-paso3');
+  el.innerHTML = `
+    <div class="refuel-card" style="margin-bottom:0.75rem">
+      <div class="section-title">¿Qué quieres registrar?</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.75rem">
+        <button class="btn ${almEstado.medida==='volumen'?'btn-secondary':'btn-ghost'}" onclick="almSelMedida('volumen')">📦 Solo volumen</button>
+        <button class="btn ${almEstado.medida==='peso'?'btn-secondary':'btn-ghost'}" onclick="almSelMedida('peso')">⚖️ Solo peso</button>
+      </div>
+      <button class="btn ${almEstado.medida==='ambos'?'btn-secondary':'btn-ghost'}" style="width:100%;margin-bottom:0.75rem" onclick="almSelMedida('ambos')">📦 + ⚖️ Volumen y peso</button>
+      <button class="btn btn-ghost" onclick="almRenderPaso(2)">← Volver</button>
+    </div>
+    <div id="alm-sec-volumen" style="display:${almEstado.medida==='volumen'||almEstado.medida==='ambos'?'block':'none'}">
+      <div class="refuel-card" style="margin-bottom:0.75rem">
+        <div class="section-title">Tipo de bulto</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.75rem">
+          ${Object.entries(TIPOS_PALET).map(([k,v])=>`
+          <button class="btn ${almEstado.tipo===k?'btn-secondary':'btn-ghost'}" onclick="almSelTipo('${k}')" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:0.75rem">
+            <span style="font-size:13px;font-weight:600">${v.label}</span>
+            <span style="font-size:11px;color:var(--text-muted)">${v.dims}</span>
+          </button>`).join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Largo (m)</label>
+            <input class="form-input" type="number" step="0.01" id="alm-largo" placeholder="0.00" value="${almEstado.largo||''}" oninput="almCalcVol()" ${almEstado.tipo&&almEstado.tipo!=='largo'?'readonly':''}>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Ancho (m)</label>
+            <input class="form-input" type="number" step="0.01" id="alm-ancho" placeholder="0.00" value="${almEstado.ancho||''}" oninput="almCalcVol()" ${almEstado.tipo&&almEstado.tipo!=='largo'?'readonly':''}>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Alto (m)</label>
+            <input class="form-input" type="number" step="0.01" id="alm-alto" placeholder="0.00" value="${almEstado.alto||''}" oninput="almCalcVol()">
+          </div>
+        </div>
+        <div id="alm-res-vol" style="margin-top:0.75rem;text-align:center;font-size:22px;font-weight:700;color:var(--success);display:${almEstado.volumen>0?'block':'none'}">${almEstado.volumen>0?almEstado.volumen.toFixed(3)+' m³':''}</div>
+      </div>
+    </div>
+    <div id="alm-sec-peso" style="display:${almEstado.medida==='peso'||almEstado.medida==='ambos'?'block':'none'}">
+      <div class="refuel-card" style="margin-bottom:0.75rem">
+        <div class="section-title">Peso</div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Kilos (kg)</label>
+          <input class="form-input" type="number" step="0.1" id="alm-peso" placeholder="0.0" value="${almEstado.peso||''}" oninput="almCalcPeso()">
+        </div>
+        <div id="alm-res-peso" style="margin-top:0.75rem;text-align:center;font-size:22px;font-weight:700;color:var(--success);display:${almEstado.peso>0?'block':'none'}">${almEstado.peso>0?almEstado.peso.toFixed(1)+' kg':''}</div>
+      </div>
+    </div>
+    <div id="alm-sec-btn" style="display:${almEstado.medida?'block':'none'}">
+      <button class="btn btn-primary" onclick="almIrConfirmar()">Continuar →</button>
+    </div>`;
+}
+
+window.almSelMedida = (m) => { almEstado.medida=m; almRenderPaso(3); };
+window.almSelTipo = (tipo) => {
+  almEstado.tipo=tipo;
+  const t=TIPOS_PALET[tipo];
+  if (t.largo) { almEstado.largo=t.largo; almEstado.ancho=t.ancho; }
+  else { almEstado.largo=0; almEstado.ancho=0; }
+  almEstado.alto=0; almEstado.volumen=0;
+  almRenderPaso(3);
+};
+window.almCalcVol = () => {
+  const l=parseFloat(document.getElementById('alm-largo')?.value)||0;
+  const a=parseFloat(document.getElementById('alm-ancho')?.value)||0;
+  const h=parseFloat(document.getElementById('alm-alto')?.value)||0;
+  almEstado.largo=l; almEstado.ancho=a; almEstado.alto=h;
+  almEstado.volumen=l*a*h;
+  const rv=document.getElementById('alm-res-vol');
+  if(rv) { rv.style.display=almEstado.volumen>0?'block':'none'; rv.textContent=almEstado.volumen.toFixed(3)+' m³'; }
+};
+window.almCalcPeso = () => {
+  const p=parseFloat(document.getElementById('alm-peso')?.value)||0;
+  almEstado.peso=p;
+  const rp=document.getElementById('alm-res-peso');
+  if(rp) { rp.style.display=p>0?'block':'none'; rp.textContent=p.toFixed(1)+' kg'; }
+};
+
+function almIrConfirmar() {
+  const m=almEstado.medida;
+  if (!m) { alert('Selecciona qué quieres registrar'); return; }
+  if ((m==='volumen'||m==='ambos') && almEstado.volumen<=0) { alert('Introduce las medidas del volumen'); return; }
+  if ((m==='peso'||m==='ambos') && almEstado.peso<=0) { alert('Introduce el peso'); return; }
+  almRenderPaso(4);
+}
+
+function almRenderPaso4() {
+  const el = document.getElementById('alm-paso4');
+  const m=almEstado.medida;
+  el.innerHTML = `
+    <div class="refuel-card">
+      <div class="section-title">Confirmar expedición</div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--card-border);font-size:14px">
+        <span style="color:var(--text-muted)">Código</span>
+        <strong style="font-family:monospace;color:var(--accent)">${almEstado.codigo}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--card-border);font-size:14px">
+        <span style="color:var(--text-muted)">Agencia</span>
+        <strong>${almEstado.agencia}</strong>
+      </div>
+      ${almEstado.volumen>0?`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--card-border);font-size:14px">
+        <span style="color:var(--text-muted)">Volumen</span>
+        <strong style="color:var(--success)">${almEstado.volumen.toFixed(3)} m³</strong>
+      </div>`:''}
+      ${almEstado.peso>0?`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--card-border);font-size:14px">
+        <span style="color:var(--text-muted)">Peso</span>
+        <strong style="color:var(--success)">${almEstado.peso.toFixed(1)} kg</strong>
+      </div>`:''}
+      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px">
+        <span style="color:var(--text-muted)">Hora</span>
+        <span style="color:var(--text-muted)">${new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})}</span>
+      </div>
+      <button class="btn btn-primary" style="margin-top:1rem" onclick="almGuardar()">✓ Guardar expedición</button>
+      <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almRenderPaso(3)">← Volver</button>
+    </div>`;
+}
+
+async function almGuardar() {
+  const registro = {
+    codigo: almEstado.codigo,
+    agencia: almEstado.agencia,
+    medida: almEstado.medida,
+    volumen: almEstado.volumen||0,
+    peso: almEstado.peso||0,
+    largo: almEstado.largo||0,
+    ancho: almEstado.ancho||0,
+    alto: almEstado.alto||0,
+    tipo: almEstado.tipo||'',
+    ts: Date.now(),
+    fechaStr: new Date().toLocaleDateString('es-ES'),
+    horaStr: new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}),
+  };
+  try {
+    const ref = await addDoc(collection(db,'almacenExpediciones'), registro);
+    almCache.unshift({id:ref.id,...registro});
+  } catch(e) { console.warn('Error guardando expedición:', e); }
+  // Mostrar confirmación
+  for(let i=1;i<=5;i++) { const p=document.getElementById('alm-paso'+i); if(p) p.style.display='none'; }
+  const ok = document.getElementById('alm-paso-ok');
+  ok.style.display='block';
+  ok.innerHTML = `<div style="text-align:center;padding:2rem">
+    <div style="font-size:48px;margin-bottom:1rem">✅</div>
+    <div style="font-size:18px;font-weight:700;color:var(--success);margin-bottom:0.5rem">Expedición guardada</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:1.5rem">${registro.codigo} → ${registro.agencia}${registro.volumen>0?' · '+registro.volumen.toFixed(3)+' m³':''}${registro.peso>0?' · '+registro.peso.toFixed(1)+' kg':''}</div>
+    <button class="btn btn-primary" style="max-width:280px;margin:0 auto" onclick="almNueva()">📷 Nueva expedición</button>
+  </div>`;
+  almRenderStepper(5);
+}
+
+function almNueva() {
+  almReset();
+  document.getElementById('alm-paso-ok').style.display='none';
+  almRenderPaso(1);
+}
+
+// ── Vista admin del almacén ──
+function renderAlmacenAdmin() {
+  // Pestaña registros
+  const listEl = document.getElementById('alm-admin-registros');
+  if (!listEl) return;
+  const filtroAg = document.getElementById('alm-fil-agencia')?.value||'';
+  const filtroDesde = document.getElementById('alm-fil-desde')?.value||'';
+  const filtroHasta = document.getElementById('alm-fil-hasta')?.value||'';
+  let lista = [...almCache];
+  if (filtroAg) lista = lista.filter(r=>r.agencia===filtroAg);
+  if (filtroDesde) lista = lista.filter(r=>r.fechaStr>=filtroDesde);
+  if (filtroHasta) lista = lista.filter(r=>r.fechaStr<=filtroHasta);
+  const totalVol = lista.reduce((s,r)=>s+(r.volumen||0),0);
+  const totalPeso = lista.reduce((s,r)=>s+(r.peso||0),0);
+  listEl.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;margin-bottom:1rem">
+      <div class="stat-card"><div class="stat-val">${lista.length}</div><div class="stat-label">Expediciones</div></div>
+      <div class="stat-card"><div class="stat-val">${totalVol.toFixed(2)}</div><div class="stat-label">m³ total</div></div>
+      <div class="stat-card"><div class="stat-val">${totalPeso.toFixed(0)}</div><div class="stat-label">kg total</div></div>
+    </div>
+    <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap">
+      <select class="form-input" id="alm-fil-agencia" style="flex:1;min-width:100px;font-size:13px;padding:0.5rem" onchange="renderAlmacenAdmin()">
+        <option value="">Todas las agencias</option>
+        ${AGENCIAS_ALM.map(a=>`<option ${filtroAg===a?'selected':''}>${a}</option>`).join('')}
+      </select>
+      <input class="form-input" type="date" id="alm-fil-desde" value="${filtroDesde}" style="flex:1;min-width:120px;font-size:13px;padding:0.5rem" onchange="renderAlmacenAdmin()">
+      <input class="form-input" type="date" id="alm-fil-hasta" value="${filtroHasta}" style="flex:1;min-width:120px;font-size:13px;padding:0.5rem" onchange="renderAlmacenAdmin()">
+      <button class="btn btn-ghost" style="flex-shrink:0" onclick="almExportarExcel(lista)">📊 Excel</button>
+    </div>
+    <div class="refuel-card" style="padding:0">
+      ${lista.length===0?`<div style="text-align:center;color:var(--text-muted);padding:2rem;font-size:13px">No hay expediciones registradas</div>`:
+      lista.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:0.75rem 1rem;border-bottom:1px solid var(--card-border);font-size:13px">
+        <div>
+          <div style="font-weight:600;font-family:monospace;color:var(--accent)">${r.codigo}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${r.fechaStr} ${r.horaStr}</div>
+        </div>
+        <div style="display:flex;gap:0.5rem;align-items:center">
+          <span style="background:var(--navy-light);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">${r.agencia}</span>
+          ${r.volumen>0?`<span style="background:rgba(59,130,246,0.15);color:#3b82f6;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">${r.volumen.toFixed(3)} m³</span>`:''}
+          ${r.peso>0?`<span style="background:rgba(168,85,247,0.15);color:#a855f7;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">${r.peso.toFixed(1)} kg</span>`:''}
+          <button class="btn-del" onclick="almBorrarExpedicion('${r.id}')">🗑</button>
+        </div>
+      </div>`).join('')}
+    </div>`;
+}
+
+window.almBorrarExpedicion = async (id) => {
+  if (!confirm('¿Eliminar esta expedición?')) return;
+  try {
+    await deleteDoc(doc(db,'almacenExpediciones',id));
+    almCache = almCache.filter(r=>r.id!==id);
+    renderAlmacenAdmin();
+  } catch(e) { alert('Error: '+e.message); }
+};
+
+async function almExportarExcel(lista) {
+  if (!lista.length) { alert('No hay expediciones para exportar'); return; }
+  try {
+    const XLSX = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm');
+    const datos = lista.map(r=>({
+      'Fecha': r.fechaStr,
+      'Hora': r.horaStr,
+      'Código': r.codigo,
+      'Agencia': r.agencia,
+      'Volumen (m³)': r.volumen||0,
+      'Peso (kg)': r.peso||0,
+      'Largo (m)': r.largo||0,
+      'Ancho (m)': r.ancho||0,
+      'Alto (m)': r.alto||0,
+    }));
+    const ws = XLSX.utils.json_to_sheet(datos);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Almacén');
+    XLSX.writeFile(wb, `Almacen_${new Date().toISOString().slice(0,10)}.xlsx`);
+  } catch(e) { alert('Error exportando: '+e.message); }
+}
+
 })();
 </script>
 </body>
