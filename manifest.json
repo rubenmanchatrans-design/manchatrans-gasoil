@@ -1,7 +1,7 @@
 {
-  "name": "Control de Gasoil - Manchatrans",
-  "short_name": "Gasoil",
-  "description": "Control de repostaje Manchatrans S.L.",
+  "name": "NexoFlota - Manchatrans",
+  "short_name": "NexoFlota",
+  "description": "Control de flota y gestión Manchatrans S.L.",
   "start_url": "/manchatrans-gasoil/",
   "display": "standalone",
   "background_color": "#111820",
