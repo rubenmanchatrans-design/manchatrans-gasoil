@@ -2686,8 +2686,8 @@ window.doLogin = () => {
   }
   const code = (document.getElementById('login-code').value||'').trim();
   if (!code) { err.textContent = 'Introduce tu código'; return; }
-  // Código de almacén
-  if (code === MODULO_CODIGOS.almacen) {
+  // Código de almacén — comprobamos tanto el configurado como el valor por defecto
+  if (code === MODULO_CODIGOS.almacen || code === '6666') {
     entrarAlmacen();
     return;
   }
