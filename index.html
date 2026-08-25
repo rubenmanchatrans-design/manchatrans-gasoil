@@ -1747,6 +1747,9 @@ async function initApp() {
       MODULO_CODIGOS.fleet = data.fleet || MODULO_CODIGOS.fleet;
       MODULO_CODIGOS.ropa = data.ropa || MODULO_CODIGOS.ropa;
       MODULO_CODIGOS.seguros = data.seguros || MODULO_CODIGOS.seguros;
+      MODULO_CODIGOS.almacen = data.almacen || MODULO_CODIGOS.almacen;
+      // Si no tenía el código de almacén, lo guardamos
+      if (!data.almacen) await setDoc(doc(db,'configuracion','moduloCodigos'), MODULO_CODIGOS);
     } else {
       await setDoc(doc(db, 'configuracion', 'moduloCodigos'), MODULO_CODIGOS);
     }
@@ -2385,7 +2388,14 @@ function activarListenersTiempoReal() {
 
   // Códigos de acceso a módulos (puede cambiarlos el Admin Superior desde cualquier dispositivo)
   onSnapshot(doc(db, 'configuracion', 'moduloCodigos'), (snap) => {
-    if (snap.exists()) MODULO_CODIGOS = snap.data();
+    if (snap.exists()) {
+      const data = snap.data();
+      MODULO_CODIGOS.gasoil = data.gasoil || MODULO_CODIGOS.gasoil;
+      MODULO_CODIGOS.fleet = data.fleet || MODULO_CODIGOS.fleet;
+      MODULO_CODIGOS.ropa = data.ropa || MODULO_CODIGOS.ropa;
+      MODULO_CODIGOS.seguros = data.seguros || MODULO_CODIGOS.seguros;
+      MODULO_CODIGOS.almacen = data.almacen || MODULO_CODIGOS.almacen;
+    }
   });
 
   // Código de acceso del admin normal (puede cambiarlo el Admin Superior)
