@@ -8891,7 +8891,8 @@ window.descargarPdfRopa = (id) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${h.empleadoNombre.replace(/\s+/g,'_')}_${h.fechaStr.replace(/\//g,'-')}.pdf`;
+    const fechaISO = h.fecha ? new Date(h.fecha).toISOString().slice(0,10) : h.fechaStr.replace(/\//g,'-');
+    a.download = `${fechaISO}_${h.empleadoNombre.replace(/\s+/g,'_')}.pdf`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
