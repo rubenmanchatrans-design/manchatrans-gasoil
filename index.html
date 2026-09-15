@@ -1084,6 +1084,7 @@ input[type="number"] { -moz-appearance: textfield; }
         <button class="btn btn-ghost atab-btn" id="rtab-btn-historial">Historial</button>
         <button class="btn btn-ghost atab-btn" id="rtab-btn-pendientes">Pendientes de firma</button>
         <button class="btn btn-ghost atab-btn" id="rtab-btn-inventario">Inventario</button>
+        <button class="btn btn-ghost atab-btn" id="rtab-btn-pedido">📦 Pedido anual</button>
       </div>
 
       <!-- NUEVA ENTREGA -->
@@ -1156,6 +1157,24 @@ input[type="number"] { -moz-appearance: textfield; }
           <button class="btn-sm" id="btn-toggle-inv-todos" onclick="toggleMostrarTodoInventario()">Ver todos</button>
         </div>
         <div id="inv-list"></div>
+      </div>
+
+      <div id="rtab-pedido" class="tab-pane">
+        <div class="refuel-card" style="margin-bottom:1rem;">
+          <div class="section-title">Calcular pedido de temporada</div>
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.85rem;">
+            Calcula cuánta ropa hay que pedir según las tallas de conductores y personal de taller.
+          </div>
+          <div class="two-col" style="margin-bottom:0.75rem;">
+            <button class="btn btn-ghost" id="btn-pedido-verano" onclick="calcularPedidoRopa('verano')">☀️ Verano</button>
+            <button class="btn btn-ghost" id="btn-pedido-invierno" onclick="calcularPedidoRopa('invierno')">❄️ Invierno</button>
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);border-top:1px solid var(--card-border);padding-top:0.75rem;">
+            <strong style="color:var(--accent);">Verano:</strong> 2 pantalones cortos + 3 polos manga corta por persona<br>
+            <strong style="color:var(--accent);">Invierno:</strong> 2 pantalones largos + 3 polos manga larga + 2 sudaderas por persona
+          </div>
+        </div>
+        <div id="pedido-resultado"></div>
       </div>
     </div>
     <!-- ═══════════ FIN MÓDULO ROPA ═══════════ -->
@@ -2051,6 +2070,171 @@ async function almExportarExcel(lista) {
   } catch(e) { alert('Error exportando: '+e.message); }
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// PEDIDO DE ROPA POR TEMPORADA
+// ════════════════════════════════════════════════════════════════════════════
+// Calcula cuánta ropa hay que pedir cada temporada según las tallas guardadas
+// de cada empleado. Solo cuenta a quienes reciben equipación completa
+// (conductores, taller, almacén y limpieza); oficina va aparte porque solo se
+// les da lo que piden.
+const PEDIDO_TEMPORADAS = {
+  verano:   { label:'Verano',   icono:'☀️', articulos:{ pantalon_corto:2, polo_corta:3 } },
+  invierno: { label:'Invierno', icono:'❄️', articulos:{ pantalon_largo:2, polo_larga:3, sudadera:2 } },
+};
+const CATEGORIAS_CON_EQUIPACION = ['conductor','taller','almacen','limpieza'];
+
+window.calcularPedidoRopa = function(temporada) {
+  const cfg = PEDIDO_TEMPORADAS[temporada];
+  if (!cfg) return;
+  // Resaltar el botón activo
+  document.getElementById('btn-pedido-verano').className = 'btn ' + (temporada==='verano'?'btn-secondary':'btn-ghost');
+  document.getElementById('btn-pedido-invierno').className = 'btn ' + (temporada==='invierno'?'btn-secondary':'btn-ghost');
+
+  // Empleados con equipación completa (resueltos para tener nombre y categoría al día)
+  const empleados = ropaEmpleadosCache
+    .map(resolverEmpleadoRopa)
+    .filter(e => e.activo !== false && CATEGORIAS_CON_EQUIPACION.includes(e.categoria));
+  const empleadosOficina = ropaEmpleadosCache
+    .map(resolverEmpleadoRopa)
+    .filter(e => e.activo !== false && e.categoria === 'oficina');
+
+  // Contar por artículo y talla: { articuloId: { talla: unidades } }
+  const conteo = {};
+  const sinTalla = {};
+  Object.keys(cfg.articulos).forEach(artId => { conteo[artId] = {}; sinTalla[artId] = []; });
+
+  empleados.forEach(emp => {
+    const raw = ropaEmpleadosCache.find(x => x.id === emp.id);
+    const tallas = (raw && raw.tallas) || {};
+    Object.entries(cfg.articulos).forEach(([artId, porPersona]) => {
+      const talla = (tallas[artId]||'').trim();
+      if (!talla) { sinTalla[artId].push(emp.nombre||'(sin nombre)'); return; }
+      conteo[artId][talla] = (conteo[artId][talla]||0) + porPersona;
+    });
+  });
+
+  // Stock actual por artículo y talla
+  const stockDe = (artId, talla) => {
+    const item = ropaInventarioCache.find(i => i.articuloId===artId && (i.talla||'').trim().toUpperCase()===talla.trim().toUpperCase());
+    return item ? (item.cantidad||0) : 0;
+  };
+
+  const nombreArt = id => (ARTICULOS_ROPA.find(a=>a.id===id)||{}).label || id;
+
+  let html = `<div class="refuel-card" style="margin-bottom:1rem;">
+    <div class="section-title">${cfg.icono} Pedido ${cfg.label} — ${new Date().getFullYear()}</div>
+    <div style="font-size:13px;color:var(--text-muted);">Calculado sobre <strong style="color:var(--text);">${empleados.length}</strong> empleados con equipación (conductores, taller, almacén y limpieza).</div>
+  </div>`;
+
+  Object.keys(cfg.articulos).forEach(artId => {
+    const porPersona = cfg.articulos[artId];
+    const tallas = Object.keys(conteo[artId]).sort((a,b)=>{
+      const na = parseFloat(a), nb = parseFloat(b);
+      if (!isNaN(na) && !isNaN(nb)) return na-nb;
+      return a.localeCompare(b);
+    });
+    let totalNecesario = 0, totalPedir = 0;
+    const filas = tallas.map(t => {
+      const necesario = conteo[artId][t];
+      const stock = stockDe(artId, t);
+      const pedir = Math.max(0, necesario - stock);
+      totalNecesario += necesario; totalPedir += pedir;
+      return `<tr>
+        <td style="padding:7px 10px;font-weight:600;">${t}</td>
+        <td style="padding:7px 10px;text-align:right;">${necesario}</td>
+        <td style="padding:7px 10px;text-align:right;color:var(--text-muted);">${stock}</td>
+        <td style="padding:7px 10px;text-align:right;font-weight:700;color:${pedir>0?'var(--accent)':'var(--success)'};">${pedir}</td>
+      </tr>`;
+    }).join('');
+
+    html += `<div class="refuel-card" style="margin-bottom:0.85rem;padding:0;overflow:hidden;">
+      <div style="padding:0.85rem 1rem;border-bottom:1px solid var(--card-border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+        <div>
+          <div style="font-weight:700;font-size:15px;">${nombreArt(artId)}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${porPersona} por persona</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:20px;font-weight:700;color:var(--accent);">${totalPedir}</div>
+          <div style="font-size:11px;color:var(--text-muted);">a pedir de ${totalNecesario}</div>
+        </div>
+      </div>
+      ${tallas.length ? `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead><tr style="border-bottom:1px solid var(--card-border);">
+          <th style="padding:7px 10px;text-align:left;font-size:11px;color:var(--text-muted);font-weight:500;">TALLA</th>
+          <th style="padding:7px 10px;text-align:right;font-size:11px;color:var(--text-muted);font-weight:500;">NECESARIO</th>
+          <th style="padding:7px 10px;text-align:right;font-size:11px;color:var(--text-muted);font-weight:500;">EN STOCK</th>
+          <th style="padding:7px 10px;text-align:right;font-size:11px;color:var(--text-muted);font-weight:500;">A PEDIR</th>
+        </tr></thead>
+        <tbody>${filas}</tbody>
+      </table>` : `<div style="padding:1rem;text-align:center;color:var(--text-muted);font-size:13px;">Ningún empleado tiene talla guardada para este artículo</div>`}
+      ${sinTalla[artId].length ? `<div style="padding:0.6rem 1rem;border-top:1px solid var(--card-border);font-size:11px;color:var(--warning);">⚠️ Sin talla guardada: ${sinTalla[artId].join(', ')}</div>` : ''}
+    </div>`;
+  });
+
+  // Oficina y cazadoras: manual
+  html += `<div class="refuel-card" style="margin-bottom:0.85rem;">
+    <div class="section-title">Añadir a mano</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.75rem;">
+      El personal de oficina (<strong style="color:var(--text);">${empleadosOficina.length}</strong> personas) recibe solo lo que pide, y las chaquetas se dan a los nuevos o por rotura. Añade aquí lo que estimes.
+    </div>
+    <div class="two-col">
+      <div><label class="form-label">Chaquetas</label><input class="form-input" type="number" id="pedido-extra-chaquetas" min="0" placeholder="Ej: 5"></div>
+      <div><label class="form-label">Extra oficina</label><input class="form-input" type="number" id="pedido-extra-oficina" min="0" placeholder="Ej: 10"></div>
+    </div>
+  </div>
+  <button class="btn btn-primary" onclick="exportarPedidoRopa('${temporada}')">📊 Exportar pedido a Excel</button>`;
+
+  document.getElementById('pedido-resultado').innerHTML = html;
+};
+
+window.exportarPedidoRopa = async function(temporada) {
+  const cfg = PEDIDO_TEMPORADAS[temporada];
+  const empleados = ropaEmpleadosCache
+    .map(resolverEmpleadoRopa)
+    .filter(e => e.activo !== false && CATEGORIAS_CON_EQUIPACION.includes(e.categoria));
+  const stockDe = (artId, talla) => {
+    const item = ropaInventarioCache.find(i => i.articuloId===artId && (i.talla||'').trim().toUpperCase()===talla.trim().toUpperCase());
+    return item ? (item.cantidad||0) : 0;
+  };
+  const nombreArt = id => (ARTICULOS_ROPA.find(a=>a.id===id)||{}).label || id;
+
+  const filas = [];
+  Object.entries(cfg.articulos).forEach(([artId, porPersona]) => {
+    const conteo = {};
+    empleados.forEach(emp => {
+      const raw = ropaEmpleadosCache.find(x => x.id === emp.id);
+      const talla = ((raw && raw.tallas && raw.tallas[artId])||'').trim();
+      if (!talla) return;
+      conteo[talla] = (conteo[talla]||0) + porPersona;
+    });
+    Object.keys(conteo).sort().forEach(t => {
+      const necesario = conteo[t];
+      const stock = stockDe(artId, t);
+      filas.push({
+        'Artículo': nombreArt(artId),
+        'Talla': t,
+        'Necesario': necesario,
+        'En stock': stock,
+        'A pedir': Math.max(0, necesario - stock),
+      });
+    });
+  });
+
+  const extraChaquetas = parseInt(document.getElementById('pedido-extra-chaquetas')?.value)||0;
+  const extraOficina = parseInt(document.getElementById('pedido-extra-oficina')?.value)||0;
+  if (extraChaquetas) filas.push({'Artículo':'Chaqueta','Talla':'(varias)','Necesario':extraChaquetas,'En stock':0,'A pedir':extraChaquetas});
+  if (extraOficina) filas.push({'Artículo':'Extra oficina','Talla':'(varias)','Necesario':extraOficina,'En stock':0,'A pedir':extraOficina});
+
+  if (!filas.length) { alert('No hay nada que exportar'); return; }
+  try {
+    const XLSX = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm');
+    const ws = XLSX.utils.json_to_sheet(filas);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Pedido '+cfg.label);
+    XLSX.writeFile(wb, `Pedido_Ropa_${cfg.label}_${new Date().getFullYear()}.xlsx`);
+  } catch(e) { alert('Error exportando: '+e.message); }
+};
+
 async function initApp() {
   // Timeout — si tarda más de 2 segundos avisa, si pasa de 8 recarga automáticamente
   const timeoutId = setTimeout(() => {
@@ -2217,6 +2401,7 @@ async function initApp() {
   document.getElementById('rtab-btn-historial').addEventListener('click', ()=>switchRopaTab('historial'));
   document.getElementById('rtab-btn-pendientes').addEventListener('click', ()=>switchRopaTab('pendientes'));
   document.getElementById('rtab-btn-inventario').addEventListener('click', ()=>switchRopaTab('inventario'));
+  document.getElementById('rtab-btn-pedido').addEventListener('click', ()=>switchRopaTab('pedido'));
   document.getElementById('btn-add-stock').addEventListener('click', ()=>window.addStockRopa());
   document.getElementById('btn-borrar-stock').addEventListener('click', limpiarFormularioStockRopa);
   populateInventarioSelect();
@@ -4571,7 +4756,7 @@ function pedirCodigoModulo(mod) {
 function switchRopaTab(tab) {
   document.querySelectorAll('#module-ropa .tab-pane').forEach(p=>p.classList.remove('active'));
   document.getElementById('rtab-'+tab).classList.add('active');
-  ['entregar','historial','pendientes','inventario'].forEach(t=>{
+  ['entregar','historial','pendientes','inventario','pedido'].forEach(t=>{
     document.getElementById('rtab-btn-'+t).className='btn atab-btn '+(t===tab?'btn-secondary':'btn-ghost');
   });
   if (tab==='historial') renderRopaHistorial();
