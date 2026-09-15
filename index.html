@@ -1187,29 +1187,39 @@ input[type="number"] { -moz-appearance: textfield; }
 
       <!-- HISTORIAL DE ENTREGAS -->
       <div id="rtab-historial" class="tab-pane">
-        <div class="section-title">Historial de entregas</div>
-        <div class="form-group">
-          <select class="form-input" id="ropa-hist-filter" style="font-size:14px;padding:0.6rem;">
-            <option value="">Todos los empleados</option>
-          </select>
-        </div>
-
-        <div class="refuel-card" style="margin-bottom:1rem;">
-          <div class="section-title">Descargar varios PDFs (.zip)</div>
-          <div class="form-group">
-            <label class="form-label">Empleado</label>
-            <select class="form-input" id="zip-sel-empleado" style="font-size:14px;padding:0.6rem;">
-              <option value="">Todos los empleados</option>
-            </select>
+        <div class="mod-layout">
+          <div class="mod-side">
+            <button class="mod-side-item active" data-pane="rh-listado">📋 Entregas</button>
+            <button class="mod-side-item" data-pane="rh-zip">⬇ Descargar ZIP</button>
           </div>
-          <div class="two-col" style="margin-bottom:0.75rem;">
-            <div><label class="form-label">Desde</label><input class="form-input" type="date" id="zip-desde" style="font-size:14px;padding:0.6rem;"></div>
-            <div><label class="form-label">Hasta</label><input class="form-input" type="date" id="zip-hasta" style="font-size:14px;padding:0.6rem;"></div>
+          <div class="mod-content">
+            <div id="rh-listado" class="mod-pane active">
+              <div class="section-title">Historial de entregas</div>
+              <div class="form-group">
+                <select class="form-input" id="ropa-hist-filter" style="font-size:14px;padding:0.6rem;">
+                  <option value="">Todos los empleados</option>
+                </select>
+              </div>
+              <div id="ropa-hist-list"></div>
+            </div>
+            <div id="rh-zip" class="mod-pane">
+              <div class="refuel-card">
+                <div class="section-title">Descargar varios PDFs (.zip)</div>
+                <div class="form-group">
+                  <label class="form-label">Empleado</label>
+                  <select class="form-input" id="zip-sel-empleado" style="font-size:14px;padding:0.6rem;">
+                    <option value="">Todos los empleados</option>
+                  </select>
+                </div>
+                <div class="two-col" style="margin-bottom:0.75rem;">
+                  <div><label class="form-label">Desde</label><input class="form-input" type="date" id="zip-desde" style="font-size:14px;padding:0.6rem;"></div>
+                  <div><label class="form-label">Hasta</label><input class="form-input" type="date" id="zip-hasta" style="font-size:14px;padding:0.6rem;"></div>
+                </div>
+                <button class="btn-export" id="btn-zip-ropa">⬇ Descargar ZIP</button>
+              </div>
+            </div>
           </div>
-          <button class="btn-export" id="btn-zip-ropa">⬇ Descargar ZIP</button>
         </div>
-
-        <div id="ropa-hist-list"></div>
       </div>
 
       <!-- PENDIENTES DE FIRMA -->
@@ -1220,30 +1230,40 @@ input[type="number"] { -moz-appearance: textfield; }
 
       <!-- INVENTARIO -->
       <div id="rtab-inventario" class="tab-pane">
-        <div id="inv-alert" class="alert"></div>
-        <div class="refuel-card" style="margin-bottom:1rem;">
-          <div class="section-title">Añadir stock</div>
-          <div class="form-group">
-            <label class="form-label">Artículo</label>
-            <div id="inv-articulo-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;"></div>
+        <div class="mod-layout">
+          <div class="mod-side">
+            <button class="mod-side-item active" data-pane="ri-stock">📦 Stock actual</button>
+            <button class="mod-side-item" data-pane="ri-añadir">➕ Añadir stock</button>
           </div>
-          <div class="two-col" style="margin-bottom:0.75rem;">
-            <div><label class="form-label">Talla</label><div id="inv-talla-wrapper"><input class="form-input" type="text" id="inv-talla" placeholder="Ej: L, 42..."></div></div>
-            <div><label class="form-label">Cantidad a añadir</label><input class="form-input" type="number" id="inv-cantidad" min="0" placeholder="Ej: 10"></div>
-          </div>
-          <div class="two-col">
-            <button class="btn btn-primary" id="btn-add-stock">➕ Añadir al inventario</button>
-            <button class="btn btn-ghost" id="btn-borrar-stock" type="button">🗑 Borrar</button>
+          <div class="mod-content">
+            <div id="ri-stock" class="mod-pane active">
+              <div id="inv-alertas-bajo"></div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem;flex-wrap:wrap;gap:0.5rem;">
+                <div class="section-title" style="margin-bottom:0;">Stock actual</div>
+                <button class="btn-sm" id="btn-toggle-inv-todos" onclick="toggleMostrarTodoInventario()">Ver todos</button>
+              </div>
+              <div id="inv-list"></div>
+            </div>
+            <div id="ri-añadir" class="mod-pane">
+              <div id="inv-alert" class="alert"></div>
+              <div class="refuel-card">
+                <div class="section-title">Añadir stock</div>
+                <div class="form-group">
+                  <label class="form-label">Artículo</label>
+                  <div id="inv-articulo-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;"></div>
+                </div>
+                <div class="two-col" style="margin-bottom:0.75rem;">
+                  <div><label class="form-label">Talla</label><div id="inv-talla-wrapper"><input class="form-input" type="text" id="inv-talla" placeholder="Ej: L, 42..."></div></div>
+                  <div><label class="form-label">Cantidad a añadir</label><input class="form-input" type="number" id="inv-cantidad" min="0" placeholder="Ej: 10"></div>
+                </div>
+                <div class="two-col">
+                  <button class="btn btn-primary" id="btn-add-stock">➕ Añadir al inventario</button>
+                  <button class="btn btn-ghost" id="btn-borrar-stock" type="button">🗑 Borrar</button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-
-        <div id="inv-alertas-bajo"></div>
-
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem;flex-wrap:wrap;gap:0.5rem;">
-          <div class="section-title" style="margin-bottom:0;">Stock actual</div>
-          <button class="btn-sm" id="btn-toggle-inv-todos" onclick="toggleMostrarTodoInventario()">Ver todos</button>
-        </div>
-        <div id="inv-list"></div>
       </div>
 
       <div id="rtab-pedido" class="tab-pane">
