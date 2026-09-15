@@ -2090,13 +2090,15 @@ window.calcularPedidoRopa = function(temporada) {
   document.getElementById('btn-pedido-verano').className = 'btn ' + (temporada==='verano'?'btn-secondary':'btn-ghost');
   document.getElementById('btn-pedido-invierno').className = 'btn ' + (temporada==='invierno'?'btn-secondary':'btn-ghost');
 
-  // Empleados con equipación completa (resueltos para tener nombre y categoría al día)
-  const empleados = ropaEmpleadosCache
-    .map(resolverEmpleadoRopa)
-    .filter(e => e.activo !== false && CATEGORIAS_CON_EQUIPACION.includes(e.categoria));
-  const empleadosOficina = ropaEmpleadosCache
-    .map(resolverEmpleadoRopa)
-    .filter(e => e.activo !== false && e.categoria === 'oficina');
+  // Empleados con equipación completa. La categoría fiable es la del propio
+  // registro de ropa; si no la tiene, usamos la del empleado en Configuración.
+  const catDe = (raw, resuelto) => ((raw && raw.categoria) || (resuelto && resuelto.categoria) || '').trim().toLowerCase();
+  const conCategoria = ropaEmpleadosCache.map(raw => {
+    const resuelto = resolverEmpleadoRopa(raw);
+    return { ...resuelto, _cat: catDe(raw, resuelto), _tallas: (raw && raw.tallas) || {} };
+  });
+  const empleados = conCategoria.filter(e => e.activo !== false && CATEGORIAS_CON_EQUIPACION.includes(e._cat));
+  const empleadosOficina = conCategoria.filter(e => e.activo !== false && e._cat === 'oficina');
 
   // Contar por artículo y talla: { articuloId: { talla: unidades } }
   const conteo = {};
@@ -2104,8 +2106,7 @@ window.calcularPedidoRopa = function(temporada) {
   Object.keys(cfg.articulos).forEach(artId => { conteo[artId] = {}; sinTalla[artId] = []; });
 
   empleados.forEach(emp => {
-    const raw = ropaEmpleadosCache.find(x => x.id === emp.id);
-    const tallas = (raw && raw.tallas) || {};
+    const tallas = emp._tallas || {};
     Object.entries(cfg.articulos).forEach(([artId, porPersona]) => {
       const talla = (tallas[artId]||'').trim();
       if (!talla) { sinTalla[artId].push(emp.nombre||'(sin nombre)'); return; }
@@ -2121,10 +2122,8 @@ window.calcularPedidoRopa = function(temporada) {
 
   const nombreArt = id => (ARTICULOS_ROPA.find(a=>a.id===id)||{}).label || id;
 
-  let html = `<div class="refuel-card" style="margin-bottom:1rem;">
-    <div class="section-title">${cfg.icono} Pedido ${cfg.label} — ${new Date().getFullYear()}</div>
-    <div style="font-size:13px;color:var(--text-muted);">Calculado sobre <strong style="color:var(--text);">${empleados.length}</strong> empleados con equipación (conductores, taller, almacén y limpieza).</div>
-  </div>`;
+  let granTotalNecesario = 0, granTotalPedir = 0;
+  let htmlArticulos = '';
 
   Object.keys(cfg.articulos).forEach(artId => {
     const porPersona = cfg.articulos[artId];
@@ -2147,7 +2146,8 @@ window.calcularPedidoRopa = function(temporada) {
       </tr>`;
     }).join('');
 
-    html += `<div class="refuel-card" style="margin-bottom:0.85rem;padding:0;overflow:hidden;">
+    granTotalNecesario += totalNecesario; granTotalPedir += totalPedir;
+    htmlArticulos += `<div class="refuel-card" style="margin-bottom:0.85rem;padding:0;overflow:hidden;">
       <div style="padding:0.85rem 1rem;border-bottom:1px solid var(--card-border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
         <div>
           <div style="font-weight:700;font-size:15px;">${nombreArt(artId)}</div>
@@ -2171,6 +2171,26 @@ window.calcularPedidoRopa = function(temporada) {
     </div>`;
   });
 
+  // Resumen general arriba del todo
+  let html = `<div class="refuel-card" style="margin-bottom:1rem;">
+    <div class="section-title">${cfg.icono} Pedido ${cfg.label} ${new Date().getFullYear()}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;margin:0.85rem 0;">
+      <div style="text-align:center;padding:0.75rem;background:var(--navy-light);border-radius:var(--radius-sm);">
+        <div style="font-size:26px;font-weight:700;color:var(--text);">${empleados.length}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Empleados</div>
+      </div>
+      <div style="text-align:center;padding:0.75rem;background:var(--navy-light);border-radius:var(--radius-sm);">
+        <div style="font-size:26px;font-weight:700;color:var(--text-muted);">${granTotalNecesario}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Prendas necesarias</div>
+      </div>
+      <div style="text-align:center;padding:0.75rem;background:rgba(245,166,35,0.12);border:1px solid var(--accent);border-radius:var(--radius-sm);">
+        <div style="font-size:26px;font-weight:700;color:var(--accent);">${granTotalPedir}</div>
+        <div style="font-size:11px;color:var(--accent);margin-top:2px;">TOTAL A PEDIR</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);">Conductores, taller, almacén y limpieza. Ya descontado lo que hay en inventario.</div>
+  </div>` + htmlArticulos;
+
   // Oficina y cazadoras: manual
   html += `<div class="refuel-card" style="margin-bottom:0.85rem;">
     <div class="section-title">Añadir a mano</div>
@@ -2189,9 +2209,11 @@ window.calcularPedidoRopa = function(temporada) {
 
 window.exportarPedidoRopa = async function(temporada) {
   const cfg = PEDIDO_TEMPORADAS[temporada];
-  const empleados = ropaEmpleadosCache
-    .map(resolverEmpleadoRopa)
-    .filter(e => e.activo !== false && CATEGORIAS_CON_EQUIPACION.includes(e.categoria));
+  const catDe = (raw, resuelto) => ((raw && raw.categoria) || (resuelto && resuelto.categoria) || '').trim().toLowerCase();
+  const empleados = ropaEmpleadosCache.map(raw => {
+    const resuelto = resolverEmpleadoRopa(raw);
+    return { ...resuelto, _cat: catDe(raw, resuelto), _tallas: (raw && raw.tallas) || {} };
+  }).filter(e => e.activo !== false && CATEGORIAS_CON_EQUIPACION.includes(e._cat));
   const stockDe = (artId, talla) => {
     const item = ropaInventarioCache.find(i => i.articuloId===artId && (i.talla||'').trim().toUpperCase()===talla.trim().toUpperCase());
     return item ? (item.cantidad||0) : 0;
@@ -2202,8 +2224,7 @@ window.exportarPedidoRopa = async function(temporada) {
   Object.entries(cfg.articulos).forEach(([artId, porPersona]) => {
     const conteo = {};
     empleados.forEach(emp => {
-      const raw = ropaEmpleadosCache.find(x => x.id === emp.id);
-      const talla = ((raw && raw.tallas && raw.tallas[artId])||'').trim();
+      const talla = ((emp._tallas && emp._tallas[artId])||'').trim();
       if (!talla) return;
       conteo[talla] = (conteo[talla]||0) + porPersona;
     });
