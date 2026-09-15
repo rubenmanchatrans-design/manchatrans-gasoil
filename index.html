@@ -177,6 +177,15 @@ textarea.form-input { resize: vertical; min-height: 70px; }
 .module-btn.active { background: var(--accent); color: #111; border-color: var(--accent); }
 .modulo-home-btn { display: flex; align-items: center; gap: 1rem; padding: 1.25rem 1.5rem; border-radius: var(--radius); border: 1px solid var(--card-border); background: var(--card); color: var(--text); cursor: pointer; transition: all 0.15s; width: 100%; }
 .modulo-home-btn:active { transform: scale(0.98); background: var(--navy-light); }
+.home-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.85rem; }
+.home-card { display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; padding: 1.25rem; border-radius: var(--radius); border: 1px solid var(--card-border); background: var(--card); color: var(--text); cursor: pointer; transition: border-color 0.15s, transform 0.1s; text-align: left; }
+.home-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.home-card:active { transform: scale(0.99); }
+.hc-icon { width: 46px; height: 46px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 23px; margin-bottom: 0.3rem; }
+.hc-name { font-size: 16px; font-weight: 700; }
+.hc-desc { font-size: 12px; color: var(--text-muted); line-height: 1.35; }
+.hc-badge { font-size: 11px; font-weight: 700; margin-top: 0.4rem; }
+.hc-badge:empty { display: none; }
 .ropa-check { width: 22px; height: 22px; border: 2px solid var(--card-border); border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; background: var(--input-bg); }
 .ropa-check.checked { background: var(--accent); border-color: var(--accent); }
 .ropa-check.checked::after { content: '✕'; color: #111; font-weight: 700; font-size: 13px; }
@@ -337,38 +346,49 @@ input[type="number"] { -moz-appearance: textfield; }
 
     <!-- PANTALLA PRINCIPAL: SELECTOR DE MÓDULO -->
     <div id="modulo-home-screen">
-      <div style="text-align:center;margin:1.5rem 0 2rem;">
-        <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:0.4rem;">¿Qué quieres gestionar?</div>
+      <div style="margin:1.25rem 0 1.5rem;">
+        <div id="home-saludo" style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:0.3rem;">¿Qué quieres gestionar?</div>
         <div style="font-size:13px;color:var(--text-muted);">Selecciona un módulo para continuar</div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:0.85rem;max-width:400px;margin:0 auto;">
-        <button class="modulo-home-btn" id="home-btn-gasoil">
-          <span style="font-size:28px;">⛽</span>
-          <span style="font-size:16px;font-weight:700;">Gasoil</span>
+      <div class="home-grid">
+        <button class="home-card" id="home-btn-gasoil">
+          <span class="hc-icon" style="background:rgba(245,166,35,0.15);">⛽</span>
+          <span class="hc-name">Gasoil</span>
+          <span class="hc-desc">Registros · Depósito · Consumo</span>
         </button>
-        <button class="modulo-home-btn" id="home-btn-fleet">
-          <span style="font-size:28px;">🚛</span>
-          <span style="font-size:16px;font-weight:700;">Flota <span id="home-badge-flota" style="font-size:12px;"></span></span>
+        <button class="home-card" id="home-btn-fleet">
+          <span class="hc-icon" style="background:rgba(46,204,113,0.15);">🚛</span>
+          <span class="hc-name">Flota</span>
+          <span class="hc-desc">ITV · Tacógrafo · Reparaciones · Limpieza</span>
+          <span id="home-badge-flota" class="hc-badge"></span>
         </button>
-        <button class="modulo-home-btn" id="home-btn-ropa">
-          <span style="font-size:28px;">👔</span>
-          <span style="font-size:16px;font-weight:700;">Ropa</span>
+        <button class="home-card" id="home-btn-ropa">
+          <span class="hc-icon" style="background:rgba(59,130,246,0.15);">👔</span>
+          <span class="hc-name">Ropa</span>
+          <span class="hc-desc">Entregas · Inventario · Pedido anual</span>
+          <span id="home-badge-ropa" class="hc-badge"></span>
         </button>
-        <button class="modulo-home-btn" id="home-btn-adrcap">
-          <span style="font-size:28px;">🪪</span>
-          <span style="font-size:16px;font-weight:700;">ADR/CAP <span id="home-badge-adrcap" style="font-size:12px;"></span></span>
+        <button class="home-card" id="home-btn-adrcap">
+          <span class="hc-icon" style="background:rgba(168,85,247,0.15);">🪪</span>
+          <span class="hc-name">ADR / CAP</span>
+          <span class="hc-desc">Formación · Créditos · Cursos</span>
+          <span id="home-badge-adrcap" class="hc-badge"></span>
         </button>
-        <button class="modulo-home-btn" id="home-btn-seguros">
-          <span style="font-size:28px;">🛡️</span>
-          <span style="font-size:16px;font-weight:700;">Seguros <span id="home-badge-seguros" style="font-size:12px;"></span></span>
+        <button class="home-card" id="home-btn-seguros">
+          <span class="hc-icon" style="background:rgba(231,76,60,0.15);">🛡️</span>
+          <span class="hc-name">Seguros</span>
+          <span class="hc-desc">Vehículos · Pólizas · Comparativa</span>
+          <span id="home-badge-seguros" class="hc-badge"></span>
         </button>
-        <button class="modulo-home-btn" id="home-btn-almacen">
-          <span style="font-size:28px;">📦</span>
-          <span style="font-size:16px;font-weight:700;">Almacén</span>
+        <button class="home-card" id="home-btn-almacen">
+          <span class="hc-icon" style="background:rgba(245,166,35,0.15);">📦</span>
+          <span class="hc-name">Almacén</span>
+          <span class="hc-desc">Expediciones · Volúmenes · Pesos</span>
         </button>
-        <button class="modulo-home-btn" id="home-btn-gestion">
-          <span style="font-size:28px;">⚙️</span>
-          <span style="font-size:16px;font-weight:700;">Configuración</span>
+        <button class="home-card" id="home-btn-gestion">
+          <span class="hc-icon" style="background:rgba(143,163,188,0.15);">⚙️</span>
+          <span class="hc-name">Configuración</span>
+          <span class="hc-desc">Empleados · Vehículos · Copia de seguridad</span>
         </button>
       </div>
     </div>
@@ -3396,7 +3416,15 @@ window.submitRepostaje = async () => {
 // ══════════════════════════════
 // ADMIN
 // ══════════════════════════════
-function renderAdminPage() { populateFilters(); renderAdminStats(); renderDriverList(); updateAdrCapBadge(); updateSegurosBadge(); updateFleetBadge(); }
+function actualizarSaludoHome() {
+  const el = document.getElementById('home-saludo');
+  if (!el) return;
+  const h = new Date().getHours();
+  const saludo = h < 14 ? 'Buenos días' : h < 21 ? 'Buenas tardes' : 'Buenas noches';
+  el.textContent = `${saludo}, ¿qué quieres gestionar?`;
+}
+
+function renderAdminPage() { actualizarSaludoHome(); populateFilters(); renderAdminStats(); renderDriverList(); updateAdrCapBadge(); updateSegurosBadge(); updateFleetBadge(); updatePendientesBadge(); }
 
 function populateFilters() {
   // Conductores (todos, incluidos los de baja, para poder filtrar su histórico)
@@ -4741,6 +4769,7 @@ function volverASeleccionModulo() {
   document.getElementById('module-seguros').style.display = 'none';
   document.getElementById('module-gestion').style.display = 'none';
   document.getElementById('modulo-home-screen').style.display = 'block';
+  actualizarSaludoHome();
   document.getElementById('btn-cambiar-modulo').style.display = 'none';
   document.getElementById('admin-topbar-title').textContent = 'NexoFlota';
 }
@@ -4826,14 +4855,14 @@ function updateFleetBadge() {
   }); });
   document.getElementById('ftab-btn-mantenimiento').textContent=alertas>0?`Mantenimiento 🔴${alertas}`:'Mantenimiento';
   const badgeHome = document.getElementById('home-badge-flota');
-  if (badgeHome) badgeHome.textContent = alertas>0 ? `🔴${alertas}` : '';
+  if (badgeHome) badgeHome.innerHTML = alertas>0 ? `<span style="background:rgba(231,76,60,0.15);color:var(--danger);padding:3px 10px;border-radius:12px;">🔴 ${alertas} aviso${alertas>1?'s':''}</span>` : '';
 }
 
 function updateAdrCapBadge() {
   const hoy=new Date(); let alertasCond=0;
   mantConductoresCache.forEach(m=>{ REVISIONES_CONDUCTOR.forEach(rev=>{ const key=revKey(rev); if(m[key]){ const dias=Math.ceil((new Date(m[key])-hoy)/(1000*60*60*24)); if(dias<=DIAS_AVISO_CONDUCTOR) alertasCond++; } }); });
   const badge = document.getElementById('home-badge-adrcap');
-  if (badge) badge.textContent = alertasCond>0 ? `🔴${alertasCond}` : '';
+  if (badge) badge.innerHTML = alertasCond>0 ? `<span style="background:rgba(231,76,60,0.15);color:var(--danger);padding:3px 10px;border-radius:12px;">🔴 ${alertasCond} aviso${alertasCond>1?'s':''}</span>` : '';
 }
 
 // ══════════════════════════════
@@ -5983,7 +6012,7 @@ function updateSegurosBadge() {
   segurosVehiculosCache.forEach(v=>{ if(v.activo!==false && v.fechaCaducidad){ const dias=Math.ceil((new Date(v.fechaCaducidad)-hoy)/(1000*60*60*24)); if(dias<=DIAS_AVISO_SEGUROS) alertas++; } });
   segurosPolizasCache.forEach(p=>{ if(p.activo!==false && p.fechaCaducidad){ const dias=Math.ceil((new Date(p.fechaCaducidad)-hoy)/(1000*60*60*24)); if(dias<=DIAS_AVISO_SEGUROS) alertas++; } });
   const badge = document.getElementById('home-badge-seguros');
-  if (badge) badge.textContent = alertas>0 ? `🔴${alertas}` : '';
+  if (badge) badge.innerHTML = alertas>0 ? `<span style="background:rgba(231,76,60,0.15);color:var(--danger);padding:3px 10px;border-radius:12px;">🔴 ${alertas} aviso${alertas>1?'s':''}</span>` : '';
 }
 
 function limpiarFormularioSegVeh() {
@@ -9255,10 +9284,11 @@ function renderRopaPendientes() {
 }
 
 function updatePendientesBadge() {
-  const btn = document.getElementById('rtab-btn-pendientes');
-  if (!btn) return;
   const n = ropaHistorialCache.filter(h => h.firmado === false).length;
-  btn.textContent = n > 0 ? `Pendientes de firma 🔴${n}` : 'Pendientes de firma';
+  const btn = document.getElementById('rtab-btn-pendientes');
+  if (btn) btn.textContent = n > 0 ? `Pendientes de firma 🔴${n}` : 'Pendientes de firma';
+  const badgeHome = document.getElementById('home-badge-ropa');
+  if (badgeHome) badgeHome.innerHTML = n > 0 ? `<span style="background:rgba(255,179,71,0.15);color:var(--warning);padding:3px 10px;border-radius:12px;">⏳ ${n} pendiente${n>1?'s':''} de firma</span>` : '';
 }
 
 window.editarPendienteRopa = async (id) => {
