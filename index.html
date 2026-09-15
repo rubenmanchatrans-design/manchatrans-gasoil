@@ -2120,7 +2120,8 @@ window.calcularPedidoRopa = function(temporada) {
     return item ? (item.cantidad||0) : 0;
   };
 
-  const nombreArt = id => (ARTICULOS_ROPA.find(a=>a.id===id)||{}).label || id;
+  const NOMBRES_ART = {pantalon_corto:'Pantalón corto', pantalon_largo:'Pantalón largo', polo_corta:'Polo manga corta', polo_larga:'Polo manga larga', sudadera:'Sudadera', chaqueta:'Chaqueta'};
+  const nombreArt = id => NOMBRES_ART[id] || id;
 
   let granTotalNecesario = 0, granTotalPedir = 0;
   let htmlArticulos = '';
@@ -2218,7 +2219,8 @@ window.exportarPedidoRopa = async function(temporada) {
     const item = ropaInventarioCache.find(i => i.articuloId===artId && (i.talla||'').trim().toUpperCase()===talla.trim().toUpperCase());
     return item ? (item.cantidad||0) : 0;
   };
-  const nombreArt = id => (ARTICULOS_ROPA.find(a=>a.id===id)||{}).label || id;
+  const NOMBRES_ART = {pantalon_corto:'Pantalón corto', pantalon_largo:'Pantalón largo', polo_corta:'Polo manga corta', polo_larga:'Polo manga larga', sudadera:'Sudadera', chaqueta:'Chaqueta'};
+  const nombreArt = id => NOMBRES_ART[id] || id;
 
   const filas = [];
   Object.entries(cfg.articulos).forEach(([artId, porPersona]) => {
