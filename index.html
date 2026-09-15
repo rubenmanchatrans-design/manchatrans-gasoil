@@ -190,6 +190,21 @@ textarea.form-input { resize: vertical; min-height: 70px; }
 .hc-desc { font-size: 12px; color: var(--text-muted); line-height: 1.35; }
 .hc-badge { font-size: 11px; font-weight: 700; margin-top: 0.4rem; }
 .hc-badge:empty { display: none; }
+.mod-layout { display: grid; grid-template-columns: 185px 1fr; gap: 0.85rem; align-items: start; }
+.mod-side { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); overflow: hidden; }
+.mod-side-item { display: block; width: 100%; text-align: left; padding: 0.7rem 0.9rem; font-size: 13px; background: none; border: none; border-bottom: 1px solid var(--card-border); color: var(--text-muted); cursor: pointer; transition: background 0.1s; font-family: inherit; }
+.mod-side-item:last-child { border-bottom: none; }
+.mod-side-item:hover { background: var(--navy-light); }
+.mod-side-item.active { background: rgba(245,166,35,0.1); color: var(--accent); font-weight: 600; }
+.mod-content { min-width: 0; }
+.mod-pane { display: none; }
+.mod-pane.active { display: block; }
+@media (max-width: 760px) {
+  .mod-layout { grid-template-columns: 1fr; }
+  .mod-side { display: flex; overflow-x: auto; }
+  .mod-side-item { border-bottom: none; border-right: 1px solid var(--card-border); white-space: nowrap; flex: 1 0 auto; text-align: center; }
+  .mod-side-item:last-child { border-right: none; }
+}
 .ropa-check { width: 22px; height: 22px; border: 2px solid var(--card-border); border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; background: var(--input-bg); }
 .ropa-check.checked { background: var(--accent); border-color: var(--accent); }
 .ropa-check.checked::after { content: '✕'; color: #111; font-weight: 700; font-size: 13px; }
@@ -409,57 +424,90 @@ input[type="number"] { -moz-appearance: textfield; }
 
     <!-- REGISTROS -->
     <div id="atab-registros" class="tab-pane active">
-      <div class="stats-grid" id="admin-stats"></div>
-      <button class="btn btn-secondary" id="btn-cierre-mensual" style="margin-bottom:1rem;">📊 Resumen mensual / cierre de mes</button>
-      <div class="refuel-card" style="margin-bottom:1rem;">
-        <div class="section-title">Exportar a Excel</div>
-        <div class="two-col" style="margin-bottom:0.75rem;">
-          <div><label class="form-label">Desde</label><input class="form-input" type="date" id="export-desde" style="font-size:14px;padding:0.6rem;"></div>
-          <div><label class="form-label">Hasta</label><input class="form-input" type="date" id="export-hasta" style="font-size:14px;padding:0.6rem;"></div>
+      <div class="mod-layout">
+        <div class="mod-side">
+          <button class="mod-side-item active" data-pane="gs-estadisticas">📊 Estadísticas</button>
+          <button class="mod-side-item" data-pane="gs-exportar">📁 Exportar</button>
+          <button class="mod-side-item" data-pane="gs-historial">📋 Historial</button>
         </div>
-        <button class="btn-export" id="btn-export-excel">⬇ Exportar Excel (.xlsx)</button>
-      </div>
-      <button class="btn btn-secondary" id="btn-toggle-historial" style="margin-bottom:1rem;">📋 Ver historial de repostajes</button>
-      <div id="historial-wrapper" style="display:none;">
-        <div class="filter-row">
-          <select class="form-input" id="filter-driver" onchange="renderAdminRecords()" style="font-size:14px;padding:0.6rem 0.75rem;">
-            <option value="">Todos los conductores</option>
-          </select>
-          <select class="form-input" id="filter-mat" onchange="renderAdminRecords()" style="font-size:14px;padding:0.6rem 0.75rem;">
-            <option value="">Todas las matrículas</option>
-          </select>
-          <input class="form-input" type="date" id="filter-date" oninput="renderAdminRecords()" style="font-size:14px;padding:0.6rem 0.75rem;">
+        <div class="mod-content">
+          <div id="gs-estadisticas" class="mod-pane active">
+            <div class="stats-grid" id="admin-stats"></div>
+            <button class="btn btn-secondary" id="btn-cierre-mensual" style="margin-bottom:1rem;">📊 Resumen mensual / cierre de mes</button>
+          </div>
+          <div id="gs-exportar" class="mod-pane">
+            <div class="refuel-card" style="margin-bottom:1rem;">
+              <div class="section-title">Exportar a Excel</div>
+              <div class="two-col" style="margin-bottom:0.75rem;">
+                <div><label class="form-label">Desde</label><input class="form-input" type="date" id="export-desde" style="font-size:14px;padding:0.6rem;"></div>
+                <div><label class="form-label">Hasta</label><input class="form-input" type="date" id="export-hasta" style="font-size:14px;padding:0.6rem;"></div>
+              </div>
+              <button class="btn-export" id="btn-export-excel">⬇ Exportar Excel (.xlsx)</button>
+            </div>
+          </div>
+          <div id="gs-historial" class="mod-pane">
+            <div class="refuel-card" style="margin-bottom:1rem;">
+              <div class="section-title">Filtrar historial</div>
+              <div class="filter-row" style="margin-bottom:0;">
+                <select class="form-input" id="filter-driver" onchange="renderAdminRecords()" style="font-size:14px;padding:0.6rem 0.75rem;">
+                  <option value="">Todos los conductores</option>
+                </select>
+                <select class="form-input" id="filter-mat" onchange="renderAdminRecords()" style="font-size:14px;padding:0.6rem 0.75rem;">
+                  <option value="">Todas las matrículas</option>
+                </select>
+                <input class="form-input" type="date" id="filter-date" oninput="renderAdminRecords()" style="font-size:14px;padding:0.6rem 0.75rem;">
+              </div>
+            </div>
+            <button class="btn btn-secondary" id="btn-toggle-historial" style="margin-bottom:1rem;">📋 Ver historial de repostajes</button>
+            <div id="historial-wrapper" style="display:none;">
+              <div id="admin-records-list"></div>
+            </div>
+          </div>
         </div>
-        <div id="admin-records-list"></div>
       </div>
     </div>
 
     <!-- DEPÓSITO -->
     <div id="atab-deposito" class="tab-pane">
-      <div id="deposito-alerta" class="deposito-alerta">⚠️ ATENCIÓN: Quedan menos de 1.000 litros. ¡Pide gasoil al proveedor!</div>
-      <div class="deposito-widget">
-        <div class="deposito-title">🛢 Estado del depósito</div>
-        <div class="deposito-nivel-txt" id="dep-nivel-txt">—</div>
-        <div class="deposito-cap-txt">de 10.000 litros</div>
-        <div class="barra-outer"><div class="barra-inner" id="dep-barra" style="width:0%"></div></div>
-        <div class="barra-labels"><span>0 L</span><span id="dep-pct">0%</span><span>10.000 L</span></div>
-      </div>
-      <div class="refuel-card">
-        <div class="section-title">Registrar recarga del proveedor</div>
-        <div id="deposito-form-alert" class="alert"></div>
-        <div class="form-group">
-          <label class="form-label">Litros recibidos</label>
-          <input class="form-input" type="number" id="recarga-litros" placeholder="Ej: 8000" min="1">
+      <div class="mod-layout">
+        <div class="mod-side">
+          <button class="mod-side-item active" data-pane="gd-estado">🛢 Estado</button>
+          <button class="mod-side-item" data-pane="gd-recarga">➕ Registrar recarga</button>
+          <button class="mod-side-item" data-pane="gd-historial">📋 Historial</button>
         </div>
-        <div class="form-group">
-          <label class="form-label">Proveedor / Albarán (opcional)</label>
-          <input class="form-input" type="text" id="recarga-obs" placeholder="Nombre proveedor, nº albarán...">
+        <div class="mod-content">
+          <div id="gd-estado" class="mod-pane active">
+            <div id="deposito-alerta" class="deposito-alerta">⚠️ ATENCIÓN: Quedan menos de 1.000 litros. ¡Pide gasoil al proveedor!</div>
+            <div class="deposito-widget">
+              <div class="deposito-title">🛢 Estado del depósito</div>
+              <div class="deposito-nivel-txt" id="dep-nivel-txt">—</div>
+              <div class="deposito-cap-txt">de 10.000 litros</div>
+              <div class="barra-outer"><div class="barra-inner" id="dep-barra" style="width:0%"></div></div>
+              <div class="barra-labels"><span>0 L</span><span id="dep-pct">0%</span><span>10.000 L</span></div>
+            </div>
+          </div>
+          <div id="gd-recarga" class="mod-pane">
+            <div class="refuel-card">
+              <div class="section-title">Registrar recarga del proveedor</div>
+              <div id="deposito-form-alert" class="alert"></div>
+              <div class="form-group">
+                <label class="form-label">Litros recibidos</label>
+                <input class="form-input" type="number" id="recarga-litros" placeholder="Ej: 8000" min="1">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Proveedor / Albarán (opcional)</label>
+                <input class="form-input" type="text" id="recarga-obs" placeholder="Nombre proveedor, nº albarán...">
+              </div>
+              <button class="btn btn-primary" id="btn-registrar-recarga">Registrar recarga</button>
+            </div>
+          </div>
+          <div id="gd-historial" class="mod-pane">
+            <button class="btn btn-secondary" id="btn-toggle-recargas" style="margin-bottom:1rem;">📋 Ver historial de recargas (<span id="recarga-count">0</span>)</button>
+            <div id="recarga-hist-wrapper" style="display:none;">
+              <div id="recarga-hist-list"></div>
+            </div>
+          </div>
         </div>
-        <button class="btn btn-primary" id="btn-registrar-recarga">Registrar recarga</button>
-      </div>
-      <button class="btn btn-secondary" id="btn-toggle-recargas" style="margin-bottom:1rem;">📋 Ver historial de recargas (<span id="recarga-count">0</span>)</button>
-      <div id="recarga-hist-wrapper" style="display:none;">
-        <div id="recarga-hist-list"></div>
       </div>
     </div>
 
@@ -3422,6 +3470,23 @@ window.submitRepostaje = async () => {
 // ══════════════════════════════
 // ADMIN
 // ══════════════════════════════
+// ── Panel lateral de módulos ──
+// Delegación global: cualquier botón .mod-side-item cambia el panel activo
+// dentro de su propio .mod-layout. Sirve para todos los módulos sin tener
+// que registrar listeners uno a uno.
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.mod-side-item');
+  if (!btn) return;
+  const layout = btn.closest('.mod-layout');
+  if (!layout) return;
+  layout.querySelectorAll('.mod-side-item').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const destino = btn.dataset.pane;
+  layout.querySelectorAll(':scope > .mod-content > .mod-pane').forEach(p => {
+    p.classList.toggle('active', p.id === destino);
+  });
+});
+
 function actualizarSaludoHome() {
   const el = document.getElementById('home-saludo');
   if (!el) return;
