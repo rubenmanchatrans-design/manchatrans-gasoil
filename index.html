@@ -684,68 +684,85 @@ input[type="number"] { -moz-appearance: textfield; }
 
       <!-- HISTORIAL DE CAMBIOS -->
       <div id="ftab-historial" class="tab-pane active">
-        <div class="section-title">Cambio/Reparación</div>
-        <div id="hist-alert" class="alert"></div>
-        <div class="refuel-card">
-          <div class="form-group">
-            <label class="form-label">Vehículo <span style="color:var(--danger)">*</span></label>
-            <select class="form-input" id="hist-matricula">
-              <option value="">— Selecciona vehículo —</option>
-            </select>
+        <div class="mod-layout">
+          <div class="mod-side">
+            <button class="mod-side-item active" data-pane="fr-nuevo">🔧 Nuevo registro</button>
+            <button class="mod-side-item" data-pane="fr-historial">📋 Historial</button>
           </div>
-          <div class="form-group">
-            <label class="form-label">Comentarios <span style="color:var(--danger)">*</span></label>
-            <textarea class="form-input" id="hist-comentarios" placeholder="Describe el cambio o reparación realizada..."></textarea>
+          <div class="mod-content">
+            <div id="fr-nuevo" class="mod-pane active">
+              <div class="section-title">Registrar cambio o reparación</div>
+              <div id="hist-alert" class="alert"></div>
+              <div class="refuel-card">
+                <div class="form-group">
+                  <label class="form-label">Vehículo <span style="color:var(--danger)">*</span></label>
+                  <select class="form-input" id="hist-matricula">
+                    <option value="">— Selecciona vehículo —</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Comentarios <span style="color:var(--danger)">*</span></label>
+                  <textarea class="form-input" id="hist-comentarios" placeholder="Describe el cambio o reparación realizada..."></textarea>
+                </div>
+                <div class="two-col">
+                  <button class="btn btn-primary" id="btn-guardar-hist">Guardar registro</button>
+                  <button class="btn btn-ghost" id="btn-borrar-hist" type="button">🗑 Borrar</button>
+                </div>
+              </div>
+            </div>
+            <div id="fr-historial" class="mod-pane">
+              <div class="section-title">Historial de cambios y reparaciones</div>
+              <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;">
+                <button class="btn btn-secondary" id="btn-hist-todos" style="flex:1;padding:0.6rem;font-size:13px;">Ver todo</button>
+                <button class="btn btn-ghost" id="btn-hist-filtrar" style="flex:1;padding:0.6rem;font-size:13px;">Filtrar por vehículo</button>
+              </div>
+              <div class="form-group" id="hist-filter-wrapper" style="display:none;">
+                <select class="form-input" id="hist-filter-mat" style="font-size:14px;padding:0.6rem;">
+                  <option value="">— Selecciona vehículo —</option>
+                </select>
+              </div>
+              <div id="hist-cambios-wrapper">
+                <div id="hist-list"></div>
+              </div>
+            </div>
           </div>
-          <div class="two-col">
-          <button class="btn btn-primary" id="btn-guardar-hist">Guardar registro</button>
-          <button class="btn btn-ghost" id="btn-borrar-hist" type="button">🗑 Borrar</button>
-        </div>
-        </div>
-        <div class="section-title">Historial de Cambio/Reparación</div>
-        <button class="btn btn-secondary" id="btn-toggle-hist-cambios" style="margin-bottom:1rem;">📋 Ver historial de cambios</button>
-        <div id="hist-cambios-wrapper" style="display:none;">
-          <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;">
-            <button class="btn btn-secondary" id="btn-hist-todos" style="flex:1;padding:0.6rem;font-size:13px;">Ver todo</button>
-            <button class="btn btn-ghost" id="btn-hist-filtrar" style="flex:1;padding:0.6rem;font-size:13px;">Filtrar por vehículo</button>
-          </div>
-          <div class="form-group" id="hist-filter-wrapper" style="display:none;">
-            <select class="form-input" id="hist-filter-mat" style="font-size:14px;padding:0.6rem;">
-              <option value="">— Selecciona vehículo —</option>
-            </select>
-          </div>
-          <div id="hist-list"></div>
         </div>
       </div>
 
       <!-- MANTENIMIENTO -->
       <div id="ftab-mantenimiento" class="tab-pane">
-        <div class="section-title">ITV y Tacógrafo por vehículo</div>
-        <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
-          <button class="btn btn-secondary" style="flex:1;font-size:13px;" id="btn-ver-pendientes">📅 Pendiente Mes</button>
-          <button class="btn btn-ghost" style="flex:1;font-size:13px;" id="btn-ver-hist-mant">📋 Historial</button>
+        <div class="mod-layout">
+          <div class="mod-side">
+            <button class="mod-side-item active" data-pane="fm-avisos">⚠️ Avisos</button>
+            <button class="mod-side-item" data-pane="fm-vehiculo">🚛 Por vehículo</button>
+            <button class="mod-side-item" data-pane="fm-historial">📋 Historial</button>
+          </div>
+          <div class="mod-content">
+            <div id="fm-avisos" class="mod-pane active">
+              <div class="section-title">Avisos de ITV y Tacógrafo</div>
+              <button class="btn btn-secondary" style="width:100%;font-size:13px;margin-bottom:1rem;" id="btn-ver-pendientes">📅 Ver pendientes del mes</button>
+              <div id="mant-alertas"></div>
+            </div>
+            <div id="fm-vehiculo" class="mod-pane">
+              <div class="section-title">ITV y Tacógrafo por vehículo</div>
+              <div class="form-group">
+                <select class="form-input" id="mant-filter-mat" style="font-size:14px;padding:0.6rem;">
+                  <option value="">— Selecciona vehículo —</option>
+                </select>
+              </div>
+              <div id="mant-list"></div>
+            </div>
+            <div id="fm-historial" class="mod-pane">
+              <div class="section-title">Historial de mantenimiento</div>
+              <div class="form-group">
+                <select class="form-input" id="hist-mant-filter-mat" style="font-size:14px;padding:0.6rem;">
+                  <option value="">Todos los vehículos</option>
+                </select>
+              </div>
+              <div id="hist-mant-list"></div>
+            </div>
+          </div>
         </div>
-        <div class="form-group">
-          <select class="form-input" id="mant-filter-mat" style="font-size:14px;padding:0.6rem;">
-            <option value="">— Selecciona vehículo —</option>
-          </select>
-        </div>
-        <div id="mant-alertas"></div>
-        <div id="mant-list"></div>
-      </div>
-
-      <!-- HISTORIAL DE MANTENIMIENTO -->
-      <div id="ftab-hist-mant" class="tab-pane">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-          <div class="section-title" style="margin-bottom:0;">Historial de mantenimiento</div>
-          <button class="btn-sm" id="btn-volver-mant">← Volver</button>
-        </div>
-        <div class="form-group">
-          <select class="form-input" id="hist-mant-filter-mat" style="font-size:14px;padding:0.6rem;">
-            <option value="">Todos los vehículos</option>
-          </select>
-        </div>
-        <div id="hist-mant-list"></div>
       </div>
 
       <!-- LIMPIEZA -->
@@ -801,9 +818,8 @@ input[type="number"] { -moz-appearance: textfield; }
               <button class="btn btn-ghost" id="btn-borrar-limpieza-veh" type="button">🗑 Borrar</button>
             </div>
           </div>
-          <div class="section-title">Historial de limpieza de vehículos</div>
-          <button class="btn btn-secondary" id="btn-toggle-hist-limpieza-veh" style="margin-bottom:1rem;">📋 Ver historial</button>
-          <div id="hist-limpieza-veh-wrapper" style="display:none;">
+          <div class="section-title" style="margin-top:1.5rem;">Historial de limpieza de vehículos</div>
+          <div id="hist-limpieza-veh-wrapper">
             <div class="form-group">
               <select class="form-input" id="hist-limpieza-veh-filter-mat" style="font-size:14px;padding:0.6rem;">
                 <option value="">Todos los vehículos</option>
@@ -862,9 +878,8 @@ input[type="number"] { -moz-appearance: textfield; }
               <button class="btn btn-ghost" id="btn-borrar-limpieza-inst" type="button">🗑 Borrar</button>
             </div>
           </div>
-          <div class="section-title">Historial de limpieza de instalaciones</div>
-          <button class="btn btn-secondary" id="btn-toggle-hist-limpieza-inst" style="margin-bottom:1rem;">📋 Ver historial</button>
-          <div id="hist-limpieza-inst-wrapper" style="display:none;">
+          <div class="section-title" style="margin-top:1.5rem;">Historial de limpieza de instalaciones</div>
+          <div id="hist-limpieza-inst-wrapper">
             <div class="form-group">
               <select class="form-input" id="hist-limpieza-inst-filter-area">
                 <option value="">Todas las áreas</option>
@@ -2516,17 +2531,9 @@ async function initApp() {
   document.getElementById('btn-guardar-hist').addEventListener('click', guardarHistorial);
   document.getElementById('btn-borrar-hist').addEventListener('click', limpiarFormularioHistorial);
   document.getElementById('hist-filter-mat').addEventListener('change', (e)=>{ histFiltroMat=e.target.value; renderHistorial(); });
-  document.getElementById('btn-toggle-hist-cambios').addEventListener('click', ()=>{
-    const wrapper = document.getElementById('hist-cambios-wrapper');
-    const btn = document.getElementById('btn-toggle-hist-cambios');
-    if (wrapper.style.display === 'none') {
-      wrapper.style.display = 'block';
-      btn.textContent = '📋 Ocultar historial de cambios';
-      renderHistorial();
-    } else {
-      wrapper.style.display = 'none';
-      btn.textContent = '📋 Ver historial de cambios';
-    }
+  // El historial de cambios vive ahora en el panel lateral
+  document.querySelectorAll('.mod-side-item[data-pane="fr-historial"]').forEach(b => {
+    b.addEventListener('click', renderHistorial);
   });
   document.getElementById('btn-hist-todos').addEventListener('click', ()=>{
     histFiltroMat='';
@@ -2542,15 +2549,10 @@ async function initApp() {
     document.getElementById('btn-hist-filtrar').className='btn btn-secondary';
   });
   document.getElementById('btn-ver-pendientes').addEventListener('click', verPendientesMes);
-  document.getElementById('btn-ver-hist-mant').addEventListener('click', ()=>{
-    document.querySelectorAll('#module-fleet .tab-pane').forEach(p=>p.classList.remove('active'));
-    document.getElementById('ftab-hist-mant').classList.add('active');
-    populateHistMantMatriculas();
-    renderHistorialMant();
-  });
-  document.getElementById('btn-volver-mant').addEventListener('click', ()=>{
-    document.querySelectorAll('#module-fleet .tab-pane').forEach(p=>p.classList.remove('active'));
-    document.getElementById('ftab-mantenimiento').classList.add('active');
+  // El historial de mantenimiento ahora vive en el panel lateral: al entrar en
+  // su sección se rellenan las matrículas y se pinta la lista.
+  document.querySelectorAll('.mod-side-item[data-pane="fm-historial"]').forEach(b => {
+    b.addEventListener('click', ()=>{ populateHistMantMatriculas(); renderHistorialMant(); });
   });
   document.getElementById('hist-mant-filter-mat').addEventListener('change', (e)=>{ histMantFiltroMat=e.target.value; renderHistorialMant(); });
   populateHistMatriculas();
@@ -2706,18 +2708,8 @@ async function initApp() {
   document.getElementById('hist-limpieza-inst-fecha-desde').addEventListener('change', (e)=>{ limpiezaInstFiltroFechaDesde=e.target.value; renderHistorialLimpiezaInst(); });
   document.getElementById('hist-limpieza-inst-fecha-hasta').addEventListener('change', (e)=>{ limpiezaInstFiltroFechaHasta=e.target.value; renderHistorialLimpiezaInst(); });
   document.getElementById('btn-exportar-pdf-limpieza-inst').addEventListener('click', exportarPdfLimpiezaInstalaciones);
-  document.getElementById('btn-toggle-hist-limpieza-veh').addEventListener('click', ()=>{
-    const wrapper = document.getElementById('hist-limpieza-veh-wrapper');
-    const btn = document.getElementById('btn-toggle-hist-limpieza-veh');
-    if (wrapper.style.display === 'none') { wrapper.style.display = 'block'; btn.textContent = '📋 Ocultar historial'; renderHistorialLimpiezaVeh(); }
-    else { wrapper.style.display = 'none'; btn.textContent = '📋 Ver historial'; }
-  });
-  document.getElementById('btn-toggle-hist-limpieza-inst').addEventListener('click', ()=>{
-    const wrapper = document.getElementById('hist-limpieza-inst-wrapper');
-    const btn = document.getElementById('btn-toggle-hist-limpieza-inst');
-    if (wrapper.style.display === 'none') { wrapper.style.display = 'block'; btn.textContent = '📋 Ocultar historial'; renderHistorialLimpiezaInst(); }
-    else { wrapper.style.display = 'none'; btn.textContent = '📋 Ver historial'; }
-  });
+  renderHistorialLimpiezaVeh();
+  renderHistorialLimpiezaInst();
   populateLimpiezaSelects();
   populateEmpleadoSelects();
 
@@ -4777,7 +4769,7 @@ function switchModule(mod) {
   const titulos = {gasoil:'⛽ Gasoil', fleet:'🚛 Flota', ropa:'👔 Ropa', adrcap:'🪪 ADR/CAP', seguros:'🛡️ Seguros', almacen:'📦 Almacén', gestion:'⚙️ Configuración'};
   document.getElementById('admin-topbar-title').textContent = titulos[mod]||'';
   if (mod==='gasoil') { renderAdminRecords(); }
-  if (mod==='fleet') { renderHistorial(); renderMantenimiento(); updateFleetBadge(); }
+  if (mod==='fleet') { renderHistorial(); renderMantenimiento(); updateFleetBadge(); populateHistMantMatriculas(); renderHistorialMant(); }
   if (mod==='ropa') { populateRopaSelects(); updatePendientesBadge(); }
   if (mod==='almacen') {
     almCargarRegistros().then(()=>renderAlmacenAdmin());
