@@ -458,8 +458,7 @@ input[type="number"] { -moz-appearance: textfield; }
                 <input class="form-input" type="date" id="filter-date" oninput="renderAdminRecords()" style="font-size:14px;padding:0.6rem 0.75rem;">
               </div>
             </div>
-            <button class="btn btn-secondary" id="btn-toggle-historial" style="margin-bottom:1rem;">📋 Ver historial de repostajes</button>
-            <div id="historial-wrapper" style="display:none;">
+            <div id="historial-wrapper">
               <div id="admin-records-list"></div>
             </div>
           </div>
@@ -502,8 +501,7 @@ input[type="number"] { -moz-appearance: textfield; }
             </div>
           </div>
           <div id="gd-historial" class="mod-pane">
-            <button class="btn btn-secondary" id="btn-toggle-recargas" style="margin-bottom:1rem;">📋 Ver historial de recargas (<span id="recarga-count">0</span>)</button>
-            <div id="recarga-hist-wrapper" style="display:none;">
+            <div id="recarga-hist-wrapper">
               <div id="recarga-hist-list"></div>
             </div>
           </div>
@@ -2726,17 +2724,6 @@ async function initApp() {
   // Depósito recarga
   const btnRecarga = document.getElementById('btn-registrar-recarga');
   if(btnRecarga) btnRecarga.addEventListener('click', ()=>window.registrarRecarga());
-  document.getElementById('btn-toggle-recargas').addEventListener('click', ()=>{
-    const wrapper = document.getElementById('recarga-hist-wrapper');
-    const btn = document.getElementById('btn-toggle-recargas');
-    if (wrapper.style.display === 'none') {
-      wrapper.style.display = 'block';
-      btn.innerHTML = `📋 Ocultar historial de recargas (<span id="recarga-count">${recargasCache.length}</span>)`;
-    } else {
-      wrapper.style.display = 'none';
-      btn.innerHTML = `📋 Ver historial de recargas (<span id="recarga-count">${recargasCache.length}</span>)`;
-    }
-  });
 
   // Añadir conductor
   const btnAddDriver = document.getElementById('btn-add-driver');
@@ -2826,18 +2813,6 @@ async function initApp() {
   document.getElementById('filter-date').addEventListener('input', renderAdminRecords);
 
   document.getElementById('btn-cierre-mensual').addEventListener('click', verCierreMensual);
-  document.getElementById('btn-toggle-historial').addEventListener('click', ()=>{
-    const wrapper = document.getElementById('historial-wrapper');
-    const btn = document.getElementById('btn-toggle-historial');
-    if (wrapper.style.display === 'none') {
-      wrapper.style.display = 'block';
-      btn.textContent = '📋 Ocultar historial de repostajes';
-      renderAdminRecords();
-    } else {
-      wrapper.style.display = 'none';
-      btn.textContent = '📋 Ver historial de repostajes';
-    }
-  });
 
   const btnExcel = document.getElementById('btn-export-excel');
   if(btnExcel) btnExcel.addEventListener('click', ()=>window.exportExcel());
@@ -3860,7 +3835,7 @@ function renderDeposito() {
   barra.style.width=pct+'%';
   barra.style.background = pct<=10?'var(--danger)':pct<=25?'#f0a030':'var(--success)';
   document.getElementById('deposito-alerta').className='deposito-alerta'+(nivel<=ALERTA_MIN?' show':'');
-  document.getElementById('recarga-count').textContent = recargasCache.length;
+  const cntEl = document.getElementById('recarga-count'); if (cntEl) cntEl.textContent = recargasCache.length;
   const hist=document.getElementById('recarga-hist-list');
   if (!recargasCache.length) { hist.innerHTML='<div class="empty-state"><div class="empty-icon">🛢</div>Sin recargas registradas aún</div>'; return; }
   hist.innerHTML=[...recargasCache].map(r=>`
@@ -4801,6 +4776,7 @@ function switchModule(mod) {
   document.getElementById('btn-cambiar-modulo').style.display = 'inline-block';
   const titulos = {gasoil:'⛽ Gasoil', fleet:'🚛 Flota', ropa:'👔 Ropa', adrcap:'🪪 ADR/CAP', seguros:'🛡️ Seguros', almacen:'📦 Almacén', gestion:'⚙️ Configuración'};
   document.getElementById('admin-topbar-title').textContent = titulos[mod]||'';
+  if (mod==='gasoil') { renderAdminRecords(); }
   if (mod==='fleet') { renderHistorial(); renderMantenimiento(); updateFleetBadge(); }
   if (mod==='ropa') { populateRopaSelects(); updatePendientesBadge(); }
   if (mod==='almacen') {
