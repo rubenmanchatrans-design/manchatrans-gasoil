@@ -151,7 +151,13 @@ textarea.form-input { resize: vertical; min-height: 70px; }
 .consumo-ok { background: #1e3a1e; color: var(--success); }
 .consumo-warn { background: #3a2e1e; color: #f0a030; }
 .consumo-high { background: #3a1e1e; color: var(--danger); }
-.atab-btn { flex:1; padding:0.6rem; font-size:12px; }
+.mod-tabs { display: flex; gap: 0.15rem; margin-bottom: 1.25rem; flex-wrap: wrap; border-bottom: 1px solid var(--card-border); }
+.atab-btn { flex: 0 0 auto; padding: 0.6rem 1.1rem; font-size: 13px; background: none; border: none; border-bottom: 2px solid transparent; border-radius: 0; color: var(--text-muted); font-weight: 500; white-space: nowrap; margin-bottom: -1px; transition: color 0.15s, border-color 0.15s; }
+.atab-btn:hover { color: var(--text); }
+.atab-btn.btn-secondary { background: none; color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
+.atab-btn.btn-ghost { background: none; border: none; border-bottom: 2px solid transparent; }
+.atab-btn:active { transform: none; opacity: 1; }
+@media (max-width: 620px) { .mod-tabs { overflow-x: auto; flex-wrap: nowrap; } .atab-btn { padding: 0.6rem 0.8rem; font-size: 12px; } }
 .deposito-widget { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1.25rem; text-align: center; }
 .deposito-title { font-size: 12px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 1.25rem; }
 .deposito-nivel-txt { font-size: 42px; font-weight: 800; margin-bottom: 2px; }
@@ -416,7 +422,7 @@ input[type="number"] { -moz-appearance: textfield; }
 
     <!-- ═══════════ MÓDULO GASOIL ═══════════ -->
     <div id="module-gasoil" style="display:none;">
-    <div style="display:flex;gap:0.4rem;margin-bottom:1.25rem;flex-wrap:wrap;">
+    <div class="mod-tabs">
       <button class="btn btn-secondary atab-btn" id="atab-btn-registros">Registros</button>
       <button class="btn btn-ghost atab-btn" id="atab-btn-deposito">Depósito</button>
       <button class="btn btn-ghost atab-btn" id="atab-btn-consumo">Consumo</button>
@@ -519,7 +525,7 @@ input[type="number"] { -moz-appearance: textfield; }
 
     <!-- ═══════════ MÓDULO GESTIÓN (Conductores y Vehículos) ═══════════ -->
     <div id="module-almacen" style="display:none;">
-      <div style="display:flex;gap:0.4rem;margin-bottom:1.25rem;flex-wrap:wrap;">
+      <div class="mod-tabs">
         <button class="btn btn-secondary atab-btn" id="almtab-btn-registros">📋 Registros</button>
         <button class="btn btn-ghost atab-btn" id="almtab-btn-resumen">📊 Resumen por agencia</button>
       </div>
@@ -528,7 +534,7 @@ input[type="number"] { -moz-appearance: textfield; }
     </div>
 
     <div id="module-gestion" style="display:none;">
-    <div style="display:flex;gap:0.4rem;margin-bottom:1.25rem;flex-wrap:wrap;">
+    <div class="mod-tabs">
       <button class="btn btn-secondary atab-btn" id="atab-btn-conductores">Empleados</button>
       <button class="btn btn-ghost atab-btn" id="atab-btn-vehiculos">Vehículos</button>
       <button class="btn btn-ghost atab-btn" id="atab-btn-backup">💾 Copia de seguridad</button>
@@ -676,7 +682,7 @@ input[type="number"] { -moz-appearance: textfield; }
 
     <!-- ═══════════ MÓDULO FLEET ═══════════ -->
     <div id="module-fleet" style="display:none;">
-      <div style="display:flex;gap:0.4rem;margin-bottom:1.25rem;flex-wrap:wrap;">
+      <div class="mod-tabs">
         <button class="btn btn-secondary atab-btn" id="ftab-btn-historial">Cambio/Reparación</button>
         <button class="btn btn-ghost atab-btn" id="ftab-btn-mantenimiento">Mantenimiento</button>
         <button class="btn btn-ghost atab-btn" id="ftab-btn-limpieza">🧹 Limpieza</button>
@@ -1010,7 +1016,7 @@ input[type="number"] { -moz-appearance: textfield; }
 
     <!-- ═══════════ MÓDULO SEGUROS ═══════════ -->
     <div id="module-seguros" style="display:none;">
-      <div style="display:flex;gap:0.4rem;margin-bottom:1.25rem;flex-wrap:wrap;">
+      <div class="mod-tabs">
         <button class="btn btn-secondary atab-btn" id="seg-tab-btn-vehiculos">🚗 Vehículos</button>
         <button class="btn btn-ghost atab-btn" id="seg-tab-btn-carretillas">🚜 Carretillas/Transpaletas</button>
         <button class="btn btn-ghost atab-btn" id="seg-tab-btn-polizas">📄 Pólizas</button>
@@ -1166,7 +1172,7 @@ input[type="number"] { -moz-appearance: textfield; }
 
     <!-- ═══════════ MÓDULO ROPA ═══════════ -->
     <div id="module-ropa" style="display:none;">
-      <div style="display:flex;gap:0.4rem;margin-bottom:1.25rem;flex-wrap:wrap;">
+      <div class="mod-tabs">
         <button class="btn btn-secondary atab-btn" id="rtab-btn-entregar">Nueva entrega</button>
         <button class="btn btn-ghost atab-btn" id="rtab-btn-historial">Historial</button>
         <button class="btn btn-ghost atab-btn" id="rtab-btn-pendientes">Pendientes de firma</button>
