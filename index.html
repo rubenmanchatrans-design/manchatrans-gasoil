@@ -151,6 +151,12 @@ textarea.form-input { resize: vertical; min-height: 70px; }
 .consumo-ok { background: #1e3a1e; color: var(--success); }
 .consumo-warn { background: #3a2e1e; color: #f0a030; }
 .consumo-high { background: #3a1e1e; color: var(--danger); }
+.row-act { width: 30px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--navy-light); color: var(--text); border: 1px solid var(--card-border); border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; flex-shrink: 0; transition: all 0.12s; }
+.row-act:hover { border-color: var(--accent); }
+.row-act-del { background: none; border-color: rgba(231,76,60,0.4); }
+.row-act-del:hover { background: rgba(231,76,60,0.12); border-color: var(--danger); }
+.admin-record { padding: 0.75rem 1rem; }
+.admin-record-top { margin-bottom: 0.35rem; }
 .mod-tabs { display: flex; gap: 0.15rem; margin-bottom: 1.25rem; flex-wrap: wrap; border-bottom: 1px solid var(--card-border); }
 .atab-btn { flex: 0 0 auto; padding: 0.6rem 1.1rem; font-size: 13px; background: none; border: none; border-bottom: 2px solid transparent; border-radius: 0; color: var(--text-muted); font-weight: 500; white-space: nowrap; margin-bottom: -1px; transition: color 0.15s, border-color 0.15s; }
 .atab-btn:hover { color: var(--text); }
@@ -3747,7 +3753,11 @@ function renderAdminRecords() {
     <div class="admin-record">
       <div class="admin-record-top">
         <div class="admin-driver">${r.driverName} <span class="badge">${r.driverCode}</span></div>
-        <div class="admin-litros">${r.litros.toFixed(1)} L</div>
+        <div style="display:flex;align-items:center;gap:0.6rem;">
+          <div class="admin-litros">${r.litros.toFixed(1)} L</div>
+          <button class="row-act" onclick="editRecord('${r.id}')" title="Editar">✏️</button>
+          <button class="row-act row-act-del" onclick="deleteRecord('${r.id}')" title="Eliminar">🗑</button>
+        </div>
       </div>
       <div class="admin-meta">
         <span>🚗 ${r.matricula}</span>
@@ -3756,10 +3766,6 @@ function renderAdminRecords() {
         ${r.kmAnt!=null&&r.kmAct!=null?'<span>🛣 '+r.kmAnt+'→'+r.kmAct+' km</span>':''}
         ${r.consumo?'<span>⛽ <strong style="color:var(--accent)">'+r.consumo+' L/100km</strong></span>':''}
         ${r.obs?'<span>💬 '+r.obs+'</span>':''}
-      </div>
-      <div style="display:flex;gap:0.5rem;margin-top:0.75rem;">
-        <button onclick="editRecord('${r.id}')" style="flex:1;padding:0.5rem;background:var(--navy-light);color:var(--text);border:1px solid var(--card-border);border-radius:var(--radius-sm);font-size:13px;cursor:pointer;">✏️ Editar</button>
-        <button onclick="deleteRecord('${r.id}')" style="flex:1;padding:0.5rem;background:none;color:var(--danger);border:1px solid var(--danger);border-radius:var(--radius-sm);font-size:13px;cursor:pointer;">🗑 Eliminar</button>
       </div>
     </div>`).join('');
 }
