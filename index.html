@@ -31,7 +31,7 @@
   function mantenerVertical() {
     const h = document.documentElement;
     h.classList.remove('giro-fijo', 'giro-izq', 'giro-der');
-    const tactil = window.matchMedia('(pointer: coarse)').matches;
+    const tactil = window.matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints || 0) > 0;
     const pequena = Math.min(screen.width, screen.height) < 900;
     if (!tactil || !pequena) return;
     const a = anguloPantalla();
@@ -1989,7 +1989,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v8 · 22/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v9 · 22/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_NEREID = 8;      // días de alta que se cargan de nereidDias
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2060,6 +2060,7 @@ function almIndexar() {
   Object.keys(almNereidDias).sort().forEach(dia => {        // del más viejo al más nuevo
     almNereidDias[dia].forEach(f => {
       idx.id.set(String(f.id), f);
+      if (f.esp) return;          // espejo de otra entrada (CBL CENTRAL): no se mide aparte
       (f.cod||[]).forEach(c => push(idx.cod, almNormCod(c), f));
       push(idx.ref, almNormCod(f.ref), f);
       if (f.ref2) push(idx.ref, almNormCod(f.ref2), f);
@@ -2241,6 +2242,41 @@ function almTeclado() {
   inp.setAttribute('inputmode', inp.getAttribute('inputmode') === 'none' ? 'numeric' : 'none');
   setTimeout(() => inp.focus(), 50);
 }
+
+// ── Lectura con la pistola sin depender de la casilla ──
+// Si la pistola manda las teclas aunque no haya ninguna casilla activa, se
+// recogen aquí: así no hace falta que salga el teclado para leer.
+let almBufScan = '', almTimerScan = null;
+function almPantallaEscanerVisible() {
+  const scr = document.getElementById('screen-almacen');
+  const p1 = document.getElementById('alm-paso1');
+  return scr && scr.classList.contains('active') && p1 && p1.style.display !== 'none' && !document.getElementById('alm-modal');
+}
+function almTeclaGlobal(ev) {
+  if (!almPantallaEscanerVisible()) return;
+  const t = ev.target;
+  const enCasilla = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && t.id !== 'alm-inp-codigo';
+  if (enCasilla || t?.id === 'alm-inp-codigo') return;      // la casilla ya lo gestiona
+  if (ev.key === 'Enter' || ev.key === 'Tab') {
+    if (almBufScan) { ev.preventDefault(); almLecturaGlobal(); }
+    return;
+  }
+  if (ev.key && ev.key.length === 1 && !ev.ctrlKey && !ev.metaKey && !ev.altKey) {
+    almBufScan += ev.key;
+    ev.preventDefault();
+    clearTimeout(almTimerScan);
+    // pistolas que no mandan Enter al final: se da por leído tras una pausa
+    almTimerScan = setTimeout(() => { if (almBufScan.length >= 8) almLecturaGlobal(); else almBufScan = ''; }, 300);
+  }
+}
+function almLecturaGlobal() {
+  clearTimeout(almTimerScan);
+  const cod = almBufScan.trim(); almBufScan = '';
+  const inp = document.getElementById('alm-inp-codigo');
+  if (inp) inp.value = cod;
+  if (cod) almUsarCodigo();
+}
+document.addEventListener('keydown', almTeclaGlobal, true);
 
 async function almUsarCodigo() {
   const cod = (document.getElementById('alm-inp-codigo')?.value||'').trim();
