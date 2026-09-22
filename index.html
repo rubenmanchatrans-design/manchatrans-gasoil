@@ -353,6 +353,14 @@ input[type="number"] { -moz-appearance: textfield; }
 .alm-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); background: var(--success); color: #0b2415; padding: 0.7rem 1.1rem; border-radius: 12px; font-weight: 700; font-size: 15px; z-index: 2000; box-shadow: 0 8px 30px rgba(0,0,0,0.4); text-align: center; max-width: 90%; }
 .alm-toast-mal { background: var(--danger); color: #fff; }
 .alm-toast-txt { font-family: monospace; font-weight: 600; font-size: 14px; margin-top: 2px; opacity: 0.85; }
+
+.alm-tipos-med { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+.alm-tipo-med { background: transparent; border: 2px solid rgba(255,255,255,0.16); color: var(--text); border-radius: 14px; padding: 0.8rem 0.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem; flex-wrap: wrap; min-height: 58px; }
+.alm-tipo-med.on { background: var(--accent); border-color: var(--accent); color: #111; box-shadow: 0 0 0 3px rgba(245,166,35,0.25); }
+.alm-tipo-ico { font-size: 22px; }
+.alm-tipo-nom { font-size: 18px; font-weight: 800; }
+.alm-tipo-sub { width: 100%; text-align: center; font-size: 11px; opacity: 0.75; margin-top: -4px; }
+.alm-tipo-elegido { text-align: center; font-size: 15px; font-weight: 700; color: var(--success); margin-top: 0.6rem; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -1989,7 +1997,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v9 · 22/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v10 · 22/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_NEREID = 8;      // días de alta que se cargan de nereidDias
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2523,6 +2531,11 @@ function almTextoLineas(ls) {
     const NOMBRES = {europeo:['Palet europeo','Palets europeos'], americano:['Palet americano','Palets americanos'], petro:['Petro palet','Petro palets']};
     const nombre = (NOMBRES[g.tipo] || ['Bulto','Bultos'])[n>1?1:0];
     const iguales = g.alturas.every(h => h === g.alturas[0]);
+    if (NOMBRES[g.tipo]) {            // palet: la base ya se sabe por el tipo, solo alturas
+      return iguales
+        ? `${n} ${nombre} de ${almNum(g.alturas[0],2)} m de alto`
+        : `${n} ${nombre} · alturas ${g.alturas.map(h=>almNum(h,2)).join(' · ')} m`;
+    }
     const base = `${n} ${nombre} ${almNum(g.largo,2)} × ${almNum(g.ancho,2)}`;
     return iguales
       ? `${base} × ${almNum(g.alturas[0],2)} m`
@@ -2583,61 +2596,85 @@ function almRenderPaso3() {
   if (conVol) almActualizarTotales();
 }
 
+const ALM_TIPOS_BOTON = {
+  europeo:   {nombre:'Europeo',   icono:'🟫'},
+  americano: {nombre:'Americano', icono:'🟧'},
+  petro:     {nombre:'Petro',     icono:'🟪'},
+  largo:     {nombre:'Otro',      icono:'📐', sub:'medir a mano'},
+};
+
 function almHtmlLinea(l, i) {
   const e = almEstado;
-  const fijo = l.tipo && l.tipo !== 'largo';
+  const fijo = almEsFijo(l);
   const indiv = l.indiv && l.cant > 1;
+  const alto = (id, val, etiqueta) => `
+    <div style="text-align:center">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:3px">${etiqueta}</div>
+      <input class="form-input alm-sec-${i}" type="number" step="0.01" inputmode="decimal" id="${id}" placeholder="0,00" value="${val||''}" oninput="almLinInput(${i})" onkeydown="almAltKey(event)" style="text-align:center;font-size:20px;font-weight:700;border:2px solid var(--accent);padding-left:0.25rem;padding-right:0.25rem">
+    </div>`;
   const campo = (k, lbl) => `<div class="form-group" style="margin-bottom:0"><label class="form-label">${lbl}</label>
-    <input class="form-input" type="number" step="0.01" inputmode="decimal" id="alm-l${i}-${k}" placeholder="0.00" value="${l[k]||''}" oninput="almLinInput(${i})" ${fijo&&k!=='alto'?'readonly':''} ${k==='alto'?'style="border-color:var(--accent)"':''}></div>`;
-  return `
-    <div class="refuel-card" style="margin-bottom:0.75rem">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
-        <div class="section-title" style="margin:0">${e.lineas.length>1?`Grupo ${i+1}`:'Bultos'}</div>
-        ${e.lineas.length>1?`<button class="btn-del" onclick="almQuitarLinea(${i})">✕ Quitar</button>`:''}
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.35rem;margin-bottom:0.75rem">
-        ${Object.entries(TIPOS_PALET).map(([k,v])=>`
-        <button class="btn ${l.tipo===k?'btn-secondary':'btn-ghost'}" onclick="almLinTipo(${i},'${k}')" style="padding:0.5rem 0.25rem;display:flex;flex-direction:column;align-items:center;gap:1px">
-          <span style="font-size:12px;font-weight:600;line-height:1.1">${k==='largo'?'Largos':v.label.replace('Palet ','')}</span>
-          <span style="font-size:10px;color:var(--text-muted)">${k==='largo'?'manual':v.dims.replace(' m','')}</span>
-        </button>`).join('')}
-      </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.75rem">
-        <span style="font-size:13px;color:var(--text-muted)">Cantidad</span>
-        <div style="display:flex;align-items:center;gap:0.5rem">
-          <button class="btn btn-ghost" style="width:48px;padding:0.5rem;font-size:20px" onclick="almLinCant(${i},-1)">−</button>
-          <input class="form-input" type="number" inputmode="numeric" min="1" id="alm-l${i}-cant" value="${l.cant||1}" onchange="almLinCantSet(${i})" style="width:70px;text-align:center;font-size:20px;font-weight:700">
-          <button class="btn btn-ghost" style="width:48px;padding:0.5rem;font-size:20px" onclick="almLinCant(${i},1)">＋</button>
-        </div>
-      </div>
-      ${l.cant > 1 ? `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.35rem;margin-bottom:0.75rem">
-        <button class="btn ${indiv?'btn-secondary':'btn-ghost'}" style="font-size:13px;padding:0.5rem" onclick="almLinModo(${i},true)">Cada uno su altura</button>
-        <button class="btn ${!indiv?'btn-secondary':'btn-ghost'}" style="font-size:13px;padding:0.5rem" onclick="almLinModo(${i},false)">Todos igual de altos</button>
-      </div>` : ''}
-      ${indiv && fijo ? `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.75rem">
-        ${campo('largo','Largo (m)')}${campo('ancho','Ancho (m)')}
-      </div>
-      <label class="form-label">Altura de cada palet (m)</label>
+    <input class="form-input alm-sec-${i}" type="number" step="0.01" inputmode="decimal" id="alm-l${i}-${k}" placeholder="0,00" value="${l[k]||''}" oninput="almLinInput(${i})" onkeydown="almAltKey(event)" style="text-align:center;font-size:18px;${k==='alto'?'border:2px solid var(--accent)':''}"></div>`;
+  const nombreTipo = fijo ? ({europeo:'Palet europeo', americano:'Palet americano', petro:'Petro palet'})[l.tipo] : '';
+
+  // Bloque de medidas según el tipo
+  let medidas = '';
+  if (!l.tipo) {
+    medidas = `<div style="text-align:center;color:var(--warning);font-size:14px;padding:0.5rem 0">👆 Elige el tipo de palet</div>`;
+  } else if (fijo && indiv) {
+    medidas = `
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.4rem">Altura de cada palet (m)</div>
       <div style="display:grid;grid-template-columns:repeat(${l.cant>=4?4:l.cant},1fr);gap:0.5rem">
-        ${l.alturas.map((h,j)=>`
-        <div style="text-align:center">
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Palet ${j+1}</div>
-          <input class="form-input alm-sec-${i}" type="number" step="0.01" inputmode="decimal" id="alm-l${i}-h${j}" placeholder="0.00" value="${h||''}" oninput="almLinInput(${i})" onkeydown="almAltKey(event)" style="text-align:center;border-color:var(--accent);padding-left:0.25rem;padding-right:0.25rem">
-        </div>`).join('')}
-      </div>` : indiv ? `
-      <label class="form-label">Medidas de cada bulto (m)</label>
+        ${l.alturas.map((h,j) => alto(`alm-l${i}-h${j}`, h, `Palet ${j+1}`)).join('')}
+      </div>`;
+  } else if (fijo) {
+    medidas = `
+      <div style="max-width:180px;margin:0 auto">${alto(`alm-l${i}-alto`, l.alto, l.cant>1 ? 'Altura de todos (m)' : 'Altura (m)')}</div>`;
+  } else if (indiv) {
+    medidas = `
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.4rem">Medidas de cada bulto (m)</div>
       <div style="display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:0.35rem 0.5rem;align-items:center">
         <span></span><span style="font-size:11px;color:var(--text-muted);text-align:center">Largo</span><span style="font-size:11px;color:var(--text-muted);text-align:center">Ancho</span><span style="font-size:11px;color:var(--text-muted);text-align:center">Alto</span>
         ${l.alturas.map((h,j)=>`
         <span style="font-size:12px;color:var(--text-muted)">${j+1}</span>
         ${[['lg',(l.largos||[])[j]],['an',(l.anchos||[])[j]],['h',h]].map(([k,v])=>`
-        <input class="form-input alm-sec-${i}" type="number" step="0.01" inputmode="decimal" id="alm-l${i}-${k}${j}" placeholder="0.00" value="${v||''}" oninput="almLinInput(${i})" onkeydown="almAltKey(event)" style="text-align:center;padding-left:0.25rem;padding-right:0.25rem;${k==='h'?'border-color:var(--accent)':''}">`).join('')}`).join('')}
-      </div>` : `
+        <input class="form-input alm-sec-${i}" type="number" step="0.01" inputmode="decimal" id="alm-l${i}-${k}${j}" placeholder="0,00" value="${v||''}" oninput="almLinInput(${i})" onkeydown="almAltKey(event)" style="text-align:center;padding-left:0.25rem;padding-right:0.25rem;${k==='h'?'border:2px solid var(--accent)':''}">`).join('')}`).join('')}
+      </div>`;
+  } else {
+    medidas = `
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem">
         ${campo('largo','Largo (m)')}${campo('ancho','Ancho (m)')}${campo('alto','Alto (m)')}
-      </div>`}
+      </div>`;
+  }
+
+  return `
+    <div class="refuel-card" style="margin-bottom:0.75rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem">
+        <div class="section-title" style="margin:0">${e.lineas.length>1?`Grupo ${i+1}`:'Tipo de palet'}</div>
+        ${e.lineas.length>1?`<button class="btn-del" onclick="almQuitarLinea(${i})">✕ Quitar</button>`:''}
+      </div>
+      <div class="alm-tipos-med">
+        ${Object.entries(ALM_TIPOS_BOTON).map(([k,v])=>`
+        <button type="button" class="alm-tipo-med ${l.tipo===k?'on':''}" onclick="almLinTipo(${i},'${k}')">
+          <span class="alm-tipo-ico">${v.icono}</span>
+          <span class="alm-tipo-nom">${v.nombre}</span>
+          ${v.sub?`<span class="alm-tipo-sub">${v.sub}</span>`:''}
+        </button>`).join('')}
+      </div>
+      ${nombreTipo ? `<div class="alm-tipo-elegido">✓ ${nombreTipo}</div>` : ''}
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin:0.75rem 0">
+        <span style="font-size:14px;color:var(--text-muted)">Cantidad</span>
+        <div style="display:flex;align-items:center;gap:0.5rem">
+          <button class="btn btn-ghost" style="width:52px;padding:0.55rem;font-size:22px" onclick="almLinCant(${i},-1)">−</button>
+          <input class="form-input" type="number" inputmode="numeric" min="1" id="alm-l${i}-cant" value="${l.cant||1}" onchange="almLinCantSet(${i})" style="width:72px;text-align:center;font-size:22px;font-weight:800">
+          <button class="btn btn-ghost" style="width:52px;padding:0.55rem;font-size:22px" onclick="almLinCant(${i},1)">＋</button>
+        </div>
+      </div>
+      ${l.cant > 1 && l.tipo ? `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.35rem;margin-bottom:0.75rem">
+        <button class="btn ${indiv?'btn-secondary':'btn-ghost'}" style="font-size:13px;padding:0.55rem" onclick="almLinModo(${i},true)">Cada uno su altura</button>
+        <button class="btn ${!indiv?'btn-secondary':'btn-ghost'}" style="font-size:13px;padding:0.55rem" onclick="almLinModo(${i},false)">Todos igual</button>
+      </div>` : ''}
+      ${medidas}
       <div id="alm-l${i}-sub" style="text-align:right;font-size:12px;color:var(--text-muted);margin-top:0.5rem"></div>
     </div>`;
 }
@@ -2699,12 +2736,13 @@ function almLinTipo(i, tipo) {
 function almLinInput(i) {
   const l = almEstado.lineas[i];
   const v = k => parseFloat(String(document.getElementById(`alm-l${i}-${k}`)?.value||'').replace(',','.'))||0;
+  // En los palets (europeo, americano, petro) la base la pone el tipo: solo se lee la altura
   if (almEsIndiv(l)) {
     l.alturas = l.alturas.map((h,j) => v('h'+j));
-    if (almEsFijo(l)) { l.largo = v('largo'); l.ancho = v('ancho'); }
-    else { l.largos = l.alturas.map((_,j) => v('lg'+j)); l.anchos = l.alturas.map((_,j) => v('an'+j)); }
+    if (!almEsFijo(l)) { l.largos = l.alturas.map((_,j) => v('lg'+j)); l.anchos = l.alturas.map((_,j) => v('an'+j)); }
   } else {
-    l.largo = v('largo'); l.ancho = v('ancho'); l.alto = v('alto');
+    if (!almEsFijo(l)) { l.largo = v('largo'); l.ancho = v('ancho'); }
+    l.alto = v('alto');
   }
   almActualizarTotales();
 }
