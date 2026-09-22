@@ -2239,9 +2239,38 @@ async function almUsarCodigo() {
   almEstado.codigo = cod;
   const r = almBuscar(cod);
   if (r) { await almMostrarFicha(r.fila, r.via); return; }
+  // ¿Este código ya se asoció a mano a una expedición otra vez?
+  const al = await almLeerAlias(cod);
+  if (al) {
+    const f = al.idNereid != null ? almIdx.id.get(String(al.idNereid)) : null;
+    if (f) { await almMostrarFicha(f, 'alias'); return; }
+    almEstado.textoManual = al.expedicion || '';
+  }
   almEstado.vista = 'manual';
   almEstado.noEncontrado = true;
   almRenderPaso(2);
+}
+
+// ── Códigos aprendidos ──
+// Muchos palets llevan dos etiquetas (la de la agencia y la del cliente) y la
+// PDA de Nereid solo lee una. Cuando un código no se encuentra y se identifica
+// la expedición a mano, se guarda la pareja en `almacenAlias` para que la
+// próxima vez que se escanee ese mismo bulto salga solo.
+async function almLeerAlias(cod) {
+  const k = almNormCod(cod);
+  if (!k) return null;
+  try {
+    const snap = await getDoc(doc(db,'almacenAlias',k));
+    return snap.exists() ? snap.data() : null;
+  } catch(e) { console.warn('Alias:', e); return null; }
+}
+async function almGuardarAlias(r) {
+  const k = almNormCod(r.codigo);
+  if (!k || k === almNormCod(r.expedicion)) return;
+  try {
+    await setDoc(doc(db,'almacenAlias',k), {codigo:r.codigo, expedicion:r.expedicion, agencia:r.agencia,
+      idNereid:r.idNereid||null, ts:Date.now()});
+  } catch(e) { console.warn('Guardar alias:', e); }
 }
 
 function almAbrirManual() {
@@ -2345,7 +2374,7 @@ function almHtmlManual() {
   return `
     <div class="refuel-card">
       <div class="section-title">Nº de expedición a mano</div>
-      ${e.noEncontrado ? `<div style="background:rgba(255,179,71,0.12);color:var(--warning);border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:0.75rem">No se ha encontrado el código <strong style="font-family:monospace;word-break:break-all">${almEsc(e.codigo)}</strong>. Escribe la expedición que pone en la etiqueta.</div>` : ''}
+      ${e.noEncontrado ? `<div style="background:rgba(255,179,71,0.12);color:var(--warning);border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:0.75rem">No se ha encontrado el código <strong style="font-family:monospace;word-break:break-all">${almEsc(e.codigo)}</strong>.<br>💡 Si el palet tiene <strong>otra etiqueta</strong>, prueba a escanearla. Si no, escribe la expedición que pone en la etiqueta.</div>` : ''}
       <div style="display:flex;gap:0.5rem">
         <input class="form-input" type="text" inputmode="numeric" id="alm-man-exp" value="${almEsc(e.textoManual||'')}" placeholder="Nº de expedición" autocomplete="off" style="font-family:monospace;font-size:18px;letter-spacing:1px;flex:1;min-width:0">
         <button type="button" class="btn btn-ghost" id="alm-btn-abc" onclick="almTecladoLetras()" style="width:auto;flex-shrink:0;padding:0.6rem 0.8rem;font-size:14px" title="Teclado con letras">ABC</button>
@@ -2781,6 +2810,7 @@ async function almGuardar() {
   };
   try {
     const ref = await addDoc(collection(db,'almacenExpediciones'), registro);
+    if (e.noEncontrado && (e.via === 'mano' || e.via === 'manual')) almGuardarAlias(registro);
     almCache.unshift({id:ref.id,...registro});
   } catch(err) {
     alert('No se ha podido guardar: ' + err.message + '\nComprueba la conexión y vuelve a intentarlo.');
