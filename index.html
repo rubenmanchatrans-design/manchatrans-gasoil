@@ -2066,7 +2066,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v16 · 22/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v17 · 22/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_NEREID = 8;      // días de alta que se cargan de nereidDias
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -6416,6 +6416,7 @@ function switchModule(mod) {
   }
   currentModule = mod;
   document.getElementById('modulo-home-screen').style.display = 'none';
+  window.scrollTo(0, 0);
   document.getElementById('module-gasoil').style.display = mod==='gasoil' ? 'block' : 'none';
   document.getElementById('module-fleet').style.display = mod==='fleet' ? 'block' : 'none';
   document.getElementById('module-ropa').style.display = mod==='ropa' ? 'block' : 'none';
@@ -6472,7 +6473,13 @@ function volverASeleccionModulo() {
   document.getElementById('module-adrcap').style.display = 'none';
   document.getElementById('module-seguros').style.display = 'none';
   document.getElementById('module-gestion').style.display = 'none';
+  document.getElementById('module-almacen').style.display = 'none';
+  // por si en el futuro se añade otro módulo: esconder cualquiera que quede a la vista
+  document.querySelectorAll('[id^="module-"]').forEach(m => { m.style.display = 'none'; });
+  almCerrarModal?.();
+  currentModule = null;
   document.getElementById('modulo-home-screen').style.display = 'block';
+  window.scrollTo(0, 0);
   actualizarSaludoHome();
   document.getElementById('btn-cambiar-modulo').style.display = 'none';
   document.getElementById('admin-topbar-title').textContent = 'NexoFlota';
