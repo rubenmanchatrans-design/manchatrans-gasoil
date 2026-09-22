@@ -2278,7 +2278,14 @@ function almLineasDe(r) {
   if (r.volumen > 0 || r.largo > 0) return [{tipo:r.tipo||'', largo:r.largo||0, ancho:r.ancho||0, alto:r.alto||0, cant:1}];
   return [];
 }
-const almVolLinea = l => (l.largo||0)*(l.ancho||0)*(l.alto||0)*(l.cant||0);
+// indiv = cada palet con su propia altura (alturas[]); si no, todos con `alto`
+const almVolLinea = l => l.indiv
+  ? (l.largo||0)*(l.ancho||0)*(l.alturas||[]).reduce((s,h)=>s+(h||0),0)
+  : (l.largo||0)*(l.ancho||0)*(l.alto||0)*(l.cant||0);
+// Para guardar: un grupo "cada uno su altura" pasa a un grupo por palet
+const almLineasExpandidas = ls => ls.flatMap(l => l.indiv
+  ? (l.alturas||[]).map(h => ({tipo:l.tipo||'', largo:l.largo, ancho:l.ancho, alto:h, cant:1}))
+  : [{tipo:l.tipo||'', largo:l.largo, ancho:l.ancho, alto:l.alto, cant:l.cant}]);
 const almVolLineas = ls => ls.reduce((s,l)=>s+almVolLinea(l),0);
 const almCantLineas = ls => ls.reduce((s,l)=>s+(l.cant||0),0);
 function almNombreBultos(ls, n) {
@@ -2286,16 +2293,29 @@ function almNombreBultos(ls, n) {
   const esPalet = tipos.length && tipos.every(t => t && t !== 'largo');
   return `${n} ${esPalet ? (n===1?'palet':'palets') : (n===1?'bulto':'bultos')}`;
 }
+// Agrupa por tipo y base: "4 × Palet europeo 1,20 × 0,80 m · alturas 1,50 · 1,20 · 0,90 · 1,40 m"
 function almTextoLineas(ls) {
-  return ls.map(l => {
-    const t = TIPOS_PALET[l.tipo];
-    const nombre = t ? (l.tipo==='largo' ? 'Bulto' : t.label) : 'Bulto';
-    return `${l.cant} × ${nombre} ${almNum(l.largo,2)} × ${almNum(l.ancho,2)} × ${almNum(l.alto,2)} m`;
+  const grupos = [];
+  almLineasExpandidas(ls).forEach(l => {
+    const k = `${l.tipo}|${l.largo}|${l.ancho}`;
+    let g = grupos.find(x => x.k === k);
+    if (!g) grupos.push(g = {k, tipo:l.tipo, largo:l.largo, ancho:l.ancho, alturas:[]});
+    for (let i = 0; i < (l.cant||0); i++) g.alturas.push(l.alto);
+  });
+  return grupos.map(g => {
+    const t = TIPOS_PALET[g.tipo];
+    const nombre = t && g.tipo !== 'largo' ? t.label : 'Bulto';
+    const iguales = g.alturas.every(h => h === g.alturas[0]);
+    const base = `${g.alturas.length} × ${nombre} ${almNum(g.largo,2)} × ${almNum(g.ancho,2)}`;
+    return iguales
+      ? `${base} × ${almNum(g.alturas[0],2)} m`
+      : `${base} m · alturas ${g.alturas.map(h=>almNum(h,2)).join(' · ')} m`;
   }).join(' + ');
 }
 function almLineaNueva(tipo = '', cant = 1) {
   const t = TIPOS_PALET[tipo];
-  return {tipo, largo: t&&t.largo ? t.largo : 0, ancho: t&&t.largo ? t.ancho : 0, alto: 0, cant};
+  return {tipo, largo: t&&t.largo ? t.largo : 0, ancho: t&&t.largo ? t.ancho : 0, alto: 0, cant,
+          indiv: cant > 1, alturas: Array(cant).fill(0)};
 }
 
 // ── Paso 3: medidas ──
@@ -2321,7 +2341,7 @@ function almRenderPaso3() {
       <button class="btn btn-ghost" onclick="almRenderPaso(2)">← Volver</button>
     </div>
     ${conVol ? e.lineas.map((l,i)=>almHtmlLinea(l,i)).join('') + `
-      <button class="btn btn-ghost" style="margin-bottom:0.75rem" onclick="almAnadirLinea()">＋ Añadir bultos de otra medida o altura</button>
+      <button class="btn btn-ghost" style="margin-bottom:0.75rem" onclick="almAnadirLinea()">＋ Añadir bultos de otro tipo o medida</button>
       <div class="refuel-card" style="margin-bottom:0.75rem;text-align:center">
         <div id="alm-res-vol" style="font-size:22px;font-weight:700;color:var(--success)"></div>
         <div id="alm-res-aviso" style="font-size:12px;color:var(--warning);margin-top:0.25rem"></div>
@@ -2340,8 +2360,10 @@ function almRenderPaso3() {
 function almHtmlLinea(l, i) {
   const e = almEstado;
   const fijo = l.tipo && l.tipo !== 'largo';
+  const indiv = l.indiv && l.cant > 1;
   const campo = (k, lbl) => `<div class="form-group" style="margin-bottom:0"><label class="form-label">${lbl}</label>
     <input class="form-input" type="number" step="0.01" inputmode="decimal" id="alm-l${i}-${k}" placeholder="0.00" value="${l[k]||''}" oninput="almLinInput(${i})" ${fijo&&k!=='alto'?'readonly':''} ${k==='alto'?'style="border-color:var(--accent)"':''}></div>`;
+  const nom = fijo ? 'Palet' : 'Bulto';
   return `
     <div class="refuel-card" style="margin-bottom:0.75rem">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
@@ -2355,19 +2377,67 @@ function almHtmlLinea(l, i) {
           <span style="font-size:10px;color:var(--text-muted)">${k==='largo'?'manual':v.dims.replace(' m','')}</span>
         </button>`).join('')}
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-bottom:0.75rem">
-        ${campo('largo','Largo (m)')}${campo('ancho','Ancho (m)')}${campo('alto','Alto (m)')}
-      </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.75rem">
         <span style="font-size:13px;color:var(--text-muted)">Cantidad</span>
         <div style="display:flex;align-items:center;gap:0.5rem">
           <button class="btn btn-ghost" style="width:48px;padding:0.5rem;font-size:20px" onclick="almLinCant(${i},-1)">−</button>
-          <input class="form-input" type="number" inputmode="numeric" min="1" id="alm-l${i}-cant" value="${l.cant||1}" oninput="almLinInput(${i})" style="width:70px;text-align:center;font-size:20px;font-weight:700">
+          <input class="form-input" type="number" inputmode="numeric" min="1" id="alm-l${i}-cant" value="${l.cant||1}" onchange="almLinCantSet(${i})" style="width:70px;text-align:center;font-size:20px;font-weight:700">
           <button class="btn btn-ghost" style="width:48px;padding:0.5rem;font-size:20px" onclick="almLinCant(${i},1)">＋</button>
         </div>
       </div>
+      ${l.cant > 1 ? `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.35rem;margin-bottom:0.75rem">
+        <button class="btn ${indiv?'btn-secondary':'btn-ghost'}" style="font-size:13px;padding:0.5rem" onclick="almLinModo(${i},true)">Cada uno su altura</button>
+        <button class="btn ${!indiv?'btn-secondary':'btn-ghost'}" style="font-size:13px;padding:0.5rem" onclick="almLinModo(${i},false)">Todos igual de altos</button>
+      </div>` : ''}
+      ${indiv ? `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.75rem">
+        ${campo('largo','Largo (m)')}${campo('ancho','Ancho (m)')}
+      </div>
+      <label class="form-label">Altura de cada ${nom.toLowerCase()} (m)</label>
+      <div style="display:grid;grid-template-columns:repeat(${l.cant>=4?4:l.cant},1fr);gap:0.5rem">
+        ${l.alturas.map((h,j)=>`
+        <div style="text-align:center">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">${nom} ${j+1}</div>
+          <input class="form-input" type="number" step="0.01" inputmode="decimal" id="alm-l${i}-h${j}" placeholder="0.00" value="${h||''}" oninput="almLinInput(${i})" onkeydown="almAltKey(event,${i},${j})" style="text-align:center;border-color:var(--accent);padding-left:0.25rem;padding-right:0.25rem">
+        </div>`).join('')}
+      </div>` : `
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem">
+        ${campo('largo','Largo (m)')}${campo('ancho','Ancho (m)')}${campo('alto','Alto (m)')}
+      </div>`}
       <div id="alm-l${i}-sub" style="text-align:right;font-size:12px;color:var(--text-muted);margin-top:0.5rem"></div>
     </div>`;
+}
+
+// Primer campo de altura vacío del grupo (para poner el cursor ahí)
+function almFocoAltura(i) {
+  const l = almEstado.lineas[i];
+  if (!l) return;
+  if (l.indiv && l.cant > 1) {
+    const j = l.alturas.findIndex(h => !(h > 0));
+    document.getElementById(`alm-l${i}-h${j >= 0 ? j : 0}`)?.focus();
+  } else {
+    document.getElementById(`alm-l${i}-${l.tipo && l.tipo!=='largo' ? 'alto' : 'largo'}`)?.focus();
+  }
+}
+// Enter en una altura: salta a la siguiente, como con la pistola
+function almAltKey(ev, i, j) {
+  if (ev.key !== 'Enter') return;
+  ev.preventDefault();
+  const sig = document.getElementById(`alm-l${i}-h${j+1}`);
+  if (sig) sig.focus(); else ev.target.blur();
+}
+function almAjustarAlturas(l) {
+  l.alturas = (l.alturas || []).slice(0, l.cant);
+  while (l.alturas.length < l.cant) l.alturas.push(0);
+}
+function almLinModo(i, indiv) {
+  const l = almEstado.lineas[i];
+  l.indiv = indiv;
+  if (indiv) { almAjustarAlturas(l); if (l.alto > 0) l.alturas = l.alturas.map(h => h || l.alto); }
+  else if (!(l.alto > 0)) l.alto = l.alturas.find(h => h > 0) || 0;
+  almRenderPaso(3);
+  almFocoAltura(i);
 }
 
 function almSelMedida(m) {
@@ -2375,7 +2445,7 @@ function almSelMedida(m) {
   if ((m==='volumen'||m==='ambos') && !almEstado.lineas.length)
     almEstado.lineas = [almLineaNueva('', Math.max(1, almEstado.bultos||1))];
   almRenderPaso(3);
-  document.getElementById(m==='peso' ? 'alm-peso' : 'alm-l0-alto')?.focus();
+  if (m==='peso') document.getElementById('alm-peso')?.focus(); else almFocoAltura(0);
 }
 function almLinTipo(i, tipo) {
   const l = almEstado.lineas[i];
@@ -2383,27 +2453,36 @@ function almLinTipo(i, tipo) {
   l.tipo = tipo;
   if (t.largo) { l.largo = t.largo; l.ancho = t.ancho; }
   almRenderPaso(3);
-  document.getElementById(t.largo ? `alm-l${i}-alto` : `alm-l${i}-largo`)?.focus();
+  if (t.largo) almFocoAltura(i); else document.getElementById(`alm-l${i}-largo`)?.focus();
 }
 function almLinInput(i) {
   const l = almEstado.lineas[i];
   const v = k => parseFloat(String(document.getElementById(`alm-l${i}-${k}`)?.value||'').replace(',','.'))||0;
-  l.largo = v('largo'); l.ancho = v('ancho'); l.alto = v('alto');
-  l.cant = Math.max(0, Math.round(v('cant')));
+  l.largo = v('largo'); l.ancho = v('ancho');
+  if (l.indiv && l.cant > 1) l.alturas = l.alturas.map((h,j) => v('h'+j));
+  else l.alto = v('alto');
   almActualizarTotales();
 }
-function almLinCant(i, d) {
+function almCambiarCant(i, n) {
   const l = almEstado.lineas[i];
-  l.cant = Math.max(1, (l.cant||1) + d);
-  const inp = document.getElementById(`alm-l${i}-cant`);
-  if (inp) inp.value = l.cant;
-  almActualizarTotales();
+  const antes = l.cant;
+  l.cant = Math.max(1, n);
+  if (antes === 1 && l.cant > 1 && !l.alturas?.some(h => h > 0)) l.indiv = true;   // por defecto, cada uno su altura
+  almAjustarAlturas(l);
+  if (l.indiv && antes === 1 && l.alto > 0) l.alturas[0] = l.alto;
+  almRenderPaso(3);
+  almFocoAltura(i);
+}
+function almLinCant(i, d) { almCambiarCant(i, (almEstado.lineas[i].cant||1) + d); }
+function almLinCantSet(i) {
+  const n = parseInt(document.getElementById(`alm-l${i}-cant`)?.value, 10) || 1;
+  almCambiarCant(i, n);
 }
 function almAnadirLinea() {
   const ult = almEstado.lineas[almEstado.lineas.length-1];
   almEstado.lineas.push(almLineaNueva(ult ? ult.tipo : '', 1));
   almRenderPaso(3);
-  document.getElementById(`alm-l${almEstado.lineas.length-1}-alto`)?.focus();
+  almFocoAltura(almEstado.lineas.length-1);
 }
 function almQuitarLinea(i) {
   almEstado.lineas.splice(i, 1);
@@ -2413,8 +2492,14 @@ function almActualizarTotales() {
   const e = almEstado;
   e.lineas.forEach((l,i) => {
     const sub = document.getElementById(`alm-l${i}-sub`);
-    const v1 = (l.largo||0)*(l.ancho||0)*(l.alto||0);
-    if (sub) sub.textContent = v1>0 ? `${l.cant} × ${almNum(v1,3)} m³ = ${almNum(almVolLinea(l),3)} m³` : '';
+    if (!sub) return;
+    if (l.indiv && l.cant > 1) {
+      const hechas = l.alturas.filter(h => h > 0).length;
+      sub.textContent = almVolLinea(l) > 0 ? `${hechas} de ${l.cant} medidos · ${almNum(almVolLinea(l),3)} m³` : '';
+    } else {
+      const v1 = (l.largo||0)*(l.ancho||0)*(l.alto||0);
+      sub.textContent = v1>0 ? `${l.cant} × ${almNum(v1,3)} m³ = ${almNum(almVolLinea(l),3)} m³` : '';
+    }
   });
   e.volumen = almVolLineas(e.lineas);
   const n = almCantLineas(e.lineas);
@@ -2438,7 +2523,11 @@ function almIrConfirmar() {
       const l = e.lineas[i];
       const g = e.lineas.length>1 ? ` del grupo ${i+1}` : '';
       if (!(l.cant>0)) { alert('Pon la cantidad de bultos'+g); return; }
-      if (!(l.largo>0 && l.ancho>0 && l.alto>0)) { alert('Faltan medidas'+g+': largo, ancho y alto'); return; }
+      if (!(l.largo>0 && l.ancho>0)) { alert('Faltan medidas'+g+': largo y ancho'); return; }
+      if (l.indiv && l.cant > 1) {
+        const j = l.alturas.findIndex(h => !(h > 0));
+        if (j >= 0) { alert(`Falta la altura del bulto ${j+1}${g}`); almFocoAltura(i); return; }
+      } else if (!(l.alto > 0)) { alert('Falta la altura'+g); return; }
     }
     e.volumen = almVolLineas(e.lineas);
   } else {
@@ -2498,7 +2587,7 @@ function almRenderPaso4() {
 async function almGuardar() {
   const e = almEstado;
   const ahora = new Date();
-  const lineas = e.lineas.map(l => ({tipo:l.tipo||'', largo:l.largo, ancho:l.ancho, alto:l.alto, cant:l.cant}));
+  const lineas = almLineasExpandidas(e.lineas);
   const tipos = [...new Set(lineas.map(l=>l.tipo))];
   const registro = {
     codigo: e.codigo, expedicion: e.exp, agencia: e.agencia,
@@ -2843,7 +2932,7 @@ Object.assign(window, {
   almCalcPeso, almIrConfirmar, almGuardar, almNueva,
   renderAlmacenAdmin, renderAlmacenResumen, almBorrarExpedicion, almExportarExcel,
   almEditar, almCancelarEdicion, almEdCalc, almGuardarEdicion, almEdLinInput, almEdLinTipo,
-  almEdAnadirLinea, almEdQuitarLinea, almLinTipo, almLinInput, almLinCant, almAnadirLinea, almQuitarLinea,
+  almEdAnadirLinea, almEdQuitarLinea, almLinTipo, almLinInput, almLinCant, almLinCantSet, almLinModo, almAltKey, almAnadirLinea, almQuitarLinea,
 });
 
 // ════════════════════════════════════════════════════════════════════════════
