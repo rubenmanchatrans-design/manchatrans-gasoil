@@ -19,6 +19,31 @@
   bloquearGiro();
   document.addEventListener('pointerdown', bloquearGiro, {once:true});
   document.addEventListener('visibilitychange', () => { if (!document.hidden) bloquearGiro(); });
+
+  // Si aun así el aparato gira (app sin instalar, o la pistola no respeta el
+  // bloqueo), se contra-gira la página para que siga viéndose en vertical.
+  // Solo en pantallas táctiles pequeñas (móviles y pistolas), nunca en el PC.
+  function anguloPantalla() {
+    if (typeof window.orientation === 'number') return window.orientation;          // 90 / -90
+    const a = (screen.orientation && screen.orientation.angle) || 0;
+    return a === 270 ? -90 : a;
+  }
+  function mantenerVertical() {
+    const h = document.documentElement;
+    h.classList.remove('giro-fijo', 'giro-izq', 'giro-der');
+    const tactil = window.matchMedia('(pointer: coarse)').matches;
+    const pequena = Math.min(screen.width, screen.height) < 900;
+    if (!tactil || !pequena) return;
+    const a = anguloPantalla();
+    const tipo = (screen.orientation && screen.orientation.type) || '';
+    const apaisada = tipo ? tipo.startsWith('landscape') : Math.abs(a) === 90;
+    if (!apaisada) return;
+    h.classList.add('giro-fijo', a === -90 ? 'giro-der' : 'giro-izq');
+  }
+  window.addEventListener('orientationchange', () => setTimeout(mantenerVertical, 50));
+  if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener('change', mantenerVertical);
+  window.addEventListener('resize', mantenerVertical);
+  mantenerVertical();
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/manchatrans-gasoil/sw.js').then(reg => {
       reg.update();
@@ -251,6 +276,81 @@ input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 input[type="number"] { -moz-appearance: textfield; }
 #firma-canvas { border: 2px dashed var(--accent); border-radius: var(--radius-sm); background: #fff; touch-action: none; width: 100%; max-width: 500px; height: 180px; display: block; margin: 0 auto; }
+
+/* ── Almacén: ventanas Ver / Editar ── */
+.alm-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 12px; }
+.alm-sheet { background: var(--card); border: 1px solid var(--card-border); border-radius: 18px; width: 100%; max-width: 520px; max-height: 92%; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+.alm-sheet-cab { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid var(--card-border); }
+.alm-sheet-tit { font-size: 18px; font-weight: 700; }
+.alm-sheet-x { background: var(--navy-light); border: none; color: var(--text); width: 40px; height: 40px; border-radius: 50%; font-size: 18px; cursor: pointer; }
+.alm-sheet-cuerpo { padding: 1.25rem; overflow-y: auto; }
+.alm-sheet-pie { display: flex; gap: 0.6rem; padding: 1rem 1.25rem; border-top: 1px solid var(--card-border); }
+.alm-sheet-pie .btn { flex: 1; }
+@media (max-width: 560px) {
+  .alm-modal { align-items: flex-end; padding: 0; }
+  .alm-sheet { border-radius: 18px 18px 0 0; max-height: 94%; }
+}
+.alm-etq { display: block; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.35rem; }
+.alm-sec-tit { font-size: 13px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; margin: 1.25rem 0 0.6rem; }
+.alm-chip-ag { background: var(--navy-light); color: var(--accent); padding: 6px 14px; border-radius: 12px; font-weight: 700; font-size: 15px; flex-shrink: 0; }
+.alm-ver-cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.alm-ver-exp { font-family: monospace; font-size: 26px; font-weight: 700; color: var(--accent); word-break: break-all; line-height: 1.1; }
+.alm-ver-meta { font-size: 13px; color: var(--text-muted); margin-top: 0.4rem; }
+.alm-banner { border-radius: 12px; padding: 0.8rem 1rem; font-size: 15px; margin-top: 1rem; }
+.alm-banner-ok { background: rgba(46,204,113,0.12); color: var(--success); }
+.alm-banner-mal { background: rgba(231,76,60,0.14); color: var(--danger); }
+.alm-cmp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.6rem; margin-top: 1rem; }
+.alm-cmp { background: var(--navy-light); border-radius: 14px; padding: 0.9rem 1rem; }
+.alm-cmp-mal { box-shadow: inset 0 0 0 2px var(--danger); }
+.alm-cmp-tit { font-size: 13px; color: var(--text-muted); }
+.alm-cmp-val { font-size: 30px; font-weight: 800; color: var(--success); margin: 0.2rem 0; }
+.alm-cmp-mal .alm-cmp-val { color: var(--danger); }
+.alm-cmp-val small { font-size: 16px; font-weight: 600; }
+.alm-cmp-sub { font-size: 13px; color: var(--text-muted); }
+.alm-cmp-dif { font-size: 13px; font-weight: 700; margin-top: 0.2rem; }
+.alm-bultos { display: flex; flex-direction: column; gap: 0.45rem; }
+.alm-bulto { display: flex; align-items: center; gap: 0.75rem; background: var(--navy-light); border-radius: 12px; padding: 0.65rem 0.8rem; }
+.alm-bulto-num { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: #111; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; }
+.alm-bulto-info { flex: 1; min-width: 0; }
+.alm-bulto-tipo { font-weight: 700; font-size: 14px; }
+.alm-bulto-dim { font-size: 13px; color: var(--text-muted); }
+.alm-bulto-dim strong { color: var(--text); }
+.alm-bulto-vol { font-weight: 700; color: var(--success); white-space: nowrap; }
+.alm-datos { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.alm-datos div { background: var(--navy-light); border-radius: 10px; padding: 0.55rem 0.75rem; display: flex; flex-direction: column; gap: 2px; }
+.alm-datos span { font-size: 11px; color: var(--text-muted); text-transform: uppercase; }
+.alm-datos strong { font-size: 14px; word-break: break-word; }
+.alm-ed-exp { font-family: monospace; font-size: 20px !important; letter-spacing: 1px; }
+.alm-ags { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; }
+.alm-ag, .alm-tipo { background: transparent; border: 1px solid rgba(255,255,255,0.18); color: var(--text); border-radius: 10px; padding: 0.7rem 0.3rem; font-weight: 700; font-size: 14px; cursor: pointer; }
+.alm-ag.on, .alm-tipo.on { background: var(--accent); border-color: var(--accent); color: #111; }
+.alm-ed-bulto { background: var(--navy-light); border-radius: 14px; padding: 0.75rem; margin-bottom: 0.6rem; }
+.alm-ed-bulto-cab { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.6rem; }
+.alm-tipos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.3rem; flex: 1; min-width: 0; }
+.alm-tipo { padding: 0.55rem 0.1rem; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alm-quitar { background: none; border: 1px solid var(--danger); color: var(--danger); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; flex-shrink: 0; }
+.alm-ed-dims { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; align-items: end; }
+.alm-ed-dims .alm-base { grid-column: span 2; font-size: 12px; color: var(--text-muted); padding: 0.3rem 0; }
+.alm-ed-dims .alm-base strong { font-size: 16px; color: var(--text); }
+.alm-num { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--text-muted); text-transform: uppercase; }
+.alm-num input { background: var(--input-bg); border: 1px solid var(--card-border); color: var(--text); border-radius: 10px; padding: 0.7rem 0.4rem; font-size: 18px; text-align: center; width: 100%; box-sizing: border-box; }
+.alm-num-dest input { border: 2px solid var(--accent); }
+.alm-anadir { width: 100%; background: transparent; border: 2px dashed var(--card-border); color: var(--text-muted); border-radius: 12px; padding: 0.8rem; font-size: 15px; font-weight: 600; cursor: pointer; }
+.alm-peso-fila { display: flex; align-items: center; gap: 0.6rem; max-width: 220px; }
+.alm-peso-fila input { font-size: 18px !important; text-align: center; }
+.alm-total { margin-top: 1.25rem; text-align: center; font-size: 18px; color: var(--success); }
+.alm-total:empty { display: none; }
+.alm-accion { background: transparent; border: 1px solid var(--card-border); color: var(--text); border-radius: 10px; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.alm-accion-ver { background: var(--accent); border-color: var(--accent); color: #111; }
+.alm-accion-borrar { border-color: var(--danger); color: var(--danger); padding: 6px 10px; }
+
+/* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
+html.giro-fijo, html.giro-fijo body { overflow: hidden; }
+html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
+html.giro-izq body { transform: translateY(100vh) rotate(-90deg); }
+html.giro-der body { transform: translateX(100vw) rotate(90deg); }
+html.giro-fijo .screen { min-height: 100%; }
+html.giro-fijo #screen-chat { height: 100% !important; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -551,7 +651,7 @@ input[type="number"] { -moz-appearance: textfield; }
     <!-- ═══════════ FIN MÓDULO GASOIL ═══════════ -->
 
     <!-- ═══════════ MÓDULO GESTIÓN (Conductores y Vehículos) ═══════════ -->
-    <div id="module-almacen" style="display:none;">
+    <div id="module-almacen" style="display:none;max-width:900px;margin:0 auto;">
       <button class="btn btn-primary" id="alm-btn-escanear" style="margin-bottom:1rem;font-size:16px;padding:0.9rem">📷 Escanear expediciones</button>
       <div class="mod-tabs">
         <button class="btn btn-secondary atab-btn" id="almtab-btn-registros">📋 Registros</button>
@@ -2724,7 +2824,6 @@ function renderAlmacenAdmin() {
     <div class="refuel-card" style="padding:0">
       ${lista.length===0?`<div style="text-align:center;color:var(--text-muted);padding:2rem;font-size:13px">No hay expediciones registradas</div>`:
       lista.map(r=>{
-        if (r.id === almEditId) return almHtmlEditar(r);
         const dKg = almDiferencia(r.peso, r.kgDeclarados);
         const dM3 = almDiferencia(r.volumen, r.m3Declarados);
         const chip = (txt, col) => `<span style="background:${col}22;color:${col};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap">${txt}</span>`;
@@ -2738,8 +2837,9 @@ function renderAlmacenAdmin() {
               <span style="background:var(--navy-light);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">${almEsc(r.agencia)}</span>
               ${r.volumen>0?chip(r.volumen.toFixed(3)+' m³'+(r.m3Declarados>0?' / '+almNum(r.m3Declarados,3):''), dM3&&dM3.aviso?'#e74c3c':'#3b82f6'):''}
               ${r.peso>0?chip(r.peso.toFixed(1)+' kg'+(r.kgDeclarados>0?' / '+almNum(r.kgDeclarados,0):''), dKg&&dKg.aviso?'#e74c3c':'#a855f7'):''}
-              <button class="btn-del" style="border-color:var(--accent);color:var(--accent)" onclick="almEditar('${r.id}')" title="Editar">✏️</button>
-              <button class="btn-del" onclick="almBorrarExpedicion('${r.id}')" title="Borrar">🗑</button>
+              <button class="alm-accion alm-accion-ver" onclick="almVer('${r.id}')">👁 Ver</button>
+              <button class="alm-accion" onclick="almEditar('${r.id}')">✏️ Editar</button>
+              <button class="alm-accion alm-accion-borrar" onclick="almBorrarExpedicion('${r.id}')" aria-label="Borrar">🗑</button>
             </div>
           </div>
           ${almHtmlDetalleMedida(r)}
@@ -2788,139 +2888,236 @@ function renderAlmacenResumen() {
     <div style="font-size:11px;color:var(--text-muted)">La comparación solo cuenta las medidas que tienen dato declarado por la agencia. Si una expedición tiene varios bultos medidos por separado, compara la suma con lo declarado.</div>`;
 }
 
-// ── Detalle y edición de una medida (vista admin) ──
-let almEditId = null;
-let almEdLineas = [];
+// ── Ver y editar una medida (ventana emergente, vista admin) ──
+let almEdId = null;
+let almEdBultos = [];          // en la edición, un elemento por bulto: {tipo, largo, ancho, alto}
+let almEdAgencia = '';
 
 function almHtmlDetalleMedida(r) {
   const ls = almLineasDe(r);
+  const n = almCantLineas(ls);
   const partes = [];
-  if (ls.length) partes.push(`<strong>${almNombreBultos(ls, almCantLineas(ls))}</strong>: ${almTextoLineas(ls)}`);
+  if (ls.length) partes.push(`<strong>${almNombreBultos(ls, n)}</strong>`);
   if (r.volumen>0) partes.push(`${almNum(r.volumen,3)} m³`);
   if (r.peso>0) partes.push(`${almNum(r.peso,1)} kg`);
-  const decl = [];
-  if (r.bultos>0) decl.push(`${r.bultos} bulto${r.bultos==1?'':'s'}`);
-  if (r.kgDeclarados>0) decl.push(`${almNum(r.kgDeclarados,0)} kg`);
-  if (r.kgTasadosDeclarados>0) decl.push(`${almNum(r.kgTasadosDeclarados,0)} kg tasados`);
-  if (r.m3Declarados>0) decl.push(`${almNum(r.m3Declarados,3)} m³`);
-  if (!partes.length && !decl.length) return '';
-  return `<div style="margin-top:0.4rem;font-size:12px;display:flex;flex-direction:column;gap:0.15rem">
-    ${partes.length?`<span><span style="color:var(--text-muted)">Medido:</span> ${partes.join(' · ')}</span>`:''}
-    ${decl.length?`<span><span style="color:var(--text-muted)">Declarado:</span> ${decl.join(' · ')}</span>`:''}
-  </div>`;
+  if (!partes.length) return '';
+  return `<div style="margin-top:0.35rem;font-size:12px;color:var(--text-muted)">Medido: <span style="color:var(--text)">${partes.join(' · ')}</span></div>`;
 }
 
-function almHtmlEdLinea(l, i) {
-  const fijo = l.tipo && l.tipo !== 'largo';
-  const campo = (k, lbl, step) => `<div class="form-group" style="margin-bottom:0"><label class="form-label">${lbl}</label>
-    <input class="form-input" type="number" step="${step}" inputmode="decimal" id="alm-ed${i}-${k}" value="${l[k]>0?l[k]:''}" oninput="almEdLinInput(${i})" ${fijo&&(k==='largo'||k==='ancho')?'readonly':''}></div>`;
-  return `<div style="border:1px solid var(--card-border);border-radius:8px;padding:0.6rem;margin-bottom:0.5rem">
-    <div style="display:flex;gap:0.5rem;align-items:flex-end;margin-bottom:0.5rem">
-      <div class="form-group" style="margin-bottom:0;flex:1"><label class="form-label">Tipo${almEdLineas.length>1?' (grupo '+(i+1)+')':''}</label>
-        <select class="form-input" id="alm-ed${i}-tipo" onchange="almEdLinTipo(${i})">
-          <option value="">—</option>
-          ${Object.entries(TIPOS_PALET).map(([k,v])=>`<option value="${k}" ${l.tipo===k?'selected':''}>${v.label} (${v.dims})</option>`).join('')}
-        </select></div>
-      ${almEdLineas.length>1?`<button class="btn-del" onclick="almEdQuitarLinea(${i})">✕</button>`:''}
+// Ventana genérica
+function almAbrirModal(titulo, cuerpo, pie) {
+  almCerrarModal();
+  const m = document.createElement('div');
+  m.id = 'alm-modal';
+  m.className = 'alm-modal';
+  m.onclick = ev => { if (ev.target === m) almCerrarModal(); };
+  m.innerHTML = `
+    <div class="alm-sheet" role="dialog" aria-modal="true" aria-label="${almEsc(titulo)}">
+      <div class="alm-sheet-cab">
+        <div class="alm-sheet-tit">${titulo}</div>
+        <button class="alm-sheet-x" onclick="almCerrarModal()" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="alm-sheet-cuerpo" id="alm-modal-cuerpo">${cuerpo}</div>
+      ${pie ? `<div class="alm-sheet-pie">${pie}</div>` : ''}
+    </div>`;
+  document.body.appendChild(m);
+  document.addEventListener('keydown', almEscModal);
+}
+function almCerrarModal() {
+  document.getElementById('alm-modal')?.remove();
+  document.removeEventListener('keydown', almEscModal);
+}
+function almEscModal(ev) { if (ev.key === 'Escape') almCerrarModal(); }
+
+const almNombreTipo = t => ({europeo:'Palet europeo', americano:'Palet americano', petro:'Petro palet'})[t] || 'Bulto';
+
+// ── VER ──
+function almVer(id) {
+  const r = almCache.find(x => x.id === id);
+  if (!r) return;
+  const bultos = almLineasExpandidas(almLineasDe(r)).flatMap(l => Array.from({length:l.cant||1}, () => l));
+  const dKg = almDiferencia(r.peso, r.kgDeclarados);
+  const dM3 = almDiferencia(r.volumen, r.m3Declarados);
+  const aviso = (dKg&&dKg.aviso) || (dM3&&dM3.aviso);
+  const hayDecl = r.kgDeclarados>0 || r.m3Declarados>0;
+
+  const tarjeta = (titulo, medido, decl, d, dec, u) => `
+    <div class="alm-cmp ${d&&d.aviso?'alm-cmp-mal':''}">
+      <div class="alm-cmp-tit">${titulo}</div>
+      <div class="alm-cmp-val">${medido>0 ? almNum(medido,dec)+' <small>'+u+'</small>' : '—'}</div>
+      <div class="alm-cmp-sub">Declarado: ${decl>0 ? almNum(decl,dec)+' '+u : 'nada'}</div>
+      ${d ? `<div class="alm-cmp-dif">${d.dif>0?'+':''}${almNum(d.dif,dec)} ${u} (${d.dif>0?'+':''}${almNum(d.pct*100,0)} %)</div>` : ''}
+    </div>`;
+
+  const cuerpo = `
+    <div class="alm-ver-cab">
+      <div>
+        <div class="alm-etq">Expedición</div>
+        <div class="alm-ver-exp">${almEsc(r.expedicion||r.codigo)}</div>
+      </div>
+      <span class="alm-chip-ag">${almEsc(r.agencia)}</span>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem">
-      ${campo('cant','Cantidad','1')}${campo('largo','Largo (m)','0.01')}${campo('ancho','Ancho (m)','0.01')}${campo('alto','Alto (m)','0.01')}
+    <div class="alm-ver-meta">📅 ${almEsc(r.fechaStr)} · ${almEsc(r.horaStr)}${r.editadoTs?' · ✏️ editado':''}</div>
+
+    ${hayDecl ? (aviso
+      ? `<div class="alm-banner alm-banner-mal">⚠️ La agencia ha declarado <strong>menos</strong> de lo medido</div>`
+      : `<div class="alm-banner alm-banner-ok">✅ Lo medido cuadra con lo declarado</div>`) : ''}
+
+    <div class="alm-cmp-grid">
+      ${r.volumen>0 || r.m3Declarados>0 ? tarjeta('📦 Volumen', r.volumen, r.m3Declarados, dM3, 3, 'm³') : ''}
+      ${r.peso>0 || r.kgDeclarados>0 ? tarjeta('⚖️ Peso', r.peso, r.kgDeclarados, dKg, 0, 'kg') : ''}
     </div>
-  </div>`;
+
+    ${bultos.length ? `
+    <div class="alm-sec-tit">${almNombreBultos(almLineasDe(r), bultos.length)} medidos</div>
+    <div class="alm-bultos">
+      ${bultos.map((b,i) => `
+      <div class="alm-bulto">
+        <div class="alm-bulto-num">${i+1}</div>
+        <div class="alm-bulto-info">
+          <div class="alm-bulto-tipo">${almNombreTipo(b.tipo)}</div>
+          <div class="alm-bulto-dim">${almNum(b.largo,2)} × ${almNum(b.ancho,2)} × <strong>${almNum(b.alto,2)}</strong> m</div>
+        </div>
+        <div class="alm-bulto-vol">${almNum(b.largo*b.ancho*b.alto,3)} m³</div>
+      </div>`).join('')}
+    </div>` : ''}
+
+    <div class="alm-sec-tit">Datos de Nereid</div>
+    <div class="alm-datos">
+      ${[['Albarán', r.albaran||'—'], ['Destino', r.poblacion||'—'],
+         ['Bultos declarados', r.bultos>0 ? r.bultos : '—'],
+         ['Kg tasados', r.kgTasadosDeclarados>0 ? almNum(r.kgTasadosDeclarados,0)+' kg' : '—'],
+         ['Lectura', !r.enNereid && r.enNereid!==undefined ? 'No está en Nereid' : r.sinLecturaNereid ? '⚠️ Sin lectura' : '✓ Leída'],
+        ].map(([k,v]) => `<div><span>${k}</span><strong>${almEsc(v)}</strong></div>`).join('')}
+    </div>`;
+
+  almAbrirModal('Ver medida', cuerpo, `
+    <button class="btn btn-primary" onclick="almEditar('${r.id}')">✏️ Editar</button>
+    <button class="btn btn-ghost" onclick="almCerrarModal()">Cerrar</button>`);
 }
 
-function almHtmlEditar(r) {
-  const ags = AGENCIAS_ALM.includes(r.agencia) ? AGENCIAS_ALM : [...AGENCIAS_ALM, r.agencia];
-  return `<div style="padding:1rem;border-bottom:1px solid var(--card-border);background:var(--navy-light)">
-    <div class="section-title" style="margin-bottom:0.75rem">✏️ Editar medida</div>
-    <div style="display:grid;grid-template-columns:2fr 1fr;gap:0.5rem;margin-bottom:0.75rem">
-      <div class="form-group" style="margin-bottom:0"><label class="form-label">Expedición</label>
-        <input class="form-input" type="text" id="alm-ed-exp" value="${almEsc(r.expedicion||r.codigo||'')}" style="font-family:monospace"></div>
-      <div class="form-group" style="margin-bottom:0"><label class="form-label">Agencia</label>
-        <select class="form-input" id="alm-ed-ag">${ags.map(a=>`<option ${a===r.agencia?'selected':''}>${almEsc(a)}</option>`).join('')}</select></div>
-    </div>
-    <div id="alm-ed-lineas">${almEdLineas.map((l,i)=>almHtmlEdLinea(l,i)).join('')}</div>
-    <button class="btn btn-ghost" style="margin-bottom:0.75rem" onclick="almEdAnadirLinea()">＋ Añadir grupo de bultos</button>
-    <div class="form-group" style="margin-bottom:0.5rem;max-width:200px"><label class="form-label">Peso total (kg)</label>
-      <input class="form-input" type="number" step="0.1" inputmode="decimal" id="alm-ed-peso" value="${r.peso>0?r.peso:''}"></div>
-    <div id="alm-ed-vol" style="font-size:14px;font-weight:700;color:var(--success)"></div>
-    <div style="display:flex;gap:0.5rem;margin-top:0.75rem">
-      <button class="btn btn-primary" onclick="almGuardarEdicion('${r.id}')">✓ Guardar cambios</button>
-      <button class="btn btn-ghost" onclick="almCancelarEdicion()">Cancelar</button>
-    </div>
-  </div>`;
-}
-
-// Guarda en almEdLineas lo que haya escrito antes de redibujar el formulario
-function almEdLeerFormulario() {
-  almEdLineas.forEach((l,i) => {
-    const v = k => parseFloat(String(document.getElementById(`alm-ed${i}-${k}`)?.value||'').replace(',','.'))||0;
-    if (!document.getElementById(`alm-ed${i}-alto`)) return;
-    l.tipo = document.getElementById(`alm-ed${i}-tipo`).value;
-    l.largo = v('largo'); l.ancho = v('ancho'); l.alto = v('alto'); l.cant = Math.round(v('cant'));
-  });
-}
-function almEdRedibujar() {
-  const exp = document.getElementById('alm-ed-exp')?.value, ag = document.getElementById('alm-ed-ag')?.value, peso = document.getElementById('alm-ed-peso')?.value;
-  const cont = document.getElementById('alm-ed-lineas');
-  if (cont) cont.innerHTML = almEdLineas.map((l,i)=>almHtmlEdLinea(l,i)).join('');
-  if (exp!=null) document.getElementById('alm-ed-exp').value = exp;
-  if (ag!=null) document.getElementById('alm-ed-ag').value = ag;
-  if (peso!=null) document.getElementById('alm-ed-peso').value = peso;
-  almEdCalc();
-}
+// ── EDITAR ──
 function almEditar(id) {
   const r = almCache.find(x => x.id === id);
   if (!r) return;
-  almEditId = id;
-  almEdLineas = almLineasDe(r).map(l => ({...l}));
-  if (!almEdLineas.length) almEdLineas = [almLineaNueva('', 1)];
-  renderAlmacenAdmin();
-  almEdCalc();
-}
-function almCancelarEdicion() { almEditId = null; almEdLineas = []; renderAlmacenAdmin(); }
-function almEdLinInput(i) { almEdLeerFormulario(); almEdCalc(); }
-function almEdLinTipo(i) {
-  almEdLeerFormulario();
-  const l = almEdLineas[i], t = TIPOS_PALET[l.tipo];
-  if (t && t.largo) { l.largo = t.largo; l.ancho = t.ancho; }
-  almEdRedibujar();
-}
-function almEdAnadirLinea() {
-  almEdLeerFormulario();
-  const ult = almEdLineas[almEdLineas.length-1];
-  almEdLineas.push(almLineaNueva(ult ? ult.tipo : '', 1));
-  almEdRedibujar();
-}
-function almEdQuitarLinea(i) { almEdLeerFormulario(); almEdLineas.splice(i,1); almEdRedibujar(); }
-function almEdCalc() {
-  const el = document.getElementById('alm-ed-vol');
-  if (!el) return;
-  const validas = almEdLineas.filter(l => l.cant>0 && l.largo>0 && l.ancho>0 && l.alto>0);
-  const n = almCantLineas(validas), v = almVolLineas(validas);
-  el.textContent = v>0 ? `${almNombreBultos(validas, n)} · ${almNum(v,3)} m³` : '';
+  almEdId = id;
+  almEdAgencia = r.agencia;
+  almEdBultos = almLineasExpandidas(almLineasDe(r))
+    .flatMap(l => Array.from({length:l.cant||1}, () => ({tipo:l.tipo||'', largo:l.largo, ancho:l.ancho, alto:l.alto})));
+  const ags = AGENCIAS_ALM.includes(r.agencia) ? AGENCIAS_ALM : [...AGENCIAS_ALM, r.agencia];
+  const cuerpo = `
+    <label class="alm-etq" for="alm-ed-exp">Expedición</label>
+    <input class="form-input alm-ed-exp" type="text" id="alm-ed-exp" value="${almEsc(r.expedicion||r.codigo||'')}">
+
+    <div class="alm-etq" style="margin-top:1rem">Agencia</div>
+    <div class="alm-ags" id="alm-ed-ags">
+      ${ags.map(a => `<button type="button" class="alm-ag ${a===r.agencia?'on':''}" onclick="almEdSelAg(this,'${almEsc(a)}')">${almEsc(a)}</button>`).join('')}
+    </div>
+
+    <div class="alm-sec-tit">Bultos</div>
+    <div id="alm-ed-bultos"></div>
+    <button type="button" class="alm-anadir" onclick="almEdAnadir()">＋ Añadir otro bulto</button>
+
+    <div class="alm-sec-tit">Peso total</div>
+    <div class="alm-peso-fila">
+      <input class="form-input" type="number" step="0.1" inputmode="decimal" id="alm-ed-peso" value="${r.peso>0?r.peso:''}" placeholder="Sin peso">
+      <span>kg</span>
+    </div>
+
+    <div class="alm-total" id="alm-ed-total"></div>`;
+  almAbrirModal('✏️ Editar medida', cuerpo, `
+    <button class="btn btn-primary" onclick="almGuardarEdicion()">✓ Guardar cambios</button>
+    <button class="btn btn-ghost" onclick="almCerrarModal()">Cancelar</button>`);
+  almEdPintarBultos();
 }
 
-async function almGuardarEdicion(id) {
+function almEdSelAg(btn, ag) {
+  almEdAgencia = ag;
+  document.querySelectorAll('#alm-ed-ags .alm-ag').forEach(b => b.classList.toggle('on', b === btn));
+}
+
+function almEdPintarBultos() {
+  const cont = document.getElementById('alm-ed-bultos');
+  if (!cont) return;
+  cont.innerHTML = almEdBultos.length ? almEdBultos.map((b,i) => {
+    const fijo = b.tipo && b.tipo !== 'largo';
+    const num = (k, lbl, destacado) => `
+      <label class="alm-num ${destacado?'alm-num-dest':''}">
+        <span>${lbl}</span>
+        <input type="number" step="0.01" inputmode="decimal" id="alm-eb${i}-${k}" value="${b[k]>0?b[k]:''}" placeholder="0,00" oninput="almEdLeer(${i})">
+      </label>`;
+    return `
+    <div class="alm-ed-bulto">
+      <div class="alm-ed-bulto-cab">
+        <span class="alm-bulto-num">${i+1}</span>
+        <div class="alm-tipos">
+          ${Object.entries(TIPOS_PALET).map(([k,v]) => `<button type="button" class="alm-tipo ${b.tipo===k?'on':''}" onclick="almEdTipo(${i},'${k}')">${({europeo:'Europeo',americano:'Americano',petro:'Petro',largo:'Otro'})[k]}</button>`).join('')}
+        </div>
+        ${almEdBultos.length>1 ? `<button type="button" class="alm-quitar" onclick="almEdQuitar(${i})" aria-label="Quitar bulto ${i+1}">✕</button>` : ''}
+      </div>
+      <div class="alm-ed-dims">
+        ${fijo
+          ? `<div class="alm-base">Base<br><strong>${almNum(b.largo,2)} × ${almNum(b.ancho,2)} m</strong></div>`
+          : num('largo','Largo (m)') + num('ancho','Ancho (m)')}
+        ${num('alto','Alto (m)', true)}
+      </div>
+    </div>`;
+  }).join('') : `<div style="color:var(--text-muted);font-size:13px;margin-bottom:0.5rem">Sin bultos medidos (solo peso).</div>`;
+  almEdTotal();
+}
+function almEdLeer(i) {
+  const b = almEdBultos[i];
+  const v = k => { const el = document.getElementById(`alm-eb${i}-${k}`); return el ? (parseFloat(String(el.value).replace(',','.'))||0) : b[k]; };
+  b.largo = v('largo'); b.ancho = v('ancho'); b.alto = v('alto');
+  almEdTotal();
+}
+function almEdTipo(i, tipo) {
+  const b = almEdBultos[i], t = TIPOS_PALET[tipo];
+  b.tipo = tipo;
+  if (t.largo) { b.largo = t.largo; b.ancho = t.ancho; }
+  almEdPintarBultos();
+  document.getElementById(`alm-eb${i}-${t.largo?'alto':'largo'}`)?.focus();
+}
+function almEdAnadir() {
+  const ult = almEdBultos[almEdBultos.length-1];
+  const t = TIPOS_PALET[ult?.tipo];
+  almEdBultos.push({tipo: ult?.tipo||'', largo: t&&t.largo ? t.largo : 0, ancho: t&&t.largo ? t.ancho : 0, alto: 0});
+  almEdPintarBultos();
+  const i = almEdBultos.length-1;
+  document.getElementById(`alm-eb${i}-alto`)?.focus();
+}
+function almEdQuitar(i) {
+  if (!confirm(`¿Quitar el bulto ${i+1}?`)) return;
+  almEdBultos.splice(i,1);
+  almEdPintarBultos();
+}
+function almEdTotal() {
+  const el = document.getElementById('alm-ed-total');
+  if (!el) return;
+  const ls = almEdBultos.filter(b => b.largo>0 && b.ancho>0 && b.alto>0).map(b => ({...b, cant:1}));
+  const v = almVolLineas(ls);
+  el.innerHTML = ls.length ? `${almNombreBultos(ls, ls.length)} · <strong>${almNum(v,3)} m³</strong>` : '';
+}
+
+async function almGuardarEdicion() {
+  const id = almEdId;
   const r = almCache.find(x => x.id === id);
   if (!r) return;
-  almEdLeerFormulario();
   const exp = (document.getElementById('alm-ed-exp')?.value||'').trim();
   const peso = parseFloat(String(document.getElementById('alm-ed-peso')?.value||'').replace(',','.'))||0;
-  if (!exp) { alert('La expedición no puede quedar vacía'); return; }
-  // Grupos vacíos (sin nada escrito) se ignoran; los empezados tienen que estar completos
-  const lineas = almEdLineas.filter(l => l.largo||l.ancho||l.alto)
-    .map(l => ({tipo:l.tipo||'', largo:l.largo, ancho:l.ancho, alto:l.alto, cant:l.cant}));
-  for (const l of lineas) {
-    if (!(l.cant>0 && l.largo>0 && l.ancho>0 && l.alto>0)) { alert('Hay un grupo con medidas o cantidad sin rellenar'); return; }
+  if (!exp) { alert('Falta el número de expedición'); return; }
+  for (let i = 0; i < almEdBultos.length; i++) {
+    const b = almEdBultos[i];
+    if (!b.tipo) { alert(`Elige el tipo del bulto ${i+1}`); return; }
+    if (!(b.largo>0 && b.ancho>0 && b.alto>0)) { alert(`Faltan medidas en el bulto ${i+1}`); document.getElementById(`alm-eb${i}-alto`)?.focus(); return; }
   }
+  const lineas = almEdBultos.map(b => ({tipo:b.tipo, largo:b.largo, ancho:b.ancho, alto:b.alto, cant:1}));
   const volumen = almVolLineas(lineas);
-  if (!(volumen>0) && !(peso>0)) { alert('Pon las medidas o el peso'); return; }
+  if (!(volumen>0) && !(peso>0)) { alert('Tiene que tener medidas o peso'); return; }
   const tipos = [...new Set(lineas.map(l=>l.tipo))];
   const cambios = {
-    expedicion: exp,
-    agencia: document.getElementById('alm-ed-ag').value,
-    lineas, bultosMedidos: almCantLineas(lineas), volumen, peso,
+    expedicion: exp, agencia: almEdAgencia,
+    lineas, bultosMedidos: lineas.length, volumen, peso,
     largo: lineas[0]?.largo||0, ancho: lineas[0]?.ancho||0, alto: lineas[0]?.alto||0,
     tipo: tipos.length===1 ? tipos[0] : (tipos.length ? 'varios' : ''),
     medida: volumen>0 && peso>0 ? 'ambos' : volumen>0 ? 'volumen' : 'peso',
@@ -2928,14 +3125,16 @@ async function almGuardarEdicion(id) {
   };
   // Si se cambia la expedición, lo declarado era de la anterior: se quita
   if (exp !== (r.expedicion||r.codigo)) {
+    if (!confirm('Has cambiado el número de expedición. Se borrarán los datos declarados de Nereid de la anterior. ¿Seguir?')) return;
     Object.assign(cambios, {albaran:'', idNereid:null, enNereid:false, poblacion:'', bultos:0,
       kgDeclarados:0, kgTasadosDeclarados:0, m3Declarados:0});
   }
   try {
     await updateDoc(doc(db,'almacenExpediciones',id), cambios);
     Object.assign(r, cambios);
-    almEditId = null; almEdLineas = [];
+    almCerrarModal();
     renderAlmacenAdmin();
+    almVer(id);                      // enseña cómo ha quedado
   } catch(e) { alert('No se ha podido guardar: '+e.message); }
 }
 
@@ -2978,8 +3177,8 @@ Object.assign(window, {
   almSelAgencia, almRenderPaso, almSelMedida,
   almCalcPeso, almIrConfirmar, almGuardar, almNueva,
   renderAlmacenAdmin, renderAlmacenResumen, almBorrarExpedicion, almExportarExcel,
-  almEditar, almCancelarEdicion, almEdCalc, almGuardarEdicion, almEdLinInput, almEdLinTipo,
-  almEdAnadirLinea, almEdQuitarLinea, almLinTipo, almLinInput, almLinCant, almLinCantSet, almLinModo, almAltKey, almAnadirLinea, almQuitarLinea,
+  almVer, almEditar, almCerrarModal, almGuardarEdicion, almEdSelAg, almEdLeer, almEdTipo,
+  almEdAnadir, almEdQuitar, almLinTipo, almLinInput, almLinCant, almLinCantSet, almLinModo, almAltKey, almAnadirLinea, almQuitarLinea,
 });
 
 // ════════════════════════════════════════════════════════════════════════════
