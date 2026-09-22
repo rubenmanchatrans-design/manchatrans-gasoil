@@ -543,6 +543,7 @@ input[type="number"] { -moz-appearance: textfield; }
 
     <!-- ═══════════ MÓDULO GESTIÓN (Conductores y Vehículos) ═══════════ -->
     <div id="module-almacen" style="display:none;">
+      <button class="btn btn-primary" id="alm-btn-escanear" style="margin-bottom:1rem;font-size:16px;padding:0.9rem">📷 Escanear expediciones</button>
       <div class="mod-tabs">
         <button class="btn btn-secondary atab-btn" id="almtab-btn-registros">📋 Registros</button>
         <button class="btn btn-ghost atab-btn" id="almtab-btn-resumen">📊 Resumen por agencia</button>
@@ -1970,12 +1971,22 @@ function almAplicarFila(f, via) {
 }
 
 // ── LOGIN almacén ──
-function entrarAlmacen() {
+// desdeAdmin = true cuando se abre con el botón "Escanear" del administrador:
+// entonces el botón de arriba vuelve al panel en lugar de cerrar sesión.
+function entrarAlmacen(desdeAdmin = false) {
   showScreen('almacen');
-  document.getElementById('btn-logout-almacen').onclick = () => {
+  const btn = document.getElementById('btn-logout-almacen');
+  btn.textContent = desdeAdmin ? '← Volver' : 'Salir';
+  btn.onclick = () => {
     if (almUnsubscribe) { try{almUnsubscribe();}catch(e){} almUnsubscribe=null; }
     almPararNereid();
-    showScreen('login');
+    if (desdeAdmin) {
+      showScreen('admin');
+      renderAlmacenAdmin();
+      if (document.getElementById('alm-admin-resumen')?.style.display==='block') renderAlmacenResumen();
+    } else {
+      showScreen('login');
+    }
   };
   almReset();
   almEscucharNereid();
@@ -5108,6 +5119,7 @@ function switchModule(mod) {
   if (mod==='ropa') { populateRopaSelects(); updatePendientesBadge(); }
   if (mod==='almacen') {
     almCargarRegistros().then(()=>renderAlmacenAdmin());
+    document.getElementById('alm-btn-escanear').onclick = () => entrarAlmacen(true);
     const bReg = document.getElementById('almtab-btn-registros');
     const bRes = document.getElementById('almtab-btn-resumen');
     bReg.onclick = ()=>{
