@@ -427,6 +427,28 @@ input[type="number"] { -moz-appearance: textfield; }
 .fl-rev-etq { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--text); font-size: 14px; font-weight: 700; margin-left: 4px; }
 .gs-tit { font-size: 16px; font-weight: 700; color: var(--accent); }
 .alm-ver-txt { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important; }
+
+/* ── Pantalla de inicio ── */
+#modulo-home-screen { max-width: 1100px; margin: 0 auto; }
+.home-cab { margin: 1.25rem 0 1rem; }
+.home-saludo { font-size: 24px; font-weight: 800; color: var(--text); }
+.home-fecha { font-size: 14px; color: var(--text-muted); margin-top: 0.2rem; }
+.home-hoy { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6rem; margin-bottom: 1rem; }
+@media (max-width: 800px) { .home-hoy { grid-template-columns: 1fr 1fr; } }
+.home-cifra { display: flex; align-items: center; gap: 0.7rem; background: var(--card); border: 1px solid var(--card-border); border-radius: 14px; padding: 0.8rem 1rem; color: var(--text); cursor: pointer; text-align: left; font-family: inherit; }
+.home-cifra:hover { border-color: var(--accent); }
+.home-cifra-ico { width: 40px; height: 40px; border-radius: 10px; background: var(--navy-light); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+.home-cifra strong { display: block; font-size: 20px; font-weight: 800; line-height: 1.1; }
+.home-cifra small { display: block; font-size: 12px; color: var(--text-muted); }
+.home-grid-3 { grid-template-columns: repeat(3, 1fr); }
+.home-card { border-radius: 16px; padding: 1.3rem 1.3rem 1.2rem; min-height: 150px; gap: 0.3rem; }
+.home-card:hover { border-color: var(--accent); box-shadow: 0 6px 24px rgba(0,0,0,0.25); }
+.hc-icon { width: 52px; height: 52px; border-radius: 14px; font-size: 26px; }
+.hc-name { font-size: 19px; font-weight: 800; }
+.hc-desc { font-size: 13px; }
+.hc-info { font-size: 13px; margin-top: 0.35rem; color: var(--text); }
+.hc-info:empty { display: none; }
+.hc-badge { display: flex; flex-wrap: wrap; gap: 0.3rem; font-size: 12px; margin-top: auto; padding-top: 0.5rem; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -581,15 +603,20 @@ html.giro-fijo #screen-chat { height: 100% !important; }
 
     <!-- PANTALLA PRINCIPAL: SELECTOR DE MÓDULO -->
     <div id="modulo-home-screen">
-      <div style="margin:1.25rem 0 1.5rem;">
-        <div id="home-saludo" style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:0.3rem;">¿Qué quieres gestionar?</div>
-        <div style="font-size:13px;color:var(--text-muted);">Selecciona un módulo para continuar</div>
+      <div class="home-cab">
+        <div>
+          <div id="home-saludo" class="home-saludo">¿Qué quieres gestionar?</div>
+          <div id="home-fecha" class="home-fecha">Selecciona un módulo para continuar</div>
+        </div>
       </div>
+      <div id="home-hoy" class="home-hoy"></div>
       <div class="home-grid home-grid-4">
         <button class="home-card" id="home-btn-gasoil">
           <span class="hc-icon" style="background:rgba(245,166,35,0.15);">⛽</span>
           <span class="hc-name">Gasoil</span>
           <span class="hc-desc">Registros · Depósito · Consumo</span>
+          <span id="home-info-gasoil" class="hc-info"></span>
+          <span id="home-badge-gasoil" class="hc-badge"></span>
         </button>
         <button class="home-card" id="home-btn-fleet">
           <span class="hc-icon" style="background:rgba(46,204,113,0.15);">🚛</span>
@@ -621,6 +648,8 @@ html.giro-fijo #screen-chat { height: 100% !important; }
           <span class="hc-icon" style="background:rgba(245,166,35,0.15);">📦</span>
           <span class="hc-name">Almacén</span>
           <span class="hc-desc">Expediciones · Volúmenes · Pesos</span>
+          <span id="home-info-almacen" class="hc-info"></span>
+          <span id="home-badge-almacen" class="hc-badge"></span>
         </button>
         <button class="home-card" id="home-btn-gestion">
           <span class="hc-icon" style="background:rgba(143,163,188,0.15);">⚙️</span>
@@ -1990,7 +2019,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v14 · 22/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v15 · 22/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_NEREID = 8;      // días de alta que se cargan de nereidDias
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -3060,6 +3089,7 @@ function almEscucharRegistros() {
   almRegUnsub = onSnapshot(query(collection(db,'almacenExpediciones'), orderBy('ts','desc')), snap => {
     almCache = snap.docs.map(d=>({id:d.id,...d.data()}));
     renderAlmacenAdmin();
+    if (typeof homeResumen === 'function') homeResumen();
     if (document.getElementById('alm-admin-resumen')?.style.display==='block') renderAlmacenResumen();
   }, err => { console.warn('Registros almacén:', err); almCargarRegistros().then(()=>renderAlmacenAdmin()); });
 }
@@ -4212,6 +4242,7 @@ function activarListenersTiempoReal() {
   // Repostajes
   onSnapshot(query(collection(db, 'repostajes'), orderBy('fecha', 'desc')), (snap) => {
     recordsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    homeResumen();
     if (currentUser && currentUser.isAdmin && currentModule==='gasoil') {
       renderAdminStats();
       renderAdminRecords();
@@ -4223,6 +4254,7 @@ function activarListenersTiempoReal() {
   // Recargas
   onSnapshot(query(collection(db, 'recargas'), orderBy('fecha', 'desc')), (snap) => {
     recargasCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    homeResumen();
     if (currentUser && currentUser.isAdmin && currentModule==='gasoil') renderDeposito();
   });
 
@@ -4826,9 +4858,50 @@ function actualizarSaludoHome() {
   const h = new Date().getHours();
   const saludo = h < 14 ? 'Buenos días' : h < 21 ? 'Buenas tardes' : 'Buenas noches';
   el.textContent = `${saludo}, ¿qué quieres gestionar?`;
+  const f = document.getElementById('home-fecha');
+  if (f) { const t = new Date().toLocaleDateString('es-ES',{weekday:'long', day:'numeric', month:'long', year:'numeric'}); f.textContent = t.charAt(0).toUpperCase()+t.slice(1); }
+  homeResumen();
 }
 
-function renderAdminPage() { actualizarSaludoHome(); populateFilters(); renderAdminStats(); renderDriverList(); updateAdrCapBadge(); updateSegurosBadge(); updateFleetBadge(); updatePendientesBadge(); }
+// Cifras del día en la pantalla de inicio (y datos en las tarjetas de Gasoil y Almacén)
+function homeResumen() {
+  const cont = document.getElementById('home-hoy');
+  if (!cont) return;
+  const hoyStr = new Date().toLocaleDateString('es-ES');
+  const pill = (txt, color) => `<span style="background:${color}22;color:${color};padding:3px 10px;border-radius:12px;">${txt}</span>`;
+  // Gasoil
+  let nivel = null, litrosHoy = 0;
+  try { nivel = calcNivelDeposito(); litrosHoy = recordsCache.filter(r=>r.fechaStr===hoyStr).reduce((s,r)=>s+r.litros,0); } catch(e) {}
+  const colNivel = nivel==null ? 'var(--text-muted)' : nivel<=ALERTA_MIN ? '#e74c3c' : nivel<=2500 ? '#f0a030' : '#2ecc71';
+  const ig = document.getElementById('home-info-gasoil');
+  if (ig) ig.innerHTML = nivel==null ? '' : `🛢 <strong style="color:${colNivel}">${nivel.toLocaleString('es-ES',{maximumFractionDigits:0})} L</strong> en el depósito`;
+  const bg = document.getElementById('home-badge-gasoil');
+  if (bg) bg.innerHTML = nivel!=null && nivel<=ALERTA_MIN ? pill('🔴 Pedir gasoil', '#e74c3c') : '';
+  // Almacén
+  let pend = 0, reclamar = 0, medidasHoy = 0;
+  try {
+    pend = almCache.filter(r=>!almPasada(r)).length;
+    reclamar = almCache.filter(r=>almResultado(r)==='esperando' && almDiasDesde(r.pasadoTs) >= ALM_DIAS_RECLAMAR).length;
+    medidasHoy = almCache.filter(r=>r.fechaStr===hoyStr).length;
+  } catch(e) {}
+  const ia = document.getElementById('home-info-almacen');
+  if (ia) ia.innerHTML = `📦 <strong>${medidasHoy}</strong> medida${medidasHoy===1?'':'s'} hoy`;
+  const ba = document.getElementById('home-badge-almacen');
+  if (ba) ba.innerHTML = [pend ? pill(`⏳ ${pend} por pasar al sistema`, '#f5a623') : '', reclamar ? pill(`⚠️ ${reclamar} sin respuesta de la agencia`, '#e74c3c') : ''].filter(Boolean).join(' ');
+  // Tira de cifras
+  const cifra = (ico, val, lbl, color, destino) => `
+    <button type="button" class="home-cifra" ${destino?`onclick="document.getElementById('home-btn-${destino}')?.click()"`:''}>
+      <span class="home-cifra-ico">${ico}</span>
+      <span><strong style="color:${color||'var(--text)'}">${val}</strong><small>${lbl}</small></span>
+    </button>`;
+  cont.innerHTML =
+    cifra('🛢', nivel==null ? '—' : nivel.toLocaleString('es-ES',{maximumFractionDigits:0})+' L', 'En el depósito', colNivel, 'gasoil') +
+    cifra('⛽', litrosHoy.toLocaleString('es-ES',{maximumFractionDigits:0})+' L', 'Repostados hoy', null, 'gasoil') +
+    cifra('📦', medidasHoy, 'Medidas de almacén hoy', null, 'almacen') +
+    cifra('⏳', pend, 'Por pasar al sistema', pend ? '#f5a623' : null, 'almacen');
+}
+
+function renderAdminPage() { try { almEscucharRegistros(); } catch(e) {} actualizarSaludoHome(); populateFilters(); renderAdminStats(); renderDriverList(); updateAdrCapBadge(); updateSegurosBadge(); updateFleetBadge(); updatePendientesBadge(); }
 
 function populateFilters() {
   // Conductores (todos, incluidos los de baja, para poder filtrar su histórico)
