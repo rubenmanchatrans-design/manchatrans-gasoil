@@ -2131,11 +2131,13 @@ async function almMedidasPrevias(exp) {
   }
 }
 
+// Encontrada la expedición: directo a medir. Solo se para si ya estaba medida.
 async function almMostrarFicha(f, via) {
   almAplicarFila(f, via);
   almEstado.previas = await almMedidasPrevias(almEstado.exp);
   almEstado.vista = 'ficha';
-  almRenderPaso(2);
+  if (almEstado.previas.length && !almEstado.remedir) { almRenderPaso(2); return; }
+  almRenderPaso(3);
 }
 
 // ── LOGIN almacén ──
@@ -2172,8 +2174,9 @@ async function almCargarRegistros() {
 }
 
 // ── Stepper ──
-function almRenderStepper(paso) {
-  const pasos = ['Escanear','Expedición','Medidas','Confirmar'];
+function almRenderStepper(pasoInterno) {
+  const pasos = ['Escanear','Medir','Guardar'];
+  const paso = ({1:1, 2:1, 3:2, 4:3, 5:4})[pasoInterno] || 1;
   const el = document.getElementById('alm-stepper');
   if (!el) return;
   el.innerHTML = pasos.map((p,i)=>{
@@ -2346,7 +2349,7 @@ function almHtmlFicha() {
     </div>`;
 }
 
-function almRemedir() { almEstado.remedir = true; almRenderPaso(2); }
+function almRemedir() { almEstado.remedir = true; almRenderPaso(3); }
 
 function almHtmlManual() {
   const e = almEstado;
@@ -2485,6 +2488,19 @@ function almLineaNueva(tipo = '', cant = 1) {
           indiv: cant > 1, alturas: Array(cant).fill(0), largos: Array(cant).fill(0), anchos: Array(cant).fill(0)};
 }
 
+// Cabecera de la expedición durante la medida: solo el número, bien grande.
+function almHtmlCabExp() {
+  const e = almEstado;
+  return `
+    <div class="refuel-card" style="margin-bottom:0.75rem;text-align:center;padding:1rem">
+      <div style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px">Expedición</div>
+      <div style="font-family:monospace;font-size:30px;font-weight:800;color:var(--accent);word-break:break-all;line-height:1.15;margin:0.2rem 0">${almEsc(e.exp)}</div>
+      <div style="font-size:13px;color:var(--text-muted)">${almEsc(e.agencia)}${e.bultos>0?` · ${e.bultos} bulto${e.bultos==1?'':'s'}`:''}</div>
+      ${e.remedir ? `<div style="font-size:12px;color:#3b82f6;margin-top:0.35rem">Ya tenía medida: esta se guardará como otra más</div>` : ''}
+      <button type="button" onclick="almAbrirManual()" style="background:none;border:none;color:var(--text-muted);text-decoration:underline;font-size:12px;margin-top:0.4rem;cursor:pointer">¿No es esta? Cambiar</button>
+    </div>`;
+}
+
 // ── Paso 3: medidas ──
 function almRenderPaso3() {
   const el = document.getElementById('alm-paso3');
@@ -2492,12 +2508,7 @@ function almRenderPaso3() {
   const conVol = e.medida==='volumen' || e.medida==='ambos';
   const conPeso = e.medida==='peso' || e.medida==='ambos';
   el.innerHTML = `
-    <div class="refuel-card" style="margin-bottom:0.75rem;padding:0.75rem 1rem">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px">
-        <span style="font-family:monospace;font-weight:700;color:var(--accent);word-break:break-all">${almEsc(e.exp)}</span>
-        <span style="color:var(--text-muted);flex-shrink:0">${almEsc(e.agencia)}${e.idNereid?` · ${e.bultos||0} bulto${e.bultos==1?'':'s'} · ${almNum(e.kgDecl,0)} kg${e.m3Decl>0?' · '+almNum(e.m3Decl,3)+' m³':''}`:''}</span>
-      </div>
-    </div>
+    ${almHtmlCabExp()}
     <div class="refuel-card" style="margin-bottom:0.75rem">
       <div class="section-title">¿Qué quieres registrar?</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-bottom:0.75rem">
@@ -2505,7 +2516,7 @@ function almRenderPaso3() {
         <button class="btn ${e.medida==='peso'?'btn-secondary':'btn-ghost'}" onclick="almSelMedida('peso')">⚖️ Peso</button>
         <button class="btn ${e.medida==='ambos'?'btn-secondary':'btn-ghost'}" onclick="almSelMedida('ambos')">📦+⚖️ Los dos</button>
       </div>
-      <button class="btn btn-ghost" onclick="almRenderPaso(2)">← Volver</button>
+      <button class="btn btn-ghost" onclick="almNueva()">← Volver a escanear</button>
     </div>
     ${conVol ? e.lineas.map((l,i)=>almHtmlLinea(l,i)).join('') + `
       <button class="btn btn-ghost" style="margin-bottom:0.75rem" onclick="almAnadirLinea()">＋ Añadir bultos de otro tipo o medida</button>
@@ -2749,41 +2760,31 @@ function almDiferencia(medido, declarado) {
 }
 
 // ── Paso 4: confirmar ──
+// Confirmar: la expedición y lo medido. La comparación con lo declarado por
+// la agencia no se enseña en el almacén; se ve en la oficina (Registros / Ver).
 function almRenderPaso4() {
   const el = document.getElementById('alm-paso4');
   const e = almEstado;
-  const dKg = almDiferencia(e.peso, e.kgDecl);
-  const dM3 = almDiferencia(e.volumen, e.m3Decl);
   const n = almCantLineas(e.lineas);
-  const celda = (medido, decl, d, dec, u) => `
-    <tr>
-      <td style="padding:6px 0;color:var(--text-muted)">${u==='kg'?'Peso':'Volumen'}</td>
-      <td style="padding:6px 0;text-align:right">${decl>0?almNum(decl,dec)+' '+u:'<span style="color:var(--text-muted)">no declarado</span>'}</td>
-      <td style="padding:6px 0;text-align:right;font-weight:700;color:var(--success)">${medido>0?almNum(medido,dec)+' '+u:'—'}</td>
-      <td style="padding:6px 0;text-align:right;font-weight:700;color:${d&&d.aviso?'var(--danger)':'var(--text-muted)'}">${d?(d.dif>0?'+':'')+almNum(d.dif,dec)+' '+u:''}</td>
-    </tr>`;
-  const aviso = (dKg&&dKg.aviso) || (dM3&&dM3.aviso);
+  const dato = (icono, valor, u) => `
+    <div class="stat-card" style="padding:0.9rem">
+      <div style="font-size:13px;color:var(--text-muted)">${icono}</div>
+      <div style="font-size:28px;font-weight:800;color:var(--success)">${valor} <span style="font-size:15px">${u}</span></div>
+    </div>`;
   el.innerHTML = `
-    <div class="refuel-card">
-      <div class="section-title">Confirmar</div>
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--card-border)">
-        <strong style="font-family:monospace;color:var(--accent);font-size:16px;word-break:break-all">${almEsc(e.exp)}</strong>
-        <span style="background:var(--navy-light);color:var(--accent);padding:2px 10px;border-radius:10px;font-weight:700;font-size:12px;flex-shrink:0">${almEsc(e.agencia)}</span>
-      </div>
+    <div class="refuel-card" style="text-align:center">
+      <div style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px">Expedición</div>
+      <div style="font-family:monospace;font-size:30px;font-weight:800;color:var(--accent);word-break:break-all;line-height:1.15;margin:0.2rem 0 0.75rem">${almEsc(e.exp)}</div>
       ${e.lineas.length ? `
-      <div style="padding:8px 0;border-bottom:1px solid var(--card-border)">
-        <div style="font-size:18px;font-weight:700">${almNombreBultos(e.lineas, n)}</div>
-        <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${almTextoLineas(e.lineas)}</div>
-      </div>` : ''}
-      <table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:0.5rem">
-        <tr style="font-size:11px;color:var(--text-muted);text-transform:uppercase"><td></td><td style="text-align:right">Declarado</td><td style="text-align:right">Medido</td><td style="text-align:right">Dif.</td></tr>
-        ${e.medida!=='volumen' ? celda(e.peso, e.kgDecl, dKg, 1, 'kg') : ''}
-        ${e.medida!=='peso' ? celda(e.volumen, e.m3Decl, dM3, 3, 'm³') : ''}
-      </table>
-      ${aviso ? `<div style="background:rgba(231,76,60,0.12);color:var(--danger);border-radius:8px;padding:8px 10px;font-size:13px;margin-top:0.75rem">⚠️ La agencia ha declarado menos de lo medido.</div>` : ''}
-      ${e.idNereid && e.bultos>0 && e.lineas.length && n !== e.bultos ? `<div style="font-size:12px;color:var(--warning);margin-top:0.5rem">Nereid dice ${e.bultos} bulto${e.bultos==1?'':'s'} y has medido ${n}.</div>` : ''}
-      <button class="btn btn-primary" style="margin-top:1rem" onclick="almGuardar()">✓ Guardar</button>
-      <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almRenderPaso(3)">← Volver</button>
+      <div style="font-size:20px;font-weight:700">${almNombreBultos(e.lineas, n)}</div>
+      <div style="font-size:13px;color:var(--text-muted);margin:0.2rem 0 0.75rem">${almTextoLineas(e.lineas)}</div>` : ''}
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:0.5rem">
+        ${e.volumen>0 ? dato('📦 Volumen', almNum(e.volumen,3), 'm³') : ''}
+        ${e.peso>0 ? dato('⚖️ Peso', almNum(e.peso,1), 'kg') : ''}
+      </div>
+      ${e.idNereid && e.bultos>0 && e.lineas.length && n !== e.bultos ? `<div style="font-size:13px;color:var(--warning);margin-top:0.75rem">⚠️ Nereid dice ${e.bultos} bulto${e.bultos==1?'':'s'} y has medido ${n}.</div>` : ''}
+      <button class="btn btn-primary" style="margin-top:1rem;font-size:18px;padding:1rem" onclick="almGuardar()">✓ Guardar</button>
+      <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almRenderPaso(3)">← Corregir</button>
     </div>`;
 }
 
