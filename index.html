@@ -10,6 +10,15 @@
 <meta name="apple-mobile-web-app-title" content="NexoFlota">
 <link rel="manifest" href="manifest.json">
 <script>
+  // Pantalla siempre en vertical, aunque se gire la pistola. El navegador solo
+  // deja bloquearla con la app instalada (y el manifest.json con
+  // "orientation": "portrait"); se intenta al abrir y al primer toque.
+  function bloquearGiro() {
+    try { const p = screen.orientation && screen.orientation.lock && screen.orientation.lock('portrait'); if (p && p.catch) p.catch(()=>{}); } catch(e) {}
+  }
+  bloquearGiro();
+  document.addEventListener('pointerdown', bloquearGiro, {once:true});
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) bloquearGiro(); });
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/manchatrans-gasoil/sw.js').then(reg => {
       reg.update();
@@ -2477,20 +2486,25 @@ function renderAlmacenAdmin() {
     <div class="refuel-card" style="padding:0">
       ${lista.length===0?`<div style="text-align:center;color:var(--text-muted);padding:2rem;font-size:13px">No hay expediciones registradas</div>`:
       lista.map(r=>{
+        if (r.id === almEditId) return almHtmlEditar(r);
         const dKg = almDiferencia(r.peso, r.kgDeclarados);
         const dM3 = almDiferencia(r.volumen, r.m3Declarados);
         const chip = (txt, col) => `<span style="background:${col}22;color:${col};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap">${txt}</span>`;
-        return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0.75rem 1rem;border-bottom:1px solid var(--card-border);font-size:13px">
-          <div style="min-width:0">
-            <div style="font-weight:600;font-family:monospace;color:var(--accent);word-break:break-all">${almEsc(r.expedicion||r.codigo)}</div>
-            <div style="font-size:11px;color:var(--text-muted)">${almEsc(r.fechaStr)} ${almEsc(r.horaStr)}${r.albaran?' · Alb. '+almEsc(r.albaran):''}${r.sinLecturaNereid?' · <span style="color:var(--warning)">sin lectura</span>':''}</div>
+        return `<div style="padding:0.75rem 1rem;border-bottom:1px solid var(--card-border);font-size:13px">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+            <div style="min-width:0">
+              <div style="font-weight:600;font-family:monospace;color:var(--accent);word-break:break-all">${almEsc(r.expedicion||r.codigo)}</div>
+              <div style="font-size:11px;color:var(--text-muted)">${almEsc(r.fechaStr)} ${almEsc(r.horaStr)}${r.albaran?' · Alb. '+almEsc(r.albaran):''}${r.sinLecturaNereid?' · <span style="color:var(--warning)">sin lectura</span>':''}${r.editadoTs?' · editado':''}</div>
+            </div>
+            <div style="display:flex;gap:0.35rem;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+              <span style="background:var(--navy-light);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">${almEsc(r.agencia)}</span>
+              ${r.volumen>0?chip(r.volumen.toFixed(3)+' m³'+(r.m3Declarados>0?' / '+almNum(r.m3Declarados,3):''), dM3&&dM3.aviso?'#e74c3c':'#3b82f6'):''}
+              ${r.peso>0?chip(r.peso.toFixed(1)+' kg'+(r.kgDeclarados>0?' / '+almNum(r.kgDeclarados,0):''), dKg&&dKg.aviso?'#e74c3c':'#a855f7'):''}
+              <button class="btn-del" style="border-color:var(--accent);color:var(--accent)" onclick="almEditar('${r.id}')" title="Editar">✏️</button>
+              <button class="btn-del" onclick="almBorrarExpedicion('${r.id}')" title="Borrar">🗑</button>
+            </div>
           </div>
-          <div style="display:flex;gap:0.35rem;align-items:center;flex-wrap:wrap;justify-content:flex-end">
-            <span style="background:var(--navy-light);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">${almEsc(r.agencia)}</span>
-            ${r.volumen>0?chip(r.volumen.toFixed(3)+' m³'+(r.m3Declarados>0?' / '+almNum(r.m3Declarados,3):''), dM3&&dM3.aviso?'#e74c3c':'#3b82f6'):''}
-            ${r.peso>0?chip(r.peso.toFixed(1)+' kg'+(r.kgDeclarados>0?' / '+almNum(r.kgDeclarados,0):''), dKg&&dKg.aviso?'#e74c3c':'#a855f7'):''}
-            <button class="btn-del" onclick="almBorrarExpedicion('${r.id}')">🗑</button>
-          </div>
+          ${almHtmlDetalleMedida(r)}
         </div>`;
       }).join('')}
     </div>
@@ -2536,6 +2550,109 @@ function renderAlmacenResumen() {
     <div style="font-size:11px;color:var(--text-muted)">La comparación solo cuenta las medidas que tienen dato declarado por la agencia. Si una expedición tiene varios bultos medidos por separado, compara la suma con lo declarado.</div>`;
 }
 
+// ── Detalle y edición de una medida (vista admin) ──
+let almEditId = null;
+
+function almHtmlDetalleMedida(r) {
+  const partes = [];
+  if (r.tipo && TIPOS_PALET[r.tipo]) partes.push(TIPOS_PALET[r.tipo].label);
+  if (r.largo>0 || r.ancho>0 || r.alto>0)
+    partes.push(`${almNum(r.largo,2)} × ${almNum(r.ancho,2)} × ${almNum(r.alto,2)} m`);
+  if (r.volumen>0) partes.push(`${almNum(r.volumen,3)} m³`);
+  if (r.peso>0) partes.push(`${almNum(r.peso,1)} kg`);
+  const decl = [];
+  if (r.kgDeclarados>0) decl.push(`${almNum(r.kgDeclarados,0)} kg`);
+  if (r.kgTasadosDeclarados>0) decl.push(`${almNum(r.kgTasadosDeclarados,0)} kg tasados`);
+  if (r.m3Declarados>0) decl.push(`${almNum(r.m3Declarados,3)} m³`);
+  if (!partes.length && !decl.length) return '';
+  return `<div style="margin-top:0.4rem;font-size:12px;display:flex;flex-wrap:wrap;gap:0.25rem 1rem">
+    ${partes.length?`<span><span style="color:var(--text-muted)">Medido:</span> ${partes.join(' · ')}</span>`:''}
+    ${decl.length?`<span><span style="color:var(--text-muted)">Declarado:</span> ${decl.join(' · ')}</span>`:''}
+  </div>`;
+}
+
+function almHtmlEditar(r) {
+  const ags = AGENCIAS_ALM.includes(r.agencia) ? AGENCIAS_ALM : [...AGENCIAS_ALM, r.agencia];
+  const inp = (id, lbl, val, step) => `<div class="form-group" style="margin-bottom:0"><label class="form-label">${lbl}</label>
+    <input class="form-input" type="number" step="${step}" inputmode="decimal" id="${id}" value="${val>0?val:''}" oninput="almEdCalc()"></div>`;
+  return `<div style="padding:1rem;border-bottom:1px solid var(--card-border);background:var(--navy-light)">
+    <div class="section-title" style="margin-bottom:0.75rem">✏️ Editar medida</div>
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:0.5rem;margin-bottom:0.5rem">
+      <div class="form-group" style="margin-bottom:0"><label class="form-label">Expedición</label>
+        <input class="form-input" type="text" id="alm-ed-exp" value="${almEsc(r.expedicion||r.codigo||'')}" style="font-family:monospace"></div>
+      <div class="form-group" style="margin-bottom:0"><label class="form-label">Agencia</label>
+        <select class="form-input" id="alm-ed-ag">${ags.map(a=>`<option ${a===r.agencia?'selected':''}>${almEsc(a)}</option>`).join('')}</select></div>
+    </div>
+    <div class="form-group" style="margin-bottom:0.5rem"><label class="form-label">Tipo de bulto</label>
+      <select class="form-input" id="alm-ed-tipo" onchange="almEdTipo()">
+        <option value="">— Sin tipo (solo peso) —</option>
+        ${Object.entries(TIPOS_PALET).map(([k,v])=>`<option value="${k}" ${r.tipo===k?'selected':''}>${v.label} (${v.dims})</option>`).join('')}
+      </select></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem">
+      ${inp('alm-ed-largo','Largo (m)',r.largo,'0.01')}
+      ${inp('alm-ed-ancho','Ancho (m)',r.ancho,'0.01')}
+      ${inp('alm-ed-alto','Alto (m)',r.alto,'0.01')}
+      ${inp('alm-ed-peso','Peso (kg)',r.peso,'0.1')}
+    </div>
+    <div id="alm-ed-vol" style="margin-top:0.5rem;font-size:14px;font-weight:700;color:var(--success)">${r.volumen>0?almNum(r.volumen,3)+' m³':''}</div>
+    <div style="display:flex;gap:0.5rem;margin-top:0.75rem">
+      <button class="btn btn-primary" onclick="almGuardarEdicion('${r.id}')">✓ Guardar cambios</button>
+      <button class="btn btn-ghost" onclick="almCancelarEdicion()">Cancelar</button>
+    </div>
+  </div>`;
+}
+
+function almEditar(id) { almEditId = id; renderAlmacenAdmin(); document.getElementById('alm-ed-alto')?.focus(); }
+function almCancelarEdicion() { almEditId = null; renderAlmacenAdmin(); }
+
+function almEdTipo() {
+  const t = TIPOS_PALET[document.getElementById('alm-ed-tipo').value];
+  if (t && t.largo) {
+    document.getElementById('alm-ed-largo').value = t.largo;
+    document.getElementById('alm-ed-ancho').value = t.ancho;
+  }
+  almEdCalc();
+}
+function almEdValores() {
+  const v = id => parseFloat(String(document.getElementById(id)?.value||'').replace(',','.'))||0;
+  const largo=v('alm-ed-largo'), ancho=v('alm-ed-ancho'), alto=v('alm-ed-alto'), peso=v('alm-ed-peso');
+  return {largo, ancho, alto, peso, volumen: largo*ancho*alto};
+}
+function almEdCalc() {
+  const {volumen} = almEdValores();
+  const el = document.getElementById('alm-ed-vol');
+  if (el) el.textContent = volumen>0 ? almNum(volumen,3)+' m³' : '';
+}
+
+async function almGuardarEdicion(id) {
+  const r = almCache.find(x => x.id === id);
+  if (!r) return;
+  const val = almEdValores();
+  const exp = (document.getElementById('alm-ed-exp')?.value||'').trim();
+  if (!exp) { alert('La expedición no puede quedar vacía'); return; }
+  if (!(val.volumen>0) && !(val.peso>0)) { alert('Pon las medidas o el peso'); return; }
+  if ((val.largo||val.ancho||val.alto) && !(val.volumen>0)) { alert('Faltan medidas: largo, ancho y alto'); return; }
+  const cambios = {
+    expedicion: exp,
+    agencia: document.getElementById('alm-ed-ag').value,
+    tipo: document.getElementById('alm-ed-tipo').value,
+    ...val,
+    medida: val.volumen>0 && val.peso>0 ? 'ambos' : val.volumen>0 ? 'volumen' : 'peso',
+    editadoTs: Date.now(),
+  };
+  // Si se cambia la expedición, lo declarado era de la anterior: se quita
+  if (exp !== (r.expedicion||r.codigo)) {
+    Object.assign(cambios, {albaran:'', idNereid:null, enNereid:false, poblacion:'', bultos:0,
+      kgDeclarados:0, kgTasadosDeclarados:0, m3Declarados:0});
+  }
+  try {
+    await updateDoc(doc(db,'almacenExpediciones',id), cambios);
+    Object.assign(r, cambios);
+    almEditId = null;
+    renderAlmacenAdmin();
+  } catch(e) { alert('No se ha podido guardar: '+e.message); }
+}
+
 async function almBorrarExpedicion(id) {
   if (!confirm('¿Eliminar esta medida?')) return;
   try {
@@ -2558,6 +2675,7 @@ async function almExportarExcel() {
       'Peso medido (kg)': r.peso||0, 'Peso declarado (kg)': r.kgDeclarados||0,
       'Kg tasados declarados': r.kgTasadosDeclarados||0,
       'Volumen medido (m³)': r.volumen||0, 'Volumen declarado (m³)': r.m3Declarados||0,
+      'Tipo de bulto': TIPOS_PALET[r.tipo]?.label||'',
       'Largo (m)': r.largo||0, 'Ancho (m)': r.ancho||0, 'Alto (m)': r.alto||0,
     }));
     const ws = XLSX.utils.json_to_sheet(datos);
@@ -2574,6 +2692,7 @@ Object.assign(window, {
   almSelAgencia, almRenderPaso, almSelMedida,
   almSelTipo, almCalcVol, almCalcPeso, almIrConfirmar, almGuardar, almNueva,
   renderAlmacenAdmin, renderAlmacenResumen, almBorrarExpedicion, almExportarExcel,
+  almEditar, almCancelarEdicion, almEdTipo, almEdCalc, almGuardarEdicion,
 });
 
 // ════════════════════════════════════════════════════════════════════════════
