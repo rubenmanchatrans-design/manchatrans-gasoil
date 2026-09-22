@@ -370,6 +370,8 @@ input[type="number"] { -moz-appearance: textfield; }
 .alm-tick { width: 34px; height: 34px; flex-shrink: 0; border-radius: 9px; border: 2px solid rgba(255,255,255,0.35); background: transparent; color: #0b2415; font-size: 20px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .alm-tick:hover { border-color: var(--success); }
 .alm-tick.on { background: var(--success); border-color: var(--success); }
+.alm-badge-mal { background: var(--danger); color: #fff; }
+.alm-estados { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2006,7 +2008,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v11 · 22/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v12 · 22/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_NEREID = 8;      // días de alta que se cargan de nereidDias
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2143,7 +2145,7 @@ function almAplicarFila(f, via) {
     exp: f.ref || f.alb, agencia: f.ag, alb: f.alb, idNereid: f.id,
     kgDecl: f.kg||0, kgtDecl: f.kgt||0, m3Decl: f.m3||0, via,
     leida: (f.cod||[]).length > 0,
-    pob: f.pob||'', bultos: f.bul||0, tipoDecl: f.tipo||'',
+    pob: f.pob||'', bultos: f.bul||0, tipoDecl: f.tipo||'', diaAlta: f.dia||'',
   });
 }
 
@@ -2894,6 +2896,7 @@ async function almGuardar() {
     sinLecturaNereid: !e.leida,
     enNereid: !!e.idNereid,
     kgDeclarados: e.kgDecl||0, kgTasadosDeclarados: e.kgtDecl||0, m3Declarados: e.m3Decl||0,
+    diaAlta: e.diaAlta||'',                       // para que el script siga el albarán en Nereid
     medida: e.medida, volumen: e.volumen||0, peso: e.peso||0,
     lineas, bultosMedidos: almCantLineas(lineas),
     // compatibilidad con registros antiguos: medidas del primer grupo
@@ -2936,8 +2939,45 @@ function almFechaISO(ts) {
 }
 // Estado "pasada al sistema": en la oficina se marca cada medida cuando ya se
 // ha metido en el sistema de la agencia. Por defecto se ven las pendientes.
-let almVistaEstado = 'pendientes';        // pendientes | pasadas | todas
+let almVistaEstado = 'pendientes';        // pendientes | esperando | modificadas | nomod | todas
 const almPasada = r => !!r.pasadoSistema;
+const ALM_DIAS_RECLAMAR = 7;              // pasada y sin modificar tras estos días → aviso
+
+// ¿Ha modificado la agencia lo declarado después de pasárselo?
+//  · automático: el script compara lo que hay ahora en Nereid con lo declarado al medir
+//  · a mano: "Sí lo han modificado" / "No lo han modificado"
+function almResultado(r) {
+  if (!almPasada(r)) return 'pendiente';
+  if (r.agenciaEstado === 'modificada') return 'modificada';
+  if (r.agenciaEstado === 'no') return 'nomod';
+  if (r.nereidCambio) return 'modificada';
+  return 'esperando';
+}
+const almDiasDesde = ts => ts ? Math.floor((Date.now() - ts) / 86400000) : 0;
+// Qué ha cambiado en Nereid: [{que, antes, ahora, u}]
+function almCambiosNereid(r) {
+  const a = r.nereidActual; if (!a) return [];
+  const c = [];
+  const mira = (que, antes, ahora, dec, u) => { if (ahora != null && Math.abs((ahora||0)-(antes||0)) > Math.max(0.005, (antes||0)*0.01)) c.push({que, antes, ahora, dec, u}); };
+  mira('Kg', r.kgDeclarados, a.kg, 0, 'kg');
+  mira('Kg tasados', r.kgTasadosDeclarados, a.kgt, 0, 'kg');
+  mira('Volumen', r.m3Declarados, a.m3, 3, 'm³');
+  return c;
+}
+function almTextoCambios(r) {
+  return almCambiosNereid(r).map(c => `${c.que}: ${almNum(c.antes,c.dec)} → <strong>${almNum(c.ahora,c.dec)}</strong> ${c.u}`).join(' · ');
+}
+async function almMarcarAgencia(id, estado) {
+  const r = almCache.find(x => x.id === id);
+  if (!r) return;
+  const cambios = {agenciaEstado: estado || '', agenciaEstadoTs: estado ? Date.now() : null};
+  try {
+    await updateDoc(doc(db,'almacenExpediciones',id), cambios);
+    Object.assign(r, cambios);
+    renderAlmacenAdmin();
+    if (document.querySelector('.alm-sheet[data-id]')?.dataset.id === id) almVer(id);
+  } catch(e) { alert('No se ha podido guardar: '+e.message); }
+}
 
 function almFiltrarAdmin(conEstado = false) {
   const ag = document.getElementById('alm-fil-agencia')?.value||'';
@@ -2947,16 +2987,63 @@ function almFiltrarAdmin(conEstado = false) {
   if (ag) lista = lista.filter(r=>r.agencia===ag);
   if (desde) lista = lista.filter(r=>almFechaISO(r.ts)>=desde);
   if (hasta) lista = lista.filter(r=>almFechaISO(r.ts)<=hasta);
-  const nPend = lista.filter(r=>!almPasada(r)).length, nPas = lista.length - nPend;
+  const cuenta = {pendiente:0, esperando:0, modificada:0, nomod:0};
+  lista.forEach(r => cuenta[almResultado(r)]++);
+  const nPend = cuenta.pendiente, nPas = lista.length - nPend;
+  const nReclamar = lista.filter(r => almResultado(r)==='esperando' && almDiasDesde(r.pasadoTs) >= ALM_DIAS_RECLAMAR).length;
   if (conEstado && almVistaEstado === 'pendientes') lista = lista.filter(r=>!almPasada(r)).sort((a,b)=>a.ts-b.ts);  // las más antiguas primero
-  if (conEstado && almVistaEstado === 'pasadas') lista = lista.filter(almPasada);
-  return {lista, ag, desde, hasta, nPend, nPas};
+  if (conEstado && almVistaEstado === 'esperando') lista = lista.filter(r=>almResultado(r)==='esperando').sort((a,b)=>(a.pasadoTs||0)-(b.pasadoTs||0));
+  if (conEstado && almVistaEstado === 'modificadas') lista = lista.filter(r=>almResultado(r)==='modificada');
+  if (conEstado && almVistaEstado === 'nomod') lista = lista.filter(r=>almResultado(r)==='nomod');
+  return {lista, ag, desde, hasta, nPend, nPas, cuenta, nReclamar};
 }
 function almTurno(ts) {
   const h = new Date(ts).getHours();
   return (h >= 22 || h < 6) ? '🌙 Noche' : '☀️ Día';
 }
 function almVerEstado(v) { almVistaEstado = v; renderAlmacenAdmin(); }
+
+function almHtmlControlAgencia(r) {
+  const res = almResultado(r);
+  const a = r.nereidActual;
+  const fila = (que, antes, ahora, dec, u) => {
+    const cambia = ahora != null && Math.abs((ahora||0)-(antes||0)) > Math.max(0.005,(antes||0)*0.01);
+    return `<tr><td style="padding:5px 0;color:var(--text-muted)">${que}</td>
+      <td style="text-align:right">${antes>0?almNum(antes,dec)+' '+u:'—'}</td>
+      <td style="text-align:right;font-weight:700;color:${cambia?'var(--success)':'inherit'}">${ahora!=null?(ahora>0?almNum(ahora,dec)+' '+u:'—'):'…'}</td></tr>`;
+  };
+  const btn = (estado, txt, color) => `<button type="button" class="alm-accion" style="${r.agenciaEstado===estado?`background:${color};border-color:${color};color:#111`:''}" onclick="almMarcarAgencia('${r.id}','${r.agenciaEstado===estado?'':estado}')">${txt}</button>`;
+  return `
+    <div class="alm-sec-tit">Control de la agencia</div>
+    <div style="background:var(--navy-light);border-radius:14px;padding:0.8rem 1rem">
+      <div style="margin-bottom:0.5rem">${almHtmlEstadoAgencia(r)}</div>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        <tr style="font-size:11px;color:var(--text-muted);text-transform:uppercase"><td></td><td style="text-align:right">Al medir</td><td style="text-align:right">Ahora en Nereid</td></tr>
+        ${fila('Kg', r.kgDeclarados, a?.kg, 0, 'kg')}
+        ${fila('Kg tasados', r.kgTasadosDeclarados, a?.kgt, 0, 'kg')}
+        ${fila('Volumen', r.m3Declarados, a?.m3, 3, 'm³')}
+      </table>
+      ${!a ? `<div style="font-size:12px;color:var(--text-muted);margin-top:0.4rem">Aún no se ha revisado en Nereid (lo hace el programa del PC cada 30 min).</div>` : ''}
+      <div style="font-size:12px;color:var(--text-muted);margin:0.75rem 0 0.4rem">¿La agencia lo ha modificado? (si no se ve en Nereid, márcalo tú)</div>
+      <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
+        ${btn('modificada','✅ Sí, lo han modificado','#2ecc71')}
+        ${btn('no','❌ No lo han modificado','#e74c3c')}
+      </div>
+    </div>`;
+}
+
+function almHtmlEstadoAgencia(r) {
+  const res = almResultado(r);
+  const f = r.pasadoTs ? new Date(r.pasadoTs).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+  const dias = almDiasDesde(r.pasadoTs);
+  if (res === 'modificada') {
+    const txt = almTextoCambios(r);
+    return `<div style="font-size:12px;color:var(--success);font-weight:600">✅ Modificado por la agencia${txt?': '+txt:' (marcado a mano)'}</div>`;
+  }
+  if (res === 'nomod') return `<div style="font-size:12px;color:var(--danger);font-weight:600">❌ La agencia no lo ha modificado</div>`;
+  const tarde = dias >= ALM_DIAS_RECLAMAR;
+  return `<div style="font-size:12px;color:${tarde?'var(--danger)':'var(--text-muted)'};font-weight:${tarde?700:400}">${tarde?'⚠️':'🕐'} Pasada el ${f} · ${dias===0?'hoy':dias===1?'hace 1 día':'hace '+dias+' días'} sin modificar${r.nereidRevisadoTs?' · revisado en Nereid '+new Date(r.nereidRevisadoTs).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</div>`;
+}
 
 async function almMarcarPasada(id, pasada) {
   const r = almCache.find(x => x.id === id);
@@ -3023,10 +3110,13 @@ function renderAlmacenAdmin() {
       <div class="stat-card"><div class="stat-val" style="color:${avisos?'var(--danger)':'inherit'}">${avisos}</div><div class="stat-label">Declarado de menos</div></div>
     </div>
     <div class="alm-estados">
-      <button type="button" class="alm-estado ${almVistaEstado==='pendientes'?'on':''}" onclick="almVerEstado('pendientes')">⏳ Pendientes de pasar <span class="alm-badge ${f.nPend?'alm-badge-pend':''}">${f.nPend}</span></button>
-      <button type="button" class="alm-estado ${almVistaEstado==='pasadas'?'on':''}" onclick="almVerEstado('pasadas')">✅ Pasadas <span class="alm-badge">${f.nPas}</span></button>
+      <button type="button" class="alm-estado ${almVistaEstado==='pendientes'?'on':''}" onclick="almVerEstado('pendientes')">⏳ Pendientes de pasar <span class="alm-badge ${f.cuenta.pendiente?'alm-badge-pend':''}">${f.cuenta.pendiente}</span></button>
+      <button type="button" class="alm-estado ${almVistaEstado==='esperando'?'on':''}" onclick="almVerEstado('esperando')">🕐 Esperando a la agencia <span class="alm-badge ${f.nReclamar?'alm-badge-mal':''}">${f.cuenta.esperando}</span></button>
+      <button type="button" class="alm-estado ${almVistaEstado==='modificadas'?'on':''}" onclick="almVerEstado('modificadas')">✅ Modificadas <span class="alm-badge">${f.cuenta.modificada}</span></button>
+      <button type="button" class="alm-estado ${almVistaEstado==='nomod'?'on':''}" onclick="almVerEstado('nomod')">❌ No modificadas <span class="alm-badge">${f.cuenta.nomod}</span></button>
       <button type="button" class="alm-estado ${almVistaEstado==='todas'?'on':''}" onclick="almVerEstado('todas')">Todas</button>
     </div>
+    ${almVistaEstado==='esperando' && f.lista.length ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:0.6rem">Ya pasadas al sistema. Se comprueba sola en Nereid si la agencia cambia los kilos o el volumen; si no se refleja en Nereid, márcalo tú en 👁 Ver. En rojo, las que llevan ${ALM_DIAS_RECLAMAR} días o más sin modificar.</div>` : ''}
     ${almHtmlFiltros(f, 'renderAlmacenAdmin()')}
     ${almVistaEstado==='pendientes' && lista.length ? `<div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.6rem">
       <div style="font-size:13px;color:var(--text-muted)">Marca la casilla <span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.4);border-radius:4px;vertical-align:-2px"></span> cuando la hayas pasado al sistema. Las más antiguas salen primero.</div>
@@ -3039,13 +3129,13 @@ function renderAlmacenAdmin() {
         const dM3 = almDiferencia(r.volumen, r.m3Declarados);
         const chip = (txt, col) => `<span style="background:${col}22;color:${col};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap">${txt}</span>`;
         const pas = almPasada(r);
-        return `<div style="padding:0.75rem 1rem;border-bottom:1px solid var(--card-border);font-size:13px;${pas?'opacity:0.75':''}">
+        return `<div style="padding:0.75rem 1rem;border-bottom:1px solid var(--card-border);font-size:13px">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
             <button type="button" class="alm-tick ${pas?'on':''}" onclick="almMarcarPasada('${r.id}', ${!pas})" title="${pas?'Pasada al sistema. Toca para dejarla pendiente':'Marcar como pasada al sistema'}">${pas?'✓':''}</button>
             <div style="min-width:0;flex:1">
               <div style="font-weight:600;font-family:monospace;color:var(--accent);word-break:break-all">${almEsc(r.expedicion||r.codigo)}</div>
               <div style="font-size:11px;color:var(--text-muted)">${almTurno(r.ts)} · ${almEsc(r.fechaStr)} ${almEsc(r.horaStr)}${r.albaran?' · Alb. '+almEsc(r.albaran):''}${r.sinLecturaNereid?' · <span style="color:var(--warning)">sin lectura</span>':''}${r.editadoTs?' · editado':''}</div>
-              ${pas ? `<div style="font-size:11px;color:var(--success)">✅ Pasada al sistema ${r.pasadoTs?new Date(r.pasadoTs).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}${r.pasadoPor?' · '+almEsc(r.pasadoPor):''}</div>` : ''}
+              ${pas ? almHtmlEstadoAgencia(r) : ''}
             </div>
             <div style="display:flex;gap:0.35rem;align-items:center;flex-wrap:wrap;justify-content:flex-end">
               <span style="background:var(--navy-light);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">${almEsc(r.agencia)}</span>
@@ -3069,8 +3159,12 @@ function renderAlmacenResumen() {
   const f = almFiltrarAdmin();
   const porAg = {};
   f.lista.forEach(r => {
-    const a = porAg[r.agencia] ||= {n:0, kgMed:0, kgDec:0, nKg:0, m3Med:0, m3Dec:0, nM3:0, avisos:0, sinLect:0};
+    const a = porAg[r.agencia] ||= {n:0, kgMed:0, kgDec:0, nKg:0, m3Med:0, m3Dec:0, nM3:0, avisos:0, sinLect:0, pas:0, mod:0, nomod:0};
     a.n++;
+    const res = almResultado(r);
+    if (res !== 'pendiente') a.pas++;
+    if (res === 'modificada') a.mod++;
+    if (res === 'nomod') a.nomod++;
     if (r.sinLecturaNereid) a.sinLect++;
     if (r.peso>0 && r.kgDeclarados>0) { a.kgMed+=r.peso; a.kgDec+=r.kgDeclarados; a.nKg++; }
     if (r.volumen>0 && r.m3Declarados>0) { a.m3Med+=r.volumen; a.m3Dec+=r.m3Declarados; a.nM3++; }
@@ -3082,9 +3176,9 @@ function renderAlmacenResumen() {
     ${almHtmlFiltros(f, 'renderAlmacenResumen()')}
     <div class="refuel-card" style="overflow-x:auto">
       ${!filas.length ? `<div style="text-align:center;color:var(--text-muted);padding:1rem;font-size:13px">No hay medidas en este periodo</div>` : `
-      <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:520px">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:720px">
         <tr style="font-size:11px;color:var(--text-muted);text-transform:uppercase;text-align:right">
-          <td style="text-align:left;padding:6px 4px">Agencia</td><td>Medidas</td><td>kg medidos</td><td>kg declarados</td><td>Dif.</td><td>m³ med. / decl.</td><td>De menos</td><td>Sin lectura</td>
+          <td style="text-align:left;padding:6px 4px">Agencia</td><td>Medidas</td><td>kg medidos</td><td>kg declarados</td><td>Dif.</td><td>m³ med. / decl.</td><td>De menos</td><td>Sin lectura</td><td>Pasadas</td><td>Modificadas</td><td>No modif.</td>
         </tr>
         ${filas.map(([ag,a])=>`
         <tr style="border-top:1px solid var(--card-border);text-align:right">
@@ -3096,6 +3190,9 @@ function renderAlmacenResumen() {
           <td>${a.nM3?almNum(a.m3Med,2)+' / '+almNum(a.m3Dec,2):'—'}</td>
           <td style="color:${a.avisos?'var(--danger)':'inherit'};font-weight:${a.avisos?700:400}">${a.avisos}</td>
           <td>${a.sinLect}</td>
+          <td>${a.pas}</td>
+          <td style="color:var(--success);font-weight:700">${a.mod}${a.pas?` <span style="font-weight:400;color:var(--text-muted)">(${Math.round(a.mod/a.pas*100)} %)</span>`:''}</td>
+          <td style="color:${a.nomod?'var(--danger)':'inherit'}">${a.nomod}</td>
         </tr>`).join('')}
       </table>`}
     </div>
@@ -3209,6 +3306,8 @@ function almVer(id) {
       ${r.volumen>0 || r.m3Declarados>0 ? tarjeta('📦 Volumen', r.volumen, r.m3Declarados, dM3, 3, 'm³') : ''}
       ${r.peso>0 || r.kgDeclarados>0 ? tarjeta('⚖️ Peso', r.peso, r.kgDeclarados, dKg, 0, 'kg') : ''}
     </div>
+
+    ${almPasada(r) ? almHtmlControlAgencia(r) : ''}
 
     ${bultos.length ? `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:1.25rem 0 0.6rem">
@@ -3413,6 +3512,8 @@ async function almExportarExcel() {
       'Kg tasados declarados': r.kgTasadosDeclarados||0,
       'Volumen medido (m³)': r.volumen||0, 'Volumen declarado (m³)': r.m3Declarados||0,
       'Pasada al sistema': almPasada(r) ? 'Sí' : 'Pendiente',
+      'Estado en la agencia': ({pendiente:'', esperando:'Esperando', modificada:'Modificado', nomod:'No modificado'})[almResultado(r)],
+      'Kg Nereid ahora': r.nereidActual?.kg ?? '', 'Kg tasados Nereid ahora': r.nereidActual?.kgt ?? '', 'm³ Nereid ahora': r.nereidActual?.m3 ?? '',
       'Fecha pasada': r.pasadoTs ? new Date(r.pasadoTs).toLocaleString('es-ES') : '',
       'Turno': almTurno(r.ts).replace(/^\S+ /,''),
       'Bultos medidos': almCantLineas(almLineasDe(r)) || '',
@@ -3432,7 +3533,7 @@ Object.assign(window, {
   almSelAgencia, almRenderPaso, almSelMedida,
   almCalcPeso, almIrConfirmar, almGuardar, almNueva,
   renderAlmacenAdmin, renderAlmacenResumen, almBorrarExpedicion, almExportarExcel,
-  almVer, almCopiar, almVerEstado, almMarcarPasada, almMarcarTodasPasadas, almEditar, almCerrarModal, almGuardarEdicion, almEdSelAg, almEdLeer, almEdTipo,
+  almVer, almCopiar, almVerEstado, almMarcarAgencia, almMarcarPasada, almMarcarTodasPasadas, almEditar, almCerrarModal, almGuardarEdicion, almEdSelAg, almEdLeer, almEdTipo,
   almEdAnadir, almEdQuitar, almLinTipo, almLinInput, almLinCant, almLinCantSet, almLinModo, almAltKey, almAnadirLinea, almQuitarLinea,
 });
 
