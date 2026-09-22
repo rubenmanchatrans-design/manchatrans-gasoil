@@ -1857,6 +1857,11 @@ window.anadirChatUsuario = async () => {
 // ════════════════════════════════════════════════════════════════════════════
 // MÓDULO ALMACÉN
 // ════════════════════════════════════════════════════════════════════════════
+// Al escanear, la expedición y la agencia se sacan de la tabla que el script
+// almacen_nereid.py sube cada 5 minutos a la colección `nereidDias` (un
+// documento por día de alta, con la lista en JSON en el campo `datos`).
+// Orden de búsqueda: 1) lectura de Nereid  2) referencia  3) referencia dentro
+// del código  4) buscador manual (queda marcado como "sin lectura en Nereid").
 
 const AGENCIAS_ALM = ['CBL','XPO','ONTIME','NTL','RHENUS','CODITRAL'];
 const TIPOS_PALET = {
@@ -1865,12 +1870,103 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
+const ALM_DIAS_NEREID = 8;      // días de alta que se cargan de nereidDias
+const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
+
 let almEstado = {};
-let almCache = [];  // expediciones guardadas en memoria + Firestore
-let almUnsubscribe = null;
+let almCache = [];              // expediciones medidas (almacenExpediciones)
+let almUnsubscribe = null;      // compatibilidad con el logout antiguo
+let almNereidSubs = [];         // listeners de nereidDias
+let almNereidDias = {};         // díaId → filas
+let almNereidListo = false;
+let almIdx = { cod:new Map(), ref:new Map(), id:new Map(), entradas:[] };
+
+const almEsc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const almNum = (v, d=1) => (Number(v)||0).toLocaleString('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d});
 
 function almReset() {
-  almEstado = {codigo:'',agencia:'',medida:'',tipo:'',largo:0,ancho:0,alto:0,peso:0,volumen:0};
+  almEstado = {codigo:'',agencia:'',medida:'',tipo:'',largo:0,ancho:0,alto:0,peso:0,volumen:0,
+               exp:'',alb:'',idNereid:null,kgDecl:0,kgtDecl:0,m3Decl:0,via:'',pob:'',bultos:0,tipoDecl:''};
+}
+
+// ── Tabla de Nereid en vivo ──
+function almEscucharNereid() {
+  almPararNereid();
+  const hoy = new Date();
+  for (let n = 0; n < ALM_DIAS_NEREID; n++) {
+    const d = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - n);
+    const id = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    almNereidSubs.push(onSnapshot(doc(db,'nereidDias',id), snap => {
+      let filas = [];
+      if (snap.exists()) { try { filas = JSON.parse(snap.data().datos||'[]'); } catch(e) {} }
+      filas.forEach(f => f.dia = id);
+      almNereidDias[id] = filas;
+      almIndexar();
+    }, err => console.warn('nereidDias', id, err)));
+  }
+}
+function almPararNereid() {
+  almNereidSubs.forEach(u => { try{u();}catch(e){} });
+  almNereidSubs = [];
+}
+function almIndexar() {
+  const idx = { cod:new Map(), ref:new Map(), id:new Map(), entradas:[] };
+  const push = (m, k, f) => { if (!k) return; const a = m.get(k); a ? a.push(f) : m.set(k,[f]); };
+  Object.keys(almNereidDias).sort().forEach(dia => {        // del más viejo al más nuevo
+    almNereidDias[dia].forEach(f => {
+      idx.id.set(String(f.id), f);
+      (f.cod||[]).forEach(c => push(idx.cod, almNormCod(c), f));
+      push(idx.ref, almNormCod(f.ref), f);
+      if (f.ref2) push(idx.ref, almNormCod(f.ref2), f);
+      if (f.sen === 'E') idx.entradas.push(f);
+    });
+  });
+  idx.entradas.reverse();                                     // más recientes primero
+  almIdx = idx;
+  almNereidListo = true;
+  const est = document.getElementById('alm-nereid-estado');
+  if (est) est.innerHTML = almTextoEstadoNereid();
+}
+function almTextoEstadoNereid() {
+  if (!almNereidListo) return '⏳ Cargando expediciones de Nereid…';
+  return `🟢 ${almIdx.entradas.length.toLocaleString('es-ES')} entradas de Nereid cargadas`;
+}
+
+// ── Búsqueda del código escaneado ──
+function almNormCod(c) {
+  return String(c||'').toUpperCase().replace(/^\][A-Z]\d/, '').replace(/[^0-9A-Z]/g, '');
+}
+function almVariantes(c) {
+  const v = new Set([c]);
+  if (/^\d{18}$/.test(c)) v.add('00' + c);                    // SSCC sin el (00)
+  if (/^00\d{18}$/.test(c)) v.add(c.slice(2));
+  if (/^0+\d/.test(c)) v.add(c.replace(/^0+/, ''));
+  return [...v];
+}
+const almElegirMejor = lista => lista.find(f => f.sen === 'E') || lista[lista.length-1];
+
+function almBuscar(codigo) {
+  const c = almNormCod(codigo);
+  if (!c) return null;
+  const vs = almVariantes(c);
+  for (const v of vs) { const l = almIdx.cod.get(v); if (l) return {fila:almElegirMejor(l), via:'lectura'}; }
+  for (const v of vs) { const l = almIdx.ref.get(v); if (l) return {fila:almElegirMejor(l), via:'referencia'}; }
+  let mejor = null, largo = 0;
+  for (const f of almIdx.entradas) {
+    for (const r of [f.ref, f.ref2]) {
+      const rn = almNormCod(r);
+      if (rn.length >= 6 && rn.length > largo && c.includes(rn)) { mejor = f; largo = rn.length; }
+    }
+  }
+  return mejor ? {fila:mejor, via:'contiene'} : null;
+}
+
+function almAplicarFila(f, via) {
+  Object.assign(almEstado, {
+    exp: f.ref || f.alb, agencia: f.ag, alb: f.alb, idNereid: f.id,
+    kgDecl: f.kg||0, kgtDecl: f.kgt||0, m3Decl: f.m3||0, via,
+    pob: f.pob||'', bultos: f.bul||0, tipoDecl: f.tipo||'',
+  });
 }
 
 // ── LOGIN almacén ──
@@ -1878,14 +1974,12 @@ function entrarAlmacen() {
   showScreen('almacen');
   document.getElementById('btn-logout-almacen').onclick = () => {
     if (almUnsubscribe) { try{almUnsubscribe();}catch(e){} almUnsubscribe=null; }
+    almPararNereid();
     showScreen('login');
   };
   almReset();
-  // Pequeño timeout para asegurar que el DOM está visible antes de escribir en él
-  setTimeout(() => {
-    almRenderPaso(1);
-    almCargarRegistros();
-  }, 50);
+  almEscucharNereid();
+  setTimeout(() => { almRenderPaso(1); almCargarRegistros(); }, 50);
 }
 
 // ── Cargar registros desde Firestore ──
@@ -1898,28 +1992,22 @@ async function almCargarRegistros() {
 
 // ── Stepper ──
 function almRenderStepper(paso) {
-  const pasos = ['Escanear','Agencia','Medidas','Confirmar'];
+  const pasos = ['Escanear','Expedición','Medidas','Confirmar'];
   const el = document.getElementById('alm-stepper');
   if (!el) return;
   el.innerHTML = pasos.map((p,i)=>{
     const n=i+1;
-    const cls = n===paso?'btn btn-secondary':'btn btn-ghost';
-    const style = n<paso?'opacity:0.6':'';
-    return `<span style="font-size:12px;padding:4px 10px;border-radius:20px;background:${n===paso?'var(--accent)':n<paso?'var(--navy-light)':'transparent'};color:${n===paso?'#111':'var(--text-muted)'};border:1px solid var(--card-border);${style}">${n<paso?'✓ ':''} ${p}</span>${i<pasos.length-1?'<span style="color:var(--text-muted)">›</span>':''}`;
+    return `<span style="font-size:12px;padding:4px 10px;border-radius:20px;background:${n===paso?'var(--accent)':n<paso?'var(--navy-light)':'transparent'};color:${n===paso?'#111':'var(--text-muted)'};border:1px solid var(--card-border);${n<paso?'opacity:0.6':''}">${n<paso?'✓ ':''} ${p}</span>${i<pasos.length-1?'<span style="color:var(--text-muted)">›</span>':''}`;
   }).join('');
 }
 
 // ── Renderizar pasos ──
 function almRenderPaso(paso) {
-  for(let i=1;i<=5;i++) {
-    const el = document.getElementById('alm-paso'+i) || document.getElementById('alm-paso-ok');
-    if (el) el.style.display='none';
-  }
+  for (let i=1;i<=5;i++) { const el=document.getElementById('alm-paso'+i); if (el) el.style.display='none'; }
   document.getElementById('alm-paso-ok').style.display='none';
   const target = document.getElementById('alm-paso'+paso);
   if (target) target.style.display='block';
   almRenderStepper(paso);
-
   if (paso===1) almRenderPaso1();
   else if (paso===2) almRenderPaso2();
   else if (paso===3) almRenderPaso3();
@@ -1930,122 +2018,236 @@ function almRenderPaso1() {
   const el = document.getElementById('alm-paso1');
   el.innerHTML = `
     <div class="refuel-card">
-      <div class="section-title">Código de expedición</div>
+      <div class="section-title">Escanear etiqueta</div>
       <div class="form-group">
-        <label class="form-label">Escanea o introduce el código</label>
-        <input class="form-input" type="text" id="alm-inp-codigo" placeholder="Escanea con el lector o escribe aquí..." autofocus autocomplete="off" style="font-size:18px;letter-spacing:2px;">
+        <label class="form-label">Pasa la pistola por el código de barras o escribe la expedición</label>
+        <input class="form-input" type="text" id="alm-inp-codigo" placeholder="Escanea aquí..." autocomplete="off" style="font-size:18px;letter-spacing:2px;">
       </div>
-      <button class="btn btn-primary" onclick="almUsarCodigo()">Continuar →</button>
+      <button class="btn btn-primary" onclick="almUsarCodigo()">Buscar →</button>
+      <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almAbrirBuscador()">🔎 No tiene etiqueta / buscar a mano</button>
+      <div id="alm-nereid-estado" style="margin-top:0.75rem;font-size:12px;color:var(--text-muted);text-align:center">${almTextoEstadoNereid()}</div>
     </div>`;
   const inp = document.getElementById('alm-inp-codigo');
   if (inp) {
     inp.focus();
-    inp.addEventListener('keydown', e => { if(e.key==='Enter') almUsarCodigo(); });
+    inp.addEventListener('keydown', e => { if (e.key==='Enter') almUsarCodigo(); });
   }
 }
 
 function almUsarCodigo() {
-  const cod = (document.getElementById('alm-inp-codigo').value||'').trim();
-  if (!cod) { alert('Introduce o escanea un código'); return; }
+  const cod = (document.getElementById('alm-inp-codigo')?.value||'').trim();
+  if (!cod) { alert('Escanea o escribe un código'); return; }
+  almReset();
   almEstado.codigo = cod;
+  if (!almNereidListo) {
+    alert('Todavía se están cargando las expediciones de Nereid. Espera unos segundos y vuelve a escanear.');
+    return;
+  }
+  const r = almBuscar(cod);
+  if (r) { almAplicarFila(r.fila, r.via); almEstado.vista = 'ficha'; }
+  else { almEstado.vista = 'buscador'; almEstado.noEncontrado = true; }
   almRenderPaso(2);
 }
 
+function almAbrirBuscador() {
+  almReset();
+  almEstado.vista = 'buscador';
+  almRenderPaso(2);
+}
+
+// ── Paso 2: expedición identificada, buscador o agencia a mano ──
 function almRenderPaso2() {
   const el = document.getElementById('alm-paso2');
-  el.innerHTML = `
+  if (almEstado.vista === 'ficha') el.innerHTML = almHtmlFicha();
+  else if (almEstado.vista === 'manual') el.innerHTML = almHtmlManual();
+  else { el.innerHTML = almHtmlBuscador(); almFiltrarBuscador(); document.getElementById('alm-bus-txt')?.focus(); }
+}
+
+function almHtmlFicha() {
+  const e = almEstado;
+  const previas = almCache.filter(r => e.exp && r.expedicion === e.exp);
+  const sinLectura = e.via === 'buscador';
+  const fila = (k, v) => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--card-border);font-size:14px"><span style="color:var(--text-muted)">${k}</span><strong>${v}</strong></div>`;
+  return `
     <div class="refuel-card">
-      <div class="section-title">Agencia — Expedición <span style="color:var(--accent);font-family:monospace">${almEstado.codigo}</span></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-bottom:1rem">
-        ${AGENCIAS_ALM.map(a=>`<button class="btn ${almEstado.agencia===a?'btn-secondary':'btn-ghost'}" onclick="almSelAgencia('${a}')" style="font-size:14px;font-weight:700;">${a}</button>`).join('')}
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:0.5rem">
+        <div>
+          <div style="font-size:12px;color:var(--text-muted)">Expedición</div>
+          <div style="font-size:24px;font-weight:700;font-family:monospace;color:var(--accent);word-break:break-all">${almEsc(e.exp)}</div>
+        </div>
+        <span style="background:var(--navy-light);color:var(--accent);padding:4px 12px;border-radius:12px;font-weight:700;font-size:14px;flex-shrink:0">${almEsc(e.agencia)}</span>
       </div>
-      <button class="btn btn-ghost" onclick="almRenderPaso(1)">← Volver</button>
+      ${sinLectura ? `<div style="background:rgba(255,179,71,0.12);color:var(--warning);border-radius:8px;padding:6px 10px;font-size:12px;margin-bottom:0.5rem">⚠️ Sin lectura en Nereid: encontrada con el buscador</div>` : ''}
+      ${previas.length ? `<div style="background:rgba(59,130,246,0.12);color:#3b82f6;border-radius:8px;padding:6px 10px;font-size:12px;margin-bottom:0.5rem">ℹ️ Ya tiene ${previas.length} medida${previas.length>1?'s':''} (${e.bultos||'?'} bulto${e.bultos==1?'':'s'} en total). Si es otro bulto, continúa.</div>` : ''}
+      ${fila('Albarán', almEsc(e.alb))}
+      ${e.pob ? fila('Destino', almEsc(e.pob)) : ''}
+      ${fila('Bultos', `${e.bultos||0}${e.tipoDecl ? ' · '+almEsc(e.tipoDecl) : ''}`)}
+      <div style="margin-top:0.75rem;font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px">Declarado por la agencia</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;margin:0.5rem 0 1rem">
+        <div class="stat-card"><div class="stat-val">${almNum(e.kgDecl,0)}</div><div class="stat-label">kg</div></div>
+        <div class="stat-card"><div class="stat-val">${almNum(e.kgtDecl,0)}</div><div class="stat-label">kg tasados</div></div>
+        <div class="stat-card"><div class="stat-val">${e.m3Decl>0?almNum(e.m3Decl,3):'—'}</div><div class="stat-label">m³</div></div>
+      </div>
+      <button class="btn btn-primary" onclick="almRenderPaso(3)">✓ Correcto, medir →</button>
+      <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almAbrirBuscadorDesdeFicha()">No es esta expedición</button>
+      <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almRenderPaso(1)">← Volver a escanear</button>
     </div>`;
 }
 
-window.almSelAgencia = (ag) => {
-  almEstado.agencia = ag;
-  almRenderPaso(3);
-};
+function almAbrirBuscadorDesdeFicha() {
+  const cod = almEstado.codigo;
+  almReset(); almEstado.codigo = cod; almEstado.vista = 'buscador';
+  almRenderPaso(2);
+}
 
+function almHtmlBuscador() {
+  return `
+    <div class="refuel-card">
+      <div class="section-title">Buscar expedición</div>
+      ${almEstado.noEncontrado ? `<div style="background:rgba(255,179,71,0.12);color:var(--warning);border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:0.75rem">No se ha encontrado el código <strong style="font-family:monospace">${almEsc(almEstado.codigo)}</strong>. Escribe la expedición que pone en la etiqueta, o parte de ella.</div>` : ''}
+      <input class="form-input" type="text" id="alm-bus-txt" placeholder="Expedición, albarán o población…" autocomplete="off" oninput="almFiltrarBuscador()" style="font-size:16px;margin-bottom:0.75rem">
+      <div id="alm-bus-res"></div>
+      <button class="btn btn-ghost" style="margin-top:0.75rem" onclick="almIrManual()">No aparece → elegir la agencia a mano</button>
+      <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almRenderPaso(1)">← Volver a escanear</button>
+    </div>`;
+}
+
+function almFiltrarBuscador() {
+  const out = document.getElementById('alm-bus-res');
+  if (!out) return;
+  const t = (document.getElementById('alm-bus-txt')?.value||'').trim().toUpperCase();
+  const tn = almNormCod(t);
+  let lista = almIdx.entradas;
+  if (t) lista = lista.filter(f =>
+    (tn && (almNormCod(f.ref).includes(tn) || almNormCod(f.ref2).includes(tn) || String(f.alb).includes(tn))) ||
+    String(f.pob||'').toUpperCase().includes(t));
+  const total = lista.length;
+  lista = lista.slice(0, 40);
+  out.innerHTML = !total
+    ? `<div style="text-align:center;color:var(--text-muted);padding:1rem;font-size:13px">${almNereidListo?'Sin resultados':'Cargando expediciones de Nereid…'}</div>`
+    : lista.map(f => `
+      <div onclick="almElegirDeBuscador('${almEsc(f.id)}')" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0.6rem 0.75rem;border:1px solid var(--card-border);border-radius:8px;margin-bottom:0.4rem;cursor:pointer">
+        <div style="min-width:0">
+          <div style="font-family:monospace;font-weight:700;color:var(--accent);word-break:break-all">${almEsc(f.ref||f.alb)}</div>
+          <div style="font-size:11px;color:var(--text-muted)">Alb. ${almEsc(f.alb)} · ${almEsc(f.pob||'')} · ${f.bul||0} bulto${f.bul==1?'':'s'}${(f.cod||[]).length?'':' · sin leer'}</div>
+        </div>
+        <span style="background:var(--navy-light);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;flex-shrink:0">${almEsc(f.ag)}</span>
+      </div>`).join('') + (total > 40 ? `<div style="text-align:center;font-size:12px;color:var(--text-muted)">…y ${total-40} más. Afina la búsqueda.</div>` : '');
+}
+
+function almElegirDeBuscador(id) {
+  const f = almIdx.id.get(String(id));
+  if (!f) return;
+  almAplicarFila(f, 'buscador');
+  almEstado.vista = 'ficha';
+  almRenderPaso(2);
+}
+
+function almIrManual() { almEstado.vista = 'manual'; almRenderPaso(2); }
+
+function almHtmlManual() {
+  return `
+    <div class="refuel-card">
+      <div class="section-title">Registrar sin datos de Nereid</div>
+      <div class="form-group">
+        <label class="form-label">Expedición (la que pone en la etiqueta)</label>
+        <input class="form-input" type="text" id="alm-man-exp" value="${almEsc(almEstado.exp||'')}" autocomplete="off" style="font-family:monospace;font-size:16px">
+      </div>
+      <label class="form-label">Agencia</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-bottom:1rem">
+        ${AGENCIAS_ALM.map(a=>`<button class="btn btn-ghost" onclick="almSelAgencia('${a}')" style="font-size:14px;font-weight:700;">${a}</button>`).join('')}
+      </div>
+      <button class="btn btn-ghost" onclick="almAbrirBuscadorDesdeFicha()">← Volver al buscador</button>
+    </div>`;
+}
+
+function almSelAgencia(ag) {
+  const exp = (document.getElementById('alm-man-exp')?.value||'').trim();
+  if (!exp) { alert('Escribe la expedición que pone en la etiqueta'); return; }
+  Object.assign(almEstado, {agencia:ag, exp, via:'manual', idNereid:null, alb:'', kgDecl:0, kgtDecl:0, m3Decl:0});
+  if (!almEstado.codigo) almEstado.codigo = exp;
+  almRenderPaso(3);
+}
+
+// ── Paso 3: medidas ──
 function almRenderPaso3() {
   const el = document.getElementById('alm-paso3');
+  const e = almEstado;
   el.innerHTML = `
+    <div class="refuel-card" style="margin-bottom:0.75rem;padding:0.75rem 1rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px">
+        <span style="font-family:monospace;font-weight:700;color:var(--accent);word-break:break-all">${almEsc(e.exp)}</span>
+        <span style="color:var(--text-muted);flex-shrink:0">${almEsc(e.agencia)}${e.idNereid?` · declarado ${almNum(e.kgDecl,0)} kg${e.m3Decl>0?' · '+almNum(e.m3Decl,3)+' m³':''}`:''}</span>
+      </div>
+    </div>
     <div class="refuel-card" style="margin-bottom:0.75rem">
       <div class="section-title">¿Qué quieres registrar?</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.75rem">
-        <button class="btn ${almEstado.medida==='volumen'?'btn-secondary':'btn-ghost'}" onclick="almSelMedida('volumen')">📦 Solo volumen</button>
-        <button class="btn ${almEstado.medida==='peso'?'btn-secondary':'btn-ghost'}" onclick="almSelMedida('peso')">⚖️ Solo peso</button>
+        <button class="btn ${e.medida==='volumen'?'btn-secondary':'btn-ghost'}" onclick="almSelMedida('volumen')">📦 Solo volumen</button>
+        <button class="btn ${e.medida==='peso'?'btn-secondary':'btn-ghost'}" onclick="almSelMedida('peso')">⚖️ Solo peso</button>
       </div>
-      <button class="btn ${almEstado.medida==='ambos'?'btn-secondary':'btn-ghost'}" style="width:100%;margin-bottom:0.75rem" onclick="almSelMedida('ambos')">📦 + ⚖️ Volumen y peso</button>
+      <button class="btn ${e.medida==='ambos'?'btn-secondary':'btn-ghost'}" style="width:100%;margin-bottom:0.75rem" onclick="almSelMedida('ambos')">📦 + ⚖️ Volumen y peso</button>
       <button class="btn btn-ghost" onclick="almRenderPaso(2)">← Volver</button>
     </div>
-    <div id="alm-sec-volumen" style="display:${almEstado.medida==='volumen'||almEstado.medida==='ambos'?'block':'none'}">
+    <div id="alm-sec-volumen" style="display:${e.medida==='volumen'||e.medida==='ambos'?'block':'none'}">
       <div class="refuel-card" style="margin-bottom:0.75rem">
         <div class="section-title">Tipo de bulto</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.75rem">
           ${Object.entries(TIPOS_PALET).map(([k,v])=>`
-          <button class="btn ${almEstado.tipo===k?'btn-secondary':'btn-ghost'}" onclick="almSelTipo('${k}')" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:0.75rem">
+          <button class="btn ${e.tipo===k?'btn-secondary':'btn-ghost'}" onclick="almSelTipo('${k}')" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:0.75rem">
             <span style="font-size:13px;font-weight:600">${v.label}</span>
             <span style="font-size:11px;color:var(--text-muted)">${v.dims}</span>
           </button>`).join('')}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem">
-          <div class="form-group" style="margin-bottom:0">
-            <label class="form-label">Largo (m)</label>
-            <input class="form-input" type="number" step="0.01" id="alm-largo" placeholder="0.00" value="${almEstado.largo||''}" oninput="almCalcVol()" ${almEstado.tipo&&almEstado.tipo!=='largo'?'readonly':''}>
-          </div>
-          <div class="form-group" style="margin-bottom:0">
-            <label class="form-label">Ancho (m)</label>
-            <input class="form-input" type="number" step="0.01" id="alm-ancho" placeholder="0.00" value="${almEstado.ancho||''}" oninput="almCalcVol()" ${almEstado.tipo&&almEstado.tipo!=='largo'?'readonly':''}>
-          </div>
-          <div class="form-group" style="margin-bottom:0">
-            <label class="form-label">Alto (m)</label>
-            <input class="form-input" type="number" step="0.01" id="alm-alto" placeholder="0.00" value="${almEstado.alto||''}" oninput="almCalcVol()">
-          </div>
+          <div class="form-group" style="margin-bottom:0"><label class="form-label">Largo (m)</label>
+            <input class="form-input" type="number" step="0.01" inputmode="decimal" id="alm-largo" placeholder="0.00" value="${e.largo||''}" oninput="almCalcVol()" ${e.tipo&&e.tipo!=='largo'?'readonly':''}></div>
+          <div class="form-group" style="margin-bottom:0"><label class="form-label">Ancho (m)</label>
+            <input class="form-input" type="number" step="0.01" inputmode="decimal" id="alm-ancho" placeholder="0.00" value="${e.ancho||''}" oninput="almCalcVol()" ${e.tipo&&e.tipo!=='largo'?'readonly':''}></div>
+          <div class="form-group" style="margin-bottom:0"><label class="form-label">Alto (m)</label>
+            <input class="form-input" type="number" step="0.01" inputmode="decimal" id="alm-alto" placeholder="0.00" value="${e.alto||''}" oninput="almCalcVol()"></div>
         </div>
-        <div id="alm-res-vol" style="margin-top:0.75rem;text-align:center;font-size:22px;font-weight:700;color:var(--success);display:${almEstado.volumen>0?'block':'none'}">${almEstado.volumen>0?almEstado.volumen.toFixed(3)+' m³':''}</div>
+        <div id="alm-res-vol" style="margin-top:0.75rem;text-align:center;font-size:22px;font-weight:700;color:var(--success);display:${e.volumen>0?'block':'none'}">${e.volumen>0?e.volumen.toFixed(3)+' m³':''}</div>
       </div>
     </div>
-    <div id="alm-sec-peso" style="display:${almEstado.medida==='peso'||almEstado.medida==='ambos'?'block':'none'}">
+    <div id="alm-sec-peso" style="display:${e.medida==='peso'||e.medida==='ambos'?'block':'none'}">
       <div class="refuel-card" style="margin-bottom:0.75rem">
         <div class="section-title">Peso</div>
-        <div class="form-group" style="margin-bottom:0">
-          <label class="form-label">Kilos (kg)</label>
-          <input class="form-input" type="number" step="0.1" id="alm-peso" placeholder="0.0" value="${almEstado.peso||''}" oninput="almCalcPeso()">
-        </div>
-        <div id="alm-res-peso" style="margin-top:0.75rem;text-align:center;font-size:22px;font-weight:700;color:var(--success);display:${almEstado.peso>0?'block':'none'}">${almEstado.peso>0?almEstado.peso.toFixed(1)+' kg':''}</div>
+        <div class="form-group" style="margin-bottom:0"><label class="form-label">Kilos (kg)</label>
+          <input class="form-input" type="number" step="0.1" inputmode="decimal" id="alm-peso" placeholder="0.0" value="${e.peso||''}" oninput="almCalcPeso()"></div>
+        <div id="alm-res-peso" style="margin-top:0.75rem;text-align:center;font-size:22px;font-weight:700;color:var(--success);display:${e.peso>0?'block':'none'}">${e.peso>0?e.peso.toFixed(1)+' kg':''}</div>
       </div>
     </div>
-    <div id="alm-sec-btn" style="display:${almEstado.medida?'block':'none'}">
+    <div id="alm-sec-btn" style="display:${e.medida?'block':'none'}">
       <button class="btn btn-primary" onclick="almIrConfirmar()">Continuar →</button>
     </div>`;
 }
 
-window.almSelMedida = (m) => { almEstado.medida=m; almRenderPaso(3); };
-window.almSelTipo = (tipo) => {
+function almSelMedida(m) { almEstado.medida=m; almRenderPaso(3); }
+function almSelTipo(tipo) {
   almEstado.tipo=tipo;
   const t=TIPOS_PALET[tipo];
   if (t.largo) { almEstado.largo=t.largo; almEstado.ancho=t.ancho; }
   else { almEstado.largo=0; almEstado.ancho=0; }
   almEstado.alto=0; almEstado.volumen=0;
   almRenderPaso(3);
-};
-window.almCalcVol = () => {
+  document.getElementById(t.largo ? 'alm-alto' : 'alm-largo')?.focus();
+}
+function almCalcVol() {
   const l=parseFloat(document.getElementById('alm-largo')?.value)||0;
   const a=parseFloat(document.getElementById('alm-ancho')?.value)||0;
   const h=parseFloat(document.getElementById('alm-alto')?.value)||0;
   almEstado.largo=l; almEstado.ancho=a; almEstado.alto=h;
   almEstado.volumen=l*a*h;
   const rv=document.getElementById('alm-res-vol');
-  if(rv) { rv.style.display=almEstado.volumen>0?'block':'none'; rv.textContent=almEstado.volumen.toFixed(3)+' m³'; }
-};
-window.almCalcPeso = () => {
+  if (rv) { rv.style.display=almEstado.volumen>0?'block':'none'; rv.textContent=almEstado.volumen.toFixed(3)+' m³'; }
+}
+function almCalcPeso() {
   const p=parseFloat(document.getElementById('alm-peso')?.value)||0;
   almEstado.peso=p;
   const rp=document.getElementById('alm-res-peso');
-  if(rp) { rp.style.display=p>0?'block':'none'; rp.textContent=p.toFixed(1)+' kg'; }
-};
+  if (rp) { rp.style.display=p>0?'block':'none'; rp.textContent=p.toFixed(1)+' kg'; }
+}
 
 function almIrConfirmar() {
   const m=almEstado.medida;
@@ -2055,65 +2257,76 @@ function almIrConfirmar() {
   almRenderPaso(4);
 }
 
+// Diferencia medido vs declarado. Devuelve null si no hay con qué comparar.
+function almDiferencia(medido, declarado) {
+  if (!(medido>0) || !(declarado>0)) return null;
+  const dif = medido - declarado;
+  return { dif, pct: dif/declarado, aviso: medido > declarado*(1+ALM_MARGEN_AVISO) };
+}
+
+// ── Paso 4: confirmar ──
 function almRenderPaso4() {
   const el = document.getElementById('alm-paso4');
-  const m=almEstado.medida;
+  const e = almEstado;
+  const dKg = almDiferencia(e.peso, e.kgDecl);
+  const dM3 = almDiferencia(e.volumen, e.m3Decl);
+  const celda = (medido, decl, d, dec, u) => `
+    <tr>
+      <td style="padding:6px 0;color:var(--text-muted)">${u==='kg'?'Peso':'Volumen'}</td>
+      <td style="padding:6px 0;text-align:right">${decl>0?almNum(decl,dec)+' '+u:'<span style="color:var(--text-muted)">no declarado</span>'}</td>
+      <td style="padding:6px 0;text-align:right;font-weight:700;color:var(--success)">${medido>0?almNum(medido,dec)+' '+u:'—'}</td>
+      <td style="padding:6px 0;text-align:right;font-weight:700;color:${d&&d.aviso?'var(--danger)':'var(--text-muted)'}">${d?(d.dif>0?'+':'')+almNum(d.dif,dec)+' '+u:''}</td>
+    </tr>`;
+  const aviso = (dKg&&dKg.aviso) || (dM3&&dM3.aviso);
   el.innerHTML = `
     <div class="refuel-card">
-      <div class="section-title">Confirmar expedición</div>
-      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--card-border);font-size:14px">
-        <span style="color:var(--text-muted)">Código</span>
-        <strong style="font-family:monospace;color:var(--accent)">${almEstado.codigo}</strong>
+      <div class="section-title">Confirmar</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--card-border)">
+        <strong style="font-family:monospace;color:var(--accent);font-size:16px;word-break:break-all">${almEsc(e.exp)}</strong>
+        <span style="background:var(--navy-light);color:var(--accent);padding:2px 10px;border-radius:10px;font-weight:700;font-size:12px;flex-shrink:0">${almEsc(e.agencia)}</span>
       </div>
-      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--card-border);font-size:14px">
-        <span style="color:var(--text-muted)">Agencia</span>
-        <strong>${almEstado.agencia}</strong>
-      </div>
-      ${almEstado.volumen>0?`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--card-border);font-size:14px">
-        <span style="color:var(--text-muted)">Volumen</span>
-        <strong style="color:var(--success)">${almEstado.volumen.toFixed(3)} m³</strong>
-      </div>`:''}
-      ${almEstado.peso>0?`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--card-border);font-size:14px">
-        <span style="color:var(--text-muted)">Peso</span>
-        <strong style="color:var(--success)">${almEstado.peso.toFixed(1)} kg</strong>
-      </div>`:''}
-      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px">
-        <span style="color:var(--text-muted)">Hora</span>
-        <span style="color:var(--text-muted)">${new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})}</span>
-      </div>
-      <button class="btn btn-primary" style="margin-top:1rem" onclick="almGuardar()">✓ Guardar expedición</button>
+      <table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:0.5rem">
+        <tr style="font-size:11px;color:var(--text-muted);text-transform:uppercase"><td></td><td style="text-align:right">Declarado</td><td style="text-align:right">Medido</td><td style="text-align:right">Dif.</td></tr>
+        ${e.medida!=='volumen' ? celda(e.peso, e.kgDecl, dKg, 1, 'kg') : ''}
+        ${e.medida!=='peso' ? celda(e.volumen, e.m3Decl, dM3, 3, 'm³') : ''}
+      </table>
+      ${aviso ? `<div style="background:rgba(231,76,60,0.12);color:var(--danger);border-radius:8px;padding:8px 10px;font-size:13px;margin-top:0.75rem">⚠️ La agencia ha declarado menos de lo medido.</div>` : ''}
+      ${e.bultos>1 ? `<div style="font-size:12px;color:var(--text-muted);margin-top:0.5rem">Esta expedición tiene ${e.bultos} bultos: lo declarado es del total.</div>` : ''}
+      <button class="btn btn-primary" style="margin-top:1rem" onclick="almGuardar()">✓ Guardar</button>
       <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almRenderPaso(3)">← Volver</button>
     </div>`;
 }
 
 async function almGuardar() {
+  const e = almEstado;
+  const ahora = new Date();
   const registro = {
-    codigo: almEstado.codigo,
-    agencia: almEstado.agencia,
-    medida: almEstado.medida,
-    volumen: almEstado.volumen||0,
-    peso: almEstado.peso||0,
-    largo: almEstado.largo||0,
-    ancho: almEstado.ancho||0,
-    alto: almEstado.alto||0,
-    tipo: almEstado.tipo||'',
-    ts: Date.now(),
-    fechaStr: new Date().toLocaleDateString('es-ES'),
-    horaStr: new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}),
+    codigo: e.codigo, expedicion: e.exp, agencia: e.agencia,
+    albaran: e.alb||'', idNereid: e.idNereid||null, poblacion: e.pob||'', bultos: e.bultos||0,
+    identificacion: e.via,                        // lectura | referencia | contiene | buscador | manual
+    sinLecturaNereid: e.via==='buscador' || e.via==='manual',
+    kgDeclarados: e.kgDecl||0, kgTasadosDeclarados: e.kgtDecl||0, m3Declarados: e.m3Decl||0,
+    medida: e.medida, volumen: e.volumen||0, peso: e.peso||0,
+    largo: e.largo||0, ancho: e.ancho||0, alto: e.alto||0, tipo: e.tipo||'',
+    ts: ahora.getTime(),
+    fechaStr: ahora.toLocaleDateString('es-ES'),
+    horaStr: ahora.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}),
   };
   try {
     const ref = await addDoc(collection(db,'almacenExpediciones'), registro);
     almCache.unshift({id:ref.id,...registro});
-  } catch(e) { console.warn('Error guardando expedición:', e); }
-  // Mostrar confirmación
-  for(let i=1;i<=5;i++) { const p=document.getElementById('alm-paso'+i); if(p) p.style.display='none'; }
+  } catch(err) {
+    alert('No se ha podido guardar: ' + err.message + '\nComprueba la conexión y vuelve a intentarlo.');
+    return;
+  }
+  for (let i=1;i<=5;i++) { const p=document.getElementById('alm-paso'+i); if (p) p.style.display='none'; }
   const ok = document.getElementById('alm-paso-ok');
   ok.style.display='block';
   ok.innerHTML = `<div style="text-align:center;padding:2rem">
     <div style="font-size:48px;margin-bottom:1rem">✅</div>
-    <div style="font-size:18px;font-weight:700;color:var(--success);margin-bottom:0.5rem">Expedición guardada</div>
-    <div style="font-size:13px;color:var(--text-muted);margin-bottom:1.5rem">${registro.codigo} → ${registro.agencia}${registro.volumen>0?' · '+registro.volumen.toFixed(3)+' m³':''}${registro.peso>0?' · '+registro.peso.toFixed(1)+' kg':''}</div>
-    <button class="btn btn-primary" style="max-width:280px;margin:0 auto" onclick="almNueva()">📷 Nueva expedición</button>
+    <div style="font-size:18px;font-weight:700;color:var(--success);margin-bottom:0.5rem">Guardado</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:1.5rem">${almEsc(registro.expedicion)} → ${almEsc(registro.agencia)}${registro.volumen>0?' · '+registro.volumen.toFixed(3)+' m³':''}${registro.peso>0?' · '+registro.peso.toFixed(1)+' kg':''}</div>
+    <button class="btn btn-primary" style="max-width:280px;margin:0 auto" onclick="almNueva()">📷 Escanear otra</button>
   </div>`;
   almRenderStepper(5);
 }
@@ -2125,74 +2338,134 @@ function almNueva() {
 }
 
 // ── Vista admin del almacén ──
-function renderAlmacenAdmin() {
-  // Pestaña registros
-  const listEl = document.getElementById('alm-admin-registros');
-  if (!listEl) return;
-  const filtroAg = document.getElementById('alm-fil-agencia')?.value||'';
-  const filtroDesde = document.getElementById('alm-fil-desde')?.value||'';
-  const filtroHasta = document.getElementById('alm-fil-hasta')?.value||'';
+function almFechaISO(ts) {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function almFiltrarAdmin() {
+  const ag = document.getElementById('alm-fil-agencia')?.value||'';
+  const desde = document.getElementById('alm-fil-desde')?.value||'';
+  const hasta = document.getElementById('alm-fil-hasta')?.value||'';
   let lista = [...almCache];
-  if (filtroAg) lista = lista.filter(r=>r.agencia===filtroAg);
-  if (filtroDesde) lista = lista.filter(r=>r.fechaStr>=filtroDesde);
-  if (filtroHasta) lista = lista.filter(r=>r.fechaStr<=filtroHasta);
-  const totalVol = lista.reduce((s,r)=>s+(r.volumen||0),0);
-  const totalPeso = lista.reduce((s,r)=>s+(r.peso||0),0);
-  listEl.innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;margin-bottom:1rem">
-      <div class="stat-card"><div class="stat-val">${lista.length}</div><div class="stat-label">Expediciones</div></div>
-      <div class="stat-card"><div class="stat-val">${totalVol.toFixed(2)}</div><div class="stat-label">m³ total</div></div>
-      <div class="stat-card"><div class="stat-val">${totalPeso.toFixed(0)}</div><div class="stat-label">kg total</div></div>
-    </div>
+  if (ag) lista = lista.filter(r=>r.agencia===ag);
+  if (desde) lista = lista.filter(r=>almFechaISO(r.ts)>=desde);
+  if (hasta) lista = lista.filter(r=>almFechaISO(r.ts)<=hasta);
+  return {lista, ag, desde, hasta};
+}
+function almHtmlFiltros(f, onchange) {
+  return `
     <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap">
-      <select class="form-input" id="alm-fil-agencia" style="flex:1;min-width:100px;font-size:13px;padding:0.5rem" onchange="renderAlmacenAdmin()">
+      <select class="form-input" id="alm-fil-agencia" style="flex:1;min-width:100px;font-size:13px;padding:0.5rem" onchange="${onchange}">
         <option value="">Todas las agencias</option>
-        ${AGENCIAS_ALM.map(a=>`<option ${filtroAg===a?'selected':''}>${a}</option>`).join('')}
+        ${AGENCIAS_ALM.map(a=>`<option ${f.ag===a?'selected':''}>${a}</option>`).join('')}
       </select>
-      <input class="form-input" type="date" id="alm-fil-desde" value="${filtroDesde}" style="flex:1;min-width:120px;font-size:13px;padding:0.5rem" onchange="renderAlmacenAdmin()">
-      <input class="form-input" type="date" id="alm-fil-hasta" value="${filtroHasta}" style="flex:1;min-width:120px;font-size:13px;padding:0.5rem" onchange="renderAlmacenAdmin()">
-      <button class="btn btn-ghost" style="flex-shrink:0" onclick="almExportarExcel(lista)">📊 Excel</button>
-    </div>
-    <div class="refuel-card" style="padding:0">
-      ${lista.length===0?`<div style="text-align:center;color:var(--text-muted);padding:2rem;font-size:13px">No hay expediciones registradas</div>`:
-      lista.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:0.75rem 1rem;border-bottom:1px solid var(--card-border);font-size:13px">
-        <div>
-          <div style="font-weight:600;font-family:monospace;color:var(--accent)">${r.codigo}</div>
-          <div style="font-size:11px;color:var(--text-muted)">${r.fechaStr} ${r.horaStr}</div>
-        </div>
-        <div style="display:flex;gap:0.5rem;align-items:center">
-          <span style="background:var(--navy-light);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">${r.agencia}</span>
-          ${r.volumen>0?`<span style="background:rgba(59,130,246,0.15);color:#3b82f6;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">${r.volumen.toFixed(3)} m³</span>`:''}
-          ${r.peso>0?`<span style="background:rgba(168,85,247,0.15);color:#a855f7;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">${r.peso.toFixed(1)} kg</span>`:''}
-          <button class="btn-del" onclick="almBorrarExpedicion('${r.id}')">🗑</button>
-        </div>
-      </div>`).join('')}
+      <input class="form-input" type="date" id="alm-fil-desde" value="${f.desde}" style="flex:1;min-width:120px;font-size:13px;padding:0.5rem" onchange="${onchange}">
+      <input class="form-input" type="date" id="alm-fil-hasta" value="${f.hasta}" style="flex:1;min-width:120px;font-size:13px;padding:0.5rem" onchange="${onchange}">
+      <button class="btn btn-ghost" style="flex-shrink:0" onclick="almExportarExcel()">📊 Excel</button>
     </div>`;
 }
 
-window.almBorrarExpedicion = async (id) => {
-  if (!confirm('¿Eliminar esta expedición?')) return;
+function renderAlmacenAdmin() {
+  const listEl = document.getElementById('alm-admin-registros');
+  if (!listEl) return;
+  const f = almFiltrarAdmin();
+  const lista = f.lista;
+  const totalVol = lista.reduce((s,r)=>s+(r.volumen||0),0);
+  const totalPeso = lista.reduce((s,r)=>s+(r.peso||0),0);
+  const avisos = lista.filter(r => (almDiferencia(r.peso, r.kgDeclarados)||{}).aviso || (almDiferencia(r.volumen, r.m3Declarados)||{}).aviso).length;
+  listEl.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;margin-bottom:1rem">
+      <div class="stat-card"><div class="stat-val">${lista.length}</div><div class="stat-label">Medidas</div></div>
+      <div class="stat-card"><div class="stat-val">${totalVol.toFixed(2)}</div><div class="stat-label">m³ total</div></div>
+      <div class="stat-card"><div class="stat-val">${totalPeso.toFixed(0)}</div><div class="stat-label">kg total</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:${avisos?'var(--danger)':'inherit'}">${avisos}</div><div class="stat-label">Declarado de menos</div></div>
+    </div>
+    ${almHtmlFiltros(f, 'renderAlmacenAdmin()')}
+    <div class="refuel-card" style="padding:0">
+      ${lista.length===0?`<div style="text-align:center;color:var(--text-muted);padding:2rem;font-size:13px">No hay expediciones registradas</div>`:
+      lista.map(r=>{
+        const dKg = almDiferencia(r.peso, r.kgDeclarados);
+        const dM3 = almDiferencia(r.volumen, r.m3Declarados);
+        const chip = (txt, col) => `<span style="background:${col}22;color:${col};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap">${txt}</span>`;
+        return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0.75rem 1rem;border-bottom:1px solid var(--card-border);font-size:13px">
+          <div style="min-width:0">
+            <div style="font-weight:600;font-family:monospace;color:var(--accent);word-break:break-all">${almEsc(r.expedicion||r.codigo)}</div>
+            <div style="font-size:11px;color:var(--text-muted)">${almEsc(r.fechaStr)} ${almEsc(r.horaStr)}${r.albaran?' · Alb. '+almEsc(r.albaran):''}${r.sinLecturaNereid?' · <span style="color:var(--warning)">sin lectura</span>':''}</div>
+          </div>
+          <div style="display:flex;gap:0.35rem;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+            <span style="background:var(--navy-light);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">${almEsc(r.agencia)}</span>
+            ${r.volumen>0?chip(r.volumen.toFixed(3)+' m³'+(r.m3Declarados>0?' / '+almNum(r.m3Declarados,3):''), dM3&&dM3.aviso?'#e74c3c':'#3b82f6'):''}
+            ${r.peso>0?chip(r.peso.toFixed(1)+' kg'+(r.kgDeclarados>0?' / '+almNum(r.kgDeclarados,0):''), dKg&&dKg.aviso?'#e74c3c':'#a855f7'):''}
+            <button class="btn-del" onclick="almBorrarExpedicion('${r.id}')">🗑</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:0.5rem">Medido / declarado por la agencia. En rojo, más de un ${ALM_MARGEN_AVISO*100} % por encima de lo declarado.</div>`;
+}
+
+function renderAlmacenResumen() {
+  const el = document.getElementById('alm-admin-resumen');
+  if (!el) return;
+  const f = almFiltrarAdmin();
+  const porAg = {};
+  f.lista.forEach(r => {
+    const a = porAg[r.agencia] ||= {n:0, kgMed:0, kgDec:0, nKg:0, m3Med:0, m3Dec:0, nM3:0, avisos:0, sinLect:0};
+    a.n++;
+    if (r.sinLecturaNereid) a.sinLect++;
+    if (r.peso>0 && r.kgDeclarados>0) { a.kgMed+=r.peso; a.kgDec+=r.kgDeclarados; a.nKg++; }
+    if (r.volumen>0 && r.m3Declarados>0) { a.m3Med+=r.volumen; a.m3Dec+=r.m3Declarados; a.nM3++; }
+    if ((almDiferencia(r.peso, r.kgDeclarados)||{}).aviso || (almDiferencia(r.volumen, r.m3Declarados)||{}).aviso) a.avisos++;
+  });
+  const filas = Object.entries(porAg).sort((x,y)=>y[1].n-x[1].n);
+  const pct = (m, d) => d>0 ? `<span style="color:${m>d*(1+ALM_MARGEN_AVISO)?'var(--danger)':'var(--text-muted)'}">${m>=d?'+':''}${almNum((m-d)/d*100,0)} %</span>` : '—';
+  el.innerHTML = `
+    ${almHtmlFiltros(f, 'renderAlmacenResumen()')}
+    <div class="refuel-card" style="overflow-x:auto">
+      ${!filas.length ? `<div style="text-align:center;color:var(--text-muted);padding:1rem;font-size:13px">No hay medidas en este periodo</div>` : `
+      <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:520px">
+        <tr style="font-size:11px;color:var(--text-muted);text-transform:uppercase;text-align:right">
+          <td style="text-align:left;padding:6px 4px">Agencia</td><td>Medidas</td><td>kg medidos</td><td>kg declarados</td><td>Dif.</td><td>m³ med. / decl.</td><td>De menos</td><td>Sin lectura</td>
+        </tr>
+        ${filas.map(([ag,a])=>`
+        <tr style="border-top:1px solid var(--card-border);text-align:right">
+          <td style="text-align:left;padding:8px 4px;font-weight:700;color:var(--accent)">${almEsc(ag)}</td>
+          <td>${a.n}</td>
+          <td>${a.nKg?almNum(a.kgMed,0):'—'}</td>
+          <td>${a.nKg?almNum(a.kgDec,0):'—'}</td>
+          <td>${pct(a.kgMed,a.kgDec)}</td>
+          <td>${a.nM3?almNum(a.m3Med,2)+' / '+almNum(a.m3Dec,2):'—'}</td>
+          <td style="color:${a.avisos?'var(--danger)':'inherit'};font-weight:${a.avisos?700:400}">${a.avisos}</td>
+          <td>${a.sinLect}</td>
+        </tr>`).join('')}
+      </table>`}
+    </div>
+    <div style="font-size:11px;color:var(--text-muted)">La comparación solo cuenta las medidas que tienen dato declarado por la agencia. Si una expedición tiene varios bultos medidos por separado, compara la suma con lo declarado.</div>`;
+}
+
+async function almBorrarExpedicion(id) {
+  if (!confirm('¿Eliminar esta medida?')) return;
   try {
     await deleteDoc(doc(db,'almacenExpediciones',id));
     almCache = almCache.filter(r=>r.id!==id);
     renderAlmacenAdmin();
   } catch(e) { alert('Error: '+e.message); }
-};
+}
 
-async function almExportarExcel(lista) {
+async function almExportarExcel() {
+  const lista = almFiltrarAdmin().lista;
   if (!lista.length) { alert('No hay expediciones para exportar'); return; }
   try {
     const XLSX = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm');
     const datos = lista.map(r=>({
-      'Fecha': r.fechaStr,
-      'Hora': r.horaStr,
-      'Código': r.codigo,
-      'Agencia': r.agencia,
-      'Volumen (m³)': r.volumen||0,
-      'Peso (kg)': r.peso||0,
-      'Largo (m)': r.largo||0,
-      'Ancho (m)': r.ancho||0,
-      'Alto (m)': r.alto||0,
+      'Fecha': r.fechaStr, 'Hora': r.horaStr,
+      'Expedición': r.expedicion||r.codigo, 'Código escaneado': r.codigo,
+      'Albarán': r.albaran||'', 'Agencia': r.agencia, 'Destino': r.poblacion||'', 'Bultos': r.bultos||'',
+      'Identificada por': r.identificacion||'', 'Sin lectura Nereid': r.sinLecturaNereid?'Sí':'',
+      'Peso medido (kg)': r.peso||0, 'Peso declarado (kg)': r.kgDeclarados||0,
+      'Kg tasados declarados': r.kgTasadosDeclarados||0,
+      'Volumen medido (m³)': r.volumen||0, 'Volumen declarado (m³)': r.m3Declarados||0,
+      'Largo (m)': r.largo||0, 'Ancho (m)': r.ancho||0, 'Alto (m)': r.alto||0,
     }));
     const ws = XLSX.utils.json_to_sheet(datos);
     const wb = XLSX.utils.book_new();
@@ -2200,6 +2473,15 @@ async function almExportarExcel(lista) {
     XLSX.writeFile(wb, `Almacen_${new Date().toISOString().slice(0,10)}.xlsx`);
   } catch(e) { alert('Error exportando: '+e.message); }
 }
+
+// Este bloque vive dentro de <script type="module">: las funciones que se
+// llaman desde onclick="" tienen que colgarse de window para existir.
+Object.assign(window, {
+  almUsarCodigo, almAbrirBuscador, almAbrirBuscadorDesdeFicha, almFiltrarBuscador,
+  almElegirDeBuscador, almIrManual, almSelAgencia, almRenderPaso, almSelMedida,
+  almSelTipo, almCalcVol, almCalcPeso, almIrConfirmar, almGuardar, almNueva,
+  renderAlmacenAdmin, renderAlmacenResumen, almBorrarExpedicion, almExportarExcel,
+});
 
 // ════════════════════════════════════════════════════════════════════════════
 // PEDIDO DE ROPA POR TEMPORADA
@@ -4826,15 +5108,20 @@ function switchModule(mod) {
   if (mod==='ropa') { populateRopaSelects(); updatePendientesBadge(); }
   if (mod==='almacen') {
     almCargarRegistros().then(()=>renderAlmacenAdmin());
-    document.getElementById('almtab-btn-registros').addEventListener('click', ()=>{
+    const bReg = document.getElementById('almtab-btn-registros');
+    const bRes = document.getElementById('almtab-btn-resumen');
+    bReg.onclick = ()=>{
       document.getElementById('alm-admin-registros').style.display='block';
       document.getElementById('alm-admin-resumen').style.display='none';
+      bReg.className='btn btn-secondary atab-btn'; bRes.className='btn btn-ghost atab-btn';
       renderAlmacenAdmin();
-    });
-    document.getElementById('almtab-btn-resumen').addEventListener('click', ()=>{
+    };
+    bRes.onclick = ()=>{
       document.getElementById('alm-admin-registros').style.display='none';
       document.getElementById('alm-admin-resumen').style.display='block';
-    });
+      bRes.className='btn btn-secondary atab-btn'; bReg.className='btn btn-ghost atab-btn';
+      renderAlmacenResumen();
+    };
   }
   if (mod==='adrcap') {
     document.querySelectorAll('#module-adrcap .tab-pane').forEach(p=>p.classList.remove('active'));
