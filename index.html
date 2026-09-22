@@ -1317,7 +1317,7 @@ input[type="number"] { -moz-appearance: textfield; }
 <!-- Firebase SDKs -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, collection, doc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, where } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getFirestore, collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, where } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // ═══════════ FIREBASE GASOIL ═══════════
 const firebaseConfigGasoil = {
@@ -1887,28 +1887,53 @@ const almNum = (v, d=1) => (Number(v)||0).toLocaleString('es-ES',{minimumFractio
 
 function almReset() {
   almEstado = {codigo:'',agencia:'',medida:'',tipo:'',largo:0,ancho:0,alto:0,peso:0,volumen:0,
-               exp:'',alb:'',idNereid:null,kgDecl:0,kgtDecl:0,m3Decl:0,via:'',pob:'',bultos:0,tipoDecl:''};
+               exp:'',alb:'',idNereid:null,kgDecl:0,kgtDecl:0,m3Decl:0,via:'',leida:false,pob:'',bultos:0,tipoDecl:'',
+               previas:[],remedir:false,vista:'',noEncontrado:false,textoManual:'',resultados:undefined};
 }
 
-// ── Tabla de Nereid en vivo ──
+// ── Tabla de Nereid ──
+// Hoy y ayer se escuchan en vivo (es donde entran los camiones del día). Los
+// días anteriores se leen una vez al entrar y se refrescan cada 30 minutos:
+// así cada móvil descarga mucho menos de Firebase.
+const ALM_DIAS_VIVO = 2;
+let almRefrescoViejos = null;
+
+function almIdDia(n) {
+  const h = new Date();
+  const d = new Date(h.getFullYear(), h.getMonth(), h.getDate() - n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function almGuardarDia(id, snap) {
+  let filas = [];
+  if (snap.exists()) { try { filas = JSON.parse(snap.data().datos||'[]'); } catch(e) {} }
+  filas.forEach(f => f.dia = id);
+  almNereidDias[id] = filas;
+}
+async function almLeerViejos() {
+  const ids = [];
+  for (let n = ALM_DIAS_VIVO; n < ALM_DIAS_NEREID; n++) ids.push(almIdDia(n));
+  await Promise.all(ids.map(async id => {
+    try { almGuardarDia(id, await getDoc(doc(db,'nereidDias',id))); }
+    catch(e) { console.warn('nereidDias', id, e); }
+  }));
+  almIndexar();
+}
 function almEscucharNereid() {
   almPararNereid();
-  const hoy = new Date();
-  for (let n = 0; n < ALM_DIAS_NEREID; n++) {
-    const d = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - n);
-    const id = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  almNereidDias = {};
+  for (let n = 0; n < ALM_DIAS_VIVO; n++) {
+    const id = almIdDia(n);
     almNereidSubs.push(onSnapshot(doc(db,'nereidDias',id), snap => {
-      let filas = [];
-      if (snap.exists()) { try { filas = JSON.parse(snap.data().datos||'[]'); } catch(e) {} }
-      filas.forEach(f => f.dia = id);
-      almNereidDias[id] = filas;
-      almIndexar();
+      almGuardarDia(id, snap); almIndexar();
     }, err => console.warn('nereidDias', id, err)));
   }
+  almLeerViejos();
+  almRefrescoViejos = setInterval(almLeerViejos, 30*60*1000);
 }
 function almPararNereid() {
   almNereidSubs.forEach(u => { try{u();}catch(e){} });
   almNereidSubs = [];
+  if (almRefrescoViejos) { clearInterval(almRefrescoViejos); almRefrescoViejos = null; }
 }
 function almIndexar() {
   const idx = { cod:new Map(), ref:new Map(), id:new Map(), entradas:[] };
@@ -1930,7 +1955,8 @@ function almIndexar() {
 }
 function almTextoEstadoNereid() {
   if (!almNereidListo) return '⏳ Cargando expediciones de Nereid…';
-  return `🟢 ${almIdx.entradas.length.toLocaleString('es-ES')} entradas de Nereid cargadas`;
+  const leidas = almIdx.entradas.filter(f => (f.cod||[]).length).length;
+  return `🟢 ${almIdx.entradas.length.toLocaleString('es-ES')} entradas de Nereid (${(almIdx.entradas.length-leidas).toLocaleString('es-ES')} sin leer)`;
 }
 
 // ── Búsqueda del código escaneado ──
@@ -1946,6 +1972,7 @@ function almVariantes(c) {
 }
 const almElegirMejor = lista => lista.find(f => f.sen === 'E') || lista[lista.length-1];
 
+// Código de la pistola: lectura, referencia exacta o referencia dentro del código.
 function almBuscar(codigo) {
   const c = almNormCod(codigo);
   if (!c) return null;
@@ -1962,12 +1989,44 @@ function almBuscar(codigo) {
   return mejor ? {fila:mejor, via:'contiene'} : null;
 }
 
+// Número tecleado a mano: exacto en referencia o albarán; si no, que lo
+// contenga (mínimo 5 cifras). Devuelve las entradas que coinciden.
+function almBuscarTexto(texto) {
+  const t = almNormCod(texto);
+  if (!t) return [];
+  const exactas = almIdx.entradas.filter(f =>
+    almNormCod(f.ref) === t || almNormCod(f.ref2) === t || String(f.alb) === t);
+  if (exactas.length || t.length < 5) return exactas;
+  return almIdx.entradas.filter(f =>
+    almNormCod(f.ref).includes(t) || almNormCod(f.ref2).includes(t));
+}
+
 function almAplicarFila(f, via) {
   Object.assign(almEstado, {
     exp: f.ref || f.alb, agencia: f.ag, alb: f.alb, idNereid: f.id,
     kgDecl: f.kg||0, kgtDecl: f.kgt||0, m3Decl: f.m3||0, via,
+    leida: (f.cod||[]).length > 0,
     pob: f.pob||'', bultos: f.bul||0, tipoDecl: f.tipo||'',
   });
+}
+
+// Medidas ya guardadas de esta expedición (de cualquier móvil).
+async function almMedidasPrevias(exp) {
+  if (!exp) return [];
+  try {
+    const snap = await getDocs(query(collection(db,'almacenExpediciones'), where('expedicion','==',exp)));
+    return snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.ts-a.ts);
+  } catch(e) {
+    console.warn('Medidas previas:', e);
+    return almCache.filter(r => r.expedicion === exp);
+  }
+}
+
+async function almMostrarFicha(f, via) {
+  almAplicarFila(f, via);
+  almEstado.previas = await almMedidasPrevias(almEstado.exp);
+  almEstado.vista = 'ficha';
+  almRenderPaso(2);
 }
 
 // ── LOGIN almacén ──
@@ -1982,8 +2041,10 @@ function entrarAlmacen(desdeAdmin = false) {
     almPararNereid();
     if (desdeAdmin) {
       showScreen('admin');
-      renderAlmacenAdmin();
-      if (document.getElementById('alm-admin-resumen')?.style.display==='block') renderAlmacenResumen();
+      almCargarRegistros().then(() => {
+        renderAlmacenAdmin();
+        if (document.getElementById('alm-admin-resumen')?.style.display==='block') renderAlmacenResumen();
+      });
     } else {
       showScreen('login');
     }
@@ -2031,11 +2092,11 @@ function almRenderPaso1() {
     <div class="refuel-card">
       <div class="section-title">Escanear etiqueta</div>
       <div class="form-group">
-        <label class="form-label">Pasa la pistola por el código de barras o escribe la expedición</label>
+        <label class="form-label">Pasa la pistola por el código de barras</label>
         <input class="form-input" type="text" id="alm-inp-codigo" placeholder="Escanea aquí..." autocomplete="off" style="font-size:18px;letter-spacing:2px;">
       </div>
       <button class="btn btn-primary" onclick="almUsarCodigo()">Buscar →</button>
-      <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almAbrirBuscador()">🔎 No tiene etiqueta / buscar a mano</button>
+      <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almAbrirManual()">✍️ Meter nº de expedición a mano</button>
       <div id="alm-nereid-estado" style="margin-top:0.75rem;font-size:12px;color:var(--text-muted);text-align:center">${almTextoEstadoNereid()}</div>
     </div>`;
   const inp = document.getElementById('alm-inp-codigo');
@@ -2045,51 +2106,80 @@ function almRenderPaso1() {
   }
 }
 
-function almUsarCodigo() {
+async function almUsarCodigo() {
   const cod = (document.getElementById('alm-inp-codigo')?.value||'').trim();
   if (!cod) { alert('Escanea o escribe un código'); return; }
-  almReset();
-  almEstado.codigo = cod;
   if (!almNereidListo) {
     alert('Todavía se están cargando las expediciones de Nereid. Espera unos segundos y vuelve a escanear.');
     return;
   }
-  const r = almBuscar(cod);
-  if (r) { almAplicarFila(r.fila, r.via); almEstado.vista = 'ficha'; }
-  else { almEstado.vista = 'buscador'; almEstado.noEncontrado = true; }
-  almRenderPaso(2);
-}
-
-function almAbrirBuscador() {
   almReset();
-  almEstado.vista = 'buscador';
+  almEstado.codigo = cod;
+  const r = almBuscar(cod);
+  if (r) { await almMostrarFicha(r.fila, r.via); return; }
+  almEstado.vista = 'manual';
+  almEstado.noEncontrado = true;
   almRenderPaso(2);
 }
 
-// ── Paso 2: expedición identificada, buscador o agencia a mano ──
+function almAbrirManual() {
+  almReset();
+  almEstado.vista = 'manual';
+  almRenderPaso(2);
+}
+
+// ── Paso 2: ficha de la expedición o número a mano ──
 function almRenderPaso2() {
   const el = document.getElementById('alm-paso2');
-  if (almEstado.vista === 'ficha') el.innerHTML = almHtmlFicha();
-  else if (almEstado.vista === 'manual') el.innerHTML = almHtmlManual();
-  else { el.innerHTML = almHtmlBuscador(); almFiltrarBuscador(); document.getElementById('alm-bus-txt')?.focus(); }
+  if (almEstado.vista === 'ficha') {
+    el.innerHTML = almHtmlFicha();
+  } else {
+    el.innerHTML = almHtmlManual();
+    const inp = document.getElementById('alm-man-exp');
+    if (inp) {
+      inp.focus();
+      inp.addEventListener('keydown', e => { if (e.key==='Enter') almBuscarManual(); });
+    }
+  }
 }
 
 function almHtmlFicha() {
   const e = almEstado;
-  const previas = almCache.filter(r => e.exp && r.expedicion === e.exp);
-  const sinLectura = e.via === 'buscador';
+  const previas = e.previas || [];
   const fila = (k, v) => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--card-border);font-size:14px"><span style="color:var(--text-muted)">${k}</span><strong>${v}</strong></div>`;
-  return `
-    <div class="refuel-card">
+  const cabecera = `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:0.5rem">
         <div>
           <div style="font-size:12px;color:var(--text-muted)">Expedición</div>
           <div style="font-size:24px;font-weight:700;font-family:monospace;color:var(--accent);word-break:break-all">${almEsc(e.exp)}</div>
         </div>
         <span style="background:var(--navy-light);color:var(--accent);padding:4px 12px;border-radius:12px;font-weight:700;font-size:14px;flex-shrink:0">${almEsc(e.agencia)}</span>
+      </div>`;
+
+  // Ya medida: aviso en grande y, como opción secundaria, medir otra vez
+  if (previas.length && !e.remedir) {
+    const p = previas[0];
+    const que = [p.peso>0?'el peso':'', p.volumen>0?'el volumen':''].filter(Boolean).join(' y ') || 'la medida';
+    return `
+    <div class="refuel-card">
+      ${cabecera}
+      <div style="background:rgba(231,76,60,0.12);border:1px solid var(--danger);border-radius:10px;padding:1rem;text-align:center;margin:0.5rem 0 1rem">
+        <div style="font-size:32px">⚠️</div>
+        <div style="font-size:17px;font-weight:700;color:var(--danger);margin:0.25rem 0">Ya se ha cogido ${que}</div>
+        <div style="font-size:13px;color:var(--text-muted)">
+          ${previas.map(r=>`${almEsc(r.fechaStr)} ${almEsc(r.horaStr)}${r.peso>0?' · '+almNum(r.peso,1)+' kg':''}${r.volumen>0?' · '+almNum(r.volumen,3)+' m³':''}`).join('<br>')}
+        </div>
       </div>
-      ${sinLectura ? `<div style="background:rgba(255,179,71,0.12);color:var(--warning);border-radius:8px;padding:6px 10px;font-size:12px;margin-bottom:0.5rem">⚠️ Sin lectura en Nereid: encontrada con el buscador</div>` : ''}
-      ${previas.length ? `<div style="background:rgba(59,130,246,0.12);color:#3b82f6;border-radius:8px;padding:6px 10px;font-size:12px;margin-bottom:0.5rem">ℹ️ Ya tiene ${previas.length} medida${previas.length>1?'s':''} (${e.bultos||'?'} bulto${e.bultos==1?'':'s'} en total). Si es otro bulto, continúa.</div>` : ''}
+      <button class="btn btn-primary" onclick="almNueva()">📷 Escanear otra</button>
+      <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almRemedir()">Medir otra vez${e.bultos>1?' (otro bulto)':''}</button>
+    </div>`;
+  }
+
+  return `
+    <div class="refuel-card">
+      ${cabecera}
+      ${!e.leida ? `<div style="background:rgba(255,179,71,0.12);color:var(--warning);border-radius:8px;padding:6px 10px;font-size:12px;margin-bottom:0.5rem">⚠️ Sin lectura en Nereid</div>` : ''}
+      ${previas.length ? `<div style="background:rgba(59,130,246,0.12);color:#3b82f6;border-radius:8px;padding:6px 10px;font-size:12px;margin-bottom:0.5rem">ℹ️ Ya tenía ${previas.length} medida${previas.length>1?'s':''}. Esta se guardará como otra más.</div>` : ''}
       ${fila('Albarán', almEsc(e.alb))}
       ${e.pob ? fila('Destino', almEsc(e.pob)) : ''}
       ${fila('Bultos', `${e.bultos||0}${e.tipoDecl ? ' · '+almEsc(e.tipoDecl) : ''}`)}
@@ -2100,83 +2190,74 @@ function almHtmlFicha() {
         <div class="stat-card"><div class="stat-val">${e.m3Decl>0?almNum(e.m3Decl,3):'—'}</div><div class="stat-label">m³</div></div>
       </div>
       <button class="btn btn-primary" onclick="almRenderPaso(3)">✓ Correcto, medir →</button>
-      <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almAbrirBuscadorDesdeFicha()">No es esta expedición</button>
+      <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almAbrirManual()">No es esta → meter nº a mano</button>
       <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almRenderPaso(1)">← Volver a escanear</button>
     </div>`;
 }
 
-function almAbrirBuscadorDesdeFicha() {
-  const cod = almEstado.codigo;
-  almReset(); almEstado.codigo = cod; almEstado.vista = 'buscador';
-  almRenderPaso(2);
-}
-
-function almHtmlBuscador() {
-  return `
-    <div class="refuel-card">
-      <div class="section-title">Buscar expedición</div>
-      ${almEstado.noEncontrado ? `<div style="background:rgba(255,179,71,0.12);color:var(--warning);border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:0.75rem">No se ha encontrado el código <strong style="font-family:monospace">${almEsc(almEstado.codigo)}</strong>. Escribe la expedición que pone en la etiqueta, o parte de ella.</div>` : ''}
-      <input class="form-input" type="text" id="alm-bus-txt" placeholder="Expedición, albarán o población…" autocomplete="off" oninput="almFiltrarBuscador()" style="font-size:16px;margin-bottom:0.75rem">
-      <div id="alm-bus-res"></div>
-      <button class="btn btn-ghost" style="margin-top:0.75rem" onclick="almIrManual()">No aparece → elegir la agencia a mano</button>
-      <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almRenderPaso(1)">← Volver a escanear</button>
-    </div>`;
-}
-
-function almFiltrarBuscador() {
-  const out = document.getElementById('alm-bus-res');
-  if (!out) return;
-  const t = (document.getElementById('alm-bus-txt')?.value||'').trim().toUpperCase();
-  const tn = almNormCod(t);
-  let lista = almIdx.entradas;
-  if (t) lista = lista.filter(f =>
-    (tn && (almNormCod(f.ref).includes(tn) || almNormCod(f.ref2).includes(tn) || String(f.alb).includes(tn))) ||
-    String(f.pob||'').toUpperCase().includes(t));
-  const total = lista.length;
-  lista = lista.slice(0, 40);
-  out.innerHTML = !total
-    ? `<div style="text-align:center;color:var(--text-muted);padding:1rem;font-size:13px">${almNereidListo?'Sin resultados':'Cargando expediciones de Nereid…'}</div>`
-    : lista.map(f => `
-      <div onclick="almElegirDeBuscador('${almEsc(f.id)}')" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0.6rem 0.75rem;border:1px solid var(--card-border);border-radius:8px;margin-bottom:0.4rem;cursor:pointer">
-        <div style="min-width:0">
-          <div style="font-family:monospace;font-weight:700;color:var(--accent);word-break:break-all">${almEsc(f.ref||f.alb)}</div>
-          <div style="font-size:11px;color:var(--text-muted)">Alb. ${almEsc(f.alb)} · ${almEsc(f.pob||'')} · ${f.bul||0} bulto${f.bul==1?'':'s'}${(f.cod||[]).length?'':' · sin leer'}</div>
-        </div>
-        <span style="background:var(--navy-light);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;flex-shrink:0">${almEsc(f.ag)}</span>
-      </div>`).join('') + (total > 40 ? `<div style="text-align:center;font-size:12px;color:var(--text-muted)">…y ${total-40} más. Afina la búsqueda.</div>` : '');
-}
-
-function almElegirDeBuscador(id) {
-  const f = almIdx.id.get(String(id));
-  if (!f) return;
-  almAplicarFila(f, 'buscador');
-  almEstado.vista = 'ficha';
-  almRenderPaso(2);
-}
-
-function almIrManual() { almEstado.vista = 'manual'; almRenderPaso(2); }
+function almRemedir() { almEstado.remedir = true; almRenderPaso(2); }
 
 function almHtmlManual() {
+  const e = almEstado;
+  const res = e.resultados;           // undefined = aún no se ha buscado
+  let bloque = '';
+  if (res && res.length > 1 && res.length <= 8) {
+    bloque = `<div style="font-size:13px;color:var(--text-muted);margin:0.75rem 0 0.4rem">Hay ${res.length} expediciones con ese número. Elige la tuya:</div>` +
+      res.map(f => `
+      <div onclick="almElegir('${almEsc(f.id)}')" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0.6rem 0.75rem;border:1px solid var(--card-border);border-radius:8px;margin-bottom:0.4rem;cursor:pointer">
+        <div style="min-width:0">
+          <div style="font-family:monospace;font-weight:700;color:var(--accent);word-break:break-all">${almEsc(f.ref||f.alb)}</div>
+          <div style="font-size:11px;color:var(--text-muted)">Alb. ${almEsc(f.alb)} · ${almEsc(f.pob||'')}</div>
+        </div>
+        <span style="background:var(--navy-light);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;flex-shrink:0">${almEsc(f.ag)}</span>
+      </div>`).join('');
+  } else if (res && res.length > 8) {
+    bloque = `<div style="color:var(--warning);font-size:13px;margin-top:0.75rem">Hay demasiadas coincidencias. Escribe el número completo.</div>`;
+  } else if (res && res.length === 0) {
+    bloque = `
+      <div style="background:rgba(255,179,71,0.12);color:var(--warning);border-radius:8px;padding:8px 10px;font-size:13px;margin-top:0.75rem">No está en Nereid (últimos ${ALM_DIAS_NEREID} días). Si quieres registrarla igualmente, elige la agencia:</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-top:0.5rem">
+        ${AGENCIAS_ALM.map(a=>`<button class="btn btn-ghost" onclick="almSelAgencia('${a}')" style="font-size:14px;font-weight:700;">${a}</button>`).join('')}
+      </div>`;
+  }
   return `
     <div class="refuel-card">
-      <div class="section-title">Registrar sin datos de Nereid</div>
-      <div class="form-group">
-        <label class="form-label">Expedición (la que pone en la etiqueta)</label>
-        <input class="form-input" type="text" id="alm-man-exp" value="${almEsc(almEstado.exp||'')}" autocomplete="off" style="font-family:monospace;font-size:16px">
-      </div>
-      <label class="form-label">Agencia</label>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-bottom:1rem">
-        ${AGENCIAS_ALM.map(a=>`<button class="btn btn-ghost" onclick="almSelAgencia('${a}')" style="font-size:14px;font-weight:700;">${a}</button>`).join('')}
-      </div>
-      <button class="btn btn-ghost" onclick="almAbrirBuscadorDesdeFicha()">← Volver al buscador</button>
+      <div class="section-title">Nº de expedición a mano</div>
+      ${e.noEncontrado ? `<div style="background:rgba(255,179,71,0.12);color:var(--warning);border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:0.75rem">No se ha encontrado el código <strong style="font-family:monospace;word-break:break-all">${almEsc(e.codigo)}</strong>. Escribe la expedición que pone en la etiqueta.</div>` : ''}
+      <input class="form-input" type="text" inputmode="numeric" id="alm-man-exp" value="${almEsc(e.textoManual||'')}" placeholder="Nº de expedición" autocomplete="off" style="font-family:monospace;font-size:18px;letter-spacing:1px">
+      <button class="btn btn-primary" style="margin-top:0.75rem" onclick="almBuscarManual()">Buscar →</button>
+      ${bloque}
+      <button class="btn btn-ghost" style="margin-top:0.75rem" onclick="almRenderPaso(1)">← Volver a escanear</button>
     </div>`;
 }
 
-function almSelAgencia(ag) {
-  const exp = (document.getElementById('alm-man-exp')?.value||'').trim();
+async function almBuscarManual() {
+  const t = (document.getElementById('alm-man-exp')?.value||'').trim();
+  if (!t) { alert('Escribe el número de expedición'); return; }
+  almEstado.textoManual = t;
+  const res = almBuscarTexto(t);
+  if (res.length === 1) {
+    const cod = almEstado.codigo;
+    await almMostrarFicha(res[0], 'mano');
+    if (cod) almEstado.codigo = cod;
+    return;
+  }
+  almEstado.resultados = res;
+  almRenderPaso(2);
+}
+
+async function almElegir(id) {
+  const f = almIdx.id.get(String(id));
+  if (f) await almMostrarFicha(f, 'mano');
+}
+
+async function almSelAgencia(ag) {
+  const exp = almEstado.textoManual || (document.getElementById('alm-man-exp')?.value||'').trim();
   if (!exp) { alert('Escribe la expedición que pone en la etiqueta'); return; }
-  Object.assign(almEstado, {agencia:ag, exp, via:'manual', idNereid:null, alb:'', kgDecl:0, kgtDecl:0, m3Decl:0});
+  Object.assign(almEstado, {agencia:ag, exp, via:'manual', leida:false, idNereid:null, alb:'', kgDecl:0, kgtDecl:0, m3Decl:0, pob:'', bultos:0, tipoDecl:''});
   if (!almEstado.codigo) almEstado.codigo = exp;
+  almEstado.previas = await almMedidasPrevias(exp);
+  if (almEstado.previas.length) { almEstado.vista = 'ficha'; almRenderPaso(2); return; }
   almRenderPaso(3);
 }
 
@@ -2314,8 +2395,9 @@ async function almGuardar() {
   const registro = {
     codigo: e.codigo, expedicion: e.exp, agencia: e.agencia,
     albaran: e.alb||'', idNereid: e.idNereid||null, poblacion: e.pob||'', bultos: e.bultos||0,
-    identificacion: e.via,                        // lectura | referencia | contiene | buscador | manual
-    sinLecturaNereid: e.via==='buscador' || e.via==='manual',
+    identificacion: e.via,                        // lectura | referencia | contiene | mano | manual
+    sinLecturaNereid: !e.leida,
+    enNereid: !!e.idNereid,
     kgDeclarados: e.kgDecl||0, kgTasadosDeclarados: e.kgtDecl||0, m3Declarados: e.m3Decl||0,
     medida: e.medida, volumen: e.volumen||0, peso: e.peso||0,
     largo: e.largo||0, ancho: e.ancho||0, alto: e.alto||0, tipo: e.tipo||'',
@@ -2488,8 +2570,8 @@ async function almExportarExcel() {
 // Este bloque vive dentro de <script type="module">: las funciones que se
 // llaman desde onclick="" tienen que colgarse de window para existir.
 Object.assign(window, {
-  almUsarCodigo, almAbrirBuscador, almAbrirBuscadorDesdeFicha, almFiltrarBuscador,
-  almElegirDeBuscador, almIrManual, almSelAgencia, almRenderPaso, almSelMedida,
+  almUsarCodigo, almAbrirManual, almBuscarManual, almElegir, almRemedir,
+  almSelAgencia, almRenderPaso, almSelMedida,
   almSelTipo, almCalcVol, almCalcPeso, almIrConfirmar, almGuardar, almNueva,
   renderAlmacenAdmin, renderAlmacenResumen, almBorrarExpedicion, almExportarExcel,
 });
