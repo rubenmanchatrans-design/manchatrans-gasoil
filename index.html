@@ -372,6 +372,38 @@ input[type="number"] { -moz-appearance: textfield; }
 .alm-tick.on { background: var(--success); border-color: var(--success); }
 .alm-badge-mal { background: var(--danger); color: #fff; }
 .alm-estados { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important; }
+
+/* ── Gasoil (mismo estilo que Almacén) ── */
+.deposito-alerta.show { display: block; }
+.gs-dep { display: flex; align-items: center; gap: 1rem; background: var(--card); border: 1px solid var(--card-border); border-radius: 16px; padding: 1rem 1.25rem; margin-bottom: 0.75rem; }
+.gs-dep-info { flex: 1; min-width: 0; }
+.gs-dep-tit { font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.gs-dep-nivel { font-size: 30px; font-weight: 800; margin: 0.15rem 0 0.5rem; }
+.gs-dep-nivel small { font-size: 14px; font-weight: 500; color: var(--text-muted); }
+.gs-dep-btn { width: auto !important; flex-shrink: 0; padding: 0.9rem 1.2rem; font-size: 15px; }
+@media (max-width: 560px) { .gs-dep { flex-direction: column; align-items: stretch; } .gs-dep-btn { width: 100% !important; } }
+.gs-tabs { margin-top: 0.25rem; }
+.gs-stats { grid-template-columns: repeat(4, 1fr); margin-bottom: 0.75rem; }
+@media (max-width: 560px) { .gs-stats { grid-template-columns: 1fr 1fr; } }
+.gs-filtros { display: grid; grid-template-columns: 1.3fr 1fr 1fr auto; gap: 0.5rem; margin-bottom: 0.75rem; }
+.gs-filtros .form-input { font-size: 14px; padding: 0.6rem 0.75rem; }
+@media (max-width: 700px) { .gs-filtros { grid-template-columns: 1fr 1fr; } }
+.gs-fila { display: flex; align-items: center; gap: 0.9rem; padding: 0.8rem 1rem; border-bottom: 1px solid var(--card-border); }
+.gs-fila:last-child { border-bottom: none; }
+.gs-litros { width: 72px; flex-shrink: 0; text-align: center; background: var(--navy-light); border-radius: 12px; padding: 0.45rem 0.2rem; }
+.gs-litros strong { display: block; font-size: 18px; color: var(--accent); line-height: 1.1; }
+.gs-litros span { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
+.gs-litros-rec strong { color: var(--success); }
+.gs-fila-info { flex: 1; min-width: 0; }
+.gs-mat { font-family: monospace; font-size: 16px; font-weight: 700; color: var(--accent); }
+.gs-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+.gs-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.35rem; }
+.gs-chip { background: var(--navy-light); border-radius: 8px; padding: 2px 8px; font-size: 12px; }
+.gs-chip-mal { background: rgba(231,76,60,0.18); color: var(--danger); font-weight: 700; }
+.gs-acciones { display: flex; gap: 0.35rem; flex-wrap: wrap; justify-content: flex-end; flex-shrink: 0; }
+@media (max-width: 560px) { .gs-fila { flex-wrap: wrap; } .gs-acciones { width: 100%; justify-content: flex-start; padding-left: calc(72px + 0.9rem); } }
+.gs-consumo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.75rem; }
+.gs-consumo-grid .consumo-card { margin-bottom: 0; border-radius: 14px; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -576,105 +608,65 @@ html.giro-fijo #screen-chat { height: 100% !important; }
     </div>
 
     <!-- ═══════════ MÓDULO GASOIL ═══════════ -->
-    <div id="module-gasoil" style="display:none;">
-    <div class="mod-tabs">
-      <button class="btn btn-secondary atab-btn" id="atab-btn-registros">Registros</button>
-      <button class="btn btn-ghost atab-btn" id="atab-btn-deposito">Depósito</button>
-      <button class="btn btn-ghost atab-btn" id="atab-btn-consumo">Consumo</button>
-    </div>
-
-    <!-- REGISTROS -->
-    <div id="atab-registros" class="tab-pane active">
-      <div class="mod-layout">
-        <div class="mod-side">
-          <button class="mod-side-item active" data-pane="gs-estadisticas">📊 Estadísticas</button>
-          <button class="mod-side-item" data-pane="gs-exportar">📁 Exportar</button>
-          <button class="mod-side-item" data-pane="gs-historial">📋 Historial</button>
+    <div id="module-gasoil" style="display:none;max-width:900px;margin:0 auto;">
+      <!-- Depósito, siempre a la vista -->
+      <div class="gs-dep">
+        <div class="gs-dep-info">
+          <div class="gs-dep-tit">🛢 Depósito de gasoil</div>
+          <div class="gs-dep-nivel"><span id="dep-nivel-txt">—</span> <small>de 10.000 L</small></div>
+          <div class="barra-outer"><div class="barra-inner" id="dep-barra" style="width:0%"></div></div>
+          <div class="barra-labels" style="margin-bottom:0"><span>0 L</span><span id="dep-pct">0%</span><span>10.000 L</span></div>
         </div>
-        <div class="mod-content">
-          <div id="gs-estadisticas" class="mod-pane active">
-            <div class="stats-grid" id="admin-stats"></div>
-            <button class="btn btn-secondary" id="btn-cierre-mensual" style="margin-bottom:1rem;">📊 Resumen mensual / cierre de mes</button>
+        <button class="btn btn-primary gs-dep-btn" onclick="gsAbrirRecarga()">➕ Registrar recarga</button>
+      </div>
+      <div id="deposito-alerta" class="deposito-alerta">⚠️ Quedan menos de 1.000 litros. ¡Pide gasoil al proveedor!</div>
+
+      <div class="alm-estados gs-tabs">
+        <button type="button" class="alm-estado on" id="atab-btn-registros">⛽ Repostajes <span class="alm-badge" id="gs-n-rep">0</span></button>
+        <button type="button" class="alm-estado" id="atab-btn-deposito">🛢 Recargas <span class="alm-badge" id="recarga-count">0</span></button>
+        <button type="button" class="alm-estado" id="atab-btn-consumo">📈 Consumo</button>
+        <button type="button" class="alm-estado" id="atab-btn-exportar" onclick="switchAdminTab('exportar')">📁 Exportar y cierre</button>
+      </div>
+
+      <!-- REPOSTAJES -->
+      <div id="atab-registros" class="tab-pane active">
+        <div class="stats-grid gs-stats" id="admin-stats"></div>
+        <div class="gs-filtros">
+          <select class="form-input" id="filter-driver" onchange="gsLimite=GS_PAGINA;renderAdminRecords()"><option value="">Todos los conductores</option></select>
+          <select class="form-input" id="filter-mat" onchange="gsLimite=GS_PAGINA;renderAdminRecords()"><option value="">Todas las matrículas</option></select>
+          <input class="form-input" type="date" id="filter-date" oninput="gsLimite=GS_PAGINA;renderAdminRecords()">
+          <button type="button" class="alm-accion" onclick="gsLimpiarFiltros()">✕ Quitar filtros</button>
+        </div>
+        <div id="historial-wrapper"><div id="admin-records-list"></div></div>
+      </div>
+
+      <!-- RECARGAS DEL DEPÓSITO -->
+      <div id="atab-deposito" class="tab-pane">
+        <div id="recarga-hist-list"></div>
+      </div>
+
+      <!-- CONSUMO -->
+      <div id="atab-consumo" class="tab-pane">
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.75rem">Consumo medio por vehículo (L/100 km). Toca un vehículo para ver su detalle.</div>
+        <div id="consumo-list" class="gs-consumo-grid"></div>
+      </div>
+
+      <!-- EXPORTAR Y CIERRE -->
+      <div id="atab-exportar" class="tab-pane">
+        <div class="refuel-card" style="margin-bottom:1rem">
+          <div class="section-title">📊 Cierre de mes</div>
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.75rem">Resumen de litros, repostajes y consumo del mes.</div>
+          <button class="btn btn-primary" id="btn-cierre-mensual">Ver resumen mensual</button>
+        </div>
+        <div class="refuel-card">
+          <div class="section-title">⬇ Exportar a Excel</div>
+          <div class="two-col" style="margin-bottom:0.75rem;">
+            <div><label class="form-label">Desde</label><input class="form-input" type="date" id="export-desde"></div>
+            <div><label class="form-label">Hasta</label><input class="form-input" type="date" id="export-hasta"></div>
           </div>
-          <div id="gs-exportar" class="mod-pane">
-            <div class="refuel-card" style="margin-bottom:1rem;">
-              <div class="section-title">Exportar a Excel</div>
-              <div class="two-col" style="margin-bottom:0.75rem;">
-                <div><label class="form-label">Desde</label><input class="form-input" type="date" id="export-desde" style="font-size:14px;padding:0.6rem;"></div>
-                <div><label class="form-label">Hasta</label><input class="form-input" type="date" id="export-hasta" style="font-size:14px;padding:0.6rem;"></div>
-              </div>
-              <button class="btn-export" id="btn-export-excel">⬇ Exportar Excel (.xlsx)</button>
-            </div>
-          </div>
-          <div id="gs-historial" class="mod-pane">
-            <div class="refuel-card" style="margin-bottom:1rem;">
-              <div class="section-title">Filtrar historial</div>
-              <div class="filter-row" style="margin-bottom:0;">
-                <select class="form-input" id="filter-driver" onchange="renderAdminRecords()" style="font-size:14px;padding:0.6rem 0.75rem;">
-                  <option value="">Todos los conductores</option>
-                </select>
-                <select class="form-input" id="filter-mat" onchange="renderAdminRecords()" style="font-size:14px;padding:0.6rem 0.75rem;">
-                  <option value="">Todas las matrículas</option>
-                </select>
-                <input class="form-input" type="date" id="filter-date" oninput="renderAdminRecords()" style="font-size:14px;padding:0.6rem 0.75rem;">
-              </div>
-            </div>
-            <div id="historial-wrapper">
-              <div id="admin-records-list"></div>
-            </div>
-          </div>
+          <button class="btn-export" id="btn-export-excel">⬇ Exportar Excel (.xlsx)</button>
         </div>
       </div>
-    </div>
-
-    <!-- DEPÓSITO -->
-    <div id="atab-deposito" class="tab-pane">
-      <div class="mod-layout">
-        <div class="mod-side">
-          <button class="mod-side-item active" data-pane="gd-estado">🛢 Estado</button>
-          <button class="mod-side-item" data-pane="gd-recarga">➕ Registrar recarga</button>
-          <button class="mod-side-item" data-pane="gd-historial">📋 Historial</button>
-        </div>
-        <div class="mod-content">
-          <div id="gd-estado" class="mod-pane active">
-            <div id="deposito-alerta" class="deposito-alerta">⚠️ ATENCIÓN: Quedan menos de 1.000 litros. ¡Pide gasoil al proveedor!</div>
-            <div class="deposito-widget">
-              <div class="deposito-title">🛢 Estado del depósito</div>
-              <div class="deposito-nivel-txt" id="dep-nivel-txt">—</div>
-              <div class="deposito-cap-txt">de 10.000 litros</div>
-              <div class="barra-outer"><div class="barra-inner" id="dep-barra" style="width:0%"></div></div>
-              <div class="barra-labels"><span>0 L</span><span id="dep-pct">0%</span><span>10.000 L</span></div>
-            </div>
-          </div>
-          <div id="gd-recarga" class="mod-pane">
-            <div class="refuel-card">
-              <div class="section-title">Registrar recarga del proveedor</div>
-              <div id="deposito-form-alert" class="alert"></div>
-              <div class="form-group">
-                <label class="form-label">Litros recibidos</label>
-                <input class="form-input" type="number" id="recarga-litros" placeholder="Ej: 8000" min="1">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Proveedor / Albarán (opcional)</label>
-                <input class="form-input" type="text" id="recarga-obs" placeholder="Nombre proveedor, nº albarán...">
-              </div>
-              <button class="btn btn-primary" id="btn-registrar-recarga">Registrar recarga</button>
-            </div>
-          </div>
-          <div id="gd-historial" class="mod-pane">
-            <div id="recarga-hist-wrapper">
-              <div id="recarga-hist-list"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- CONSUMO -->
-    <div id="atab-consumo" class="tab-pane">
-      <div class="section-title">Consumo por vehículo (L/100km)</div>
-      <div id="consumo-list"></div>
-    </div>
     </div>
     <!-- ═══════════ FIN MÓDULO GASOIL ═══════════ -->
 
@@ -2008,7 +2000,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v12 · 22/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v13 · 22/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_NEREID = 8;      // días de alta que se cargan de nereidDias
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -4230,7 +4222,9 @@ function activarListenersTiempoReal() {
     recordsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     if (currentUser && currentUser.isAdmin && currentModule==='gasoil') {
       renderAdminStats();
-      if (document.getElementById('historial-wrapper').style.display!=='none') renderAdminRecords();
+      renderAdminRecords();
+      renderDeposito();                 // el nivel depende también de lo repostado
+      if (document.getElementById('atab-consumo')?.classList.contains('active')) renderConsumo();
     }
   });
 
@@ -4867,21 +4861,15 @@ function renderAdminStats() {
   const total = recordsCache.reduce((s,r)=>s+r.litros,0);
   const hoy = new Date().toLocaleDateString('es-ES');
   const litrosHoy = recordsCache.filter(r=>r.fechaStr===hoy).reduce((s,r)=>s+r.litros,0);
+  const ahora = new Date();
+  const litrosMes = recordsCache.filter(r=>{ const d=new Date(r.fecha); return d.getMonth()===ahora.getMonth() && d.getFullYear()===ahora.getFullYear(); }).reduce((s,r)=>s+r.litros,0);
   const mats = new Set(recordsCache.map(r=>r.matricula)).size;
-  const nivel = calcNivelDeposito();
-  const nivelPct = Math.min(100,(nivel/DEPOSITO_CAP)*100);
-  const nivelColor = nivel<=ALERTA_MIN?'var(--danger)':nivel<=2500?'#f0a030':'var(--success)';
+  const n = document.getElementById('gs-n-rep'); if (n) n.textContent = recordsCache.length;
   document.getElementById('admin-stats').innerHTML = `
-    <div class="stat-card"><div class="stat-val">${total.toFixed(0)}<span style="font-size:14px"> L</span></div><div class="stat-label">Total registrado</div></div>
-    <div class="stat-card"><div class="stat-val">${litrosHoy.toFixed(0)}<span style="font-size:14px"> L</span></div><div class="stat-label">Litros hoy</div></div>
-    <div class="stat-card"><div class="stat-val">${recordsCache.length}</div><div class="stat-label">Registros</div></div>
-    <div class="stat-card"><div class="stat-val">${mats}</div><div class="stat-label">Vehículos</div></div>
-    <div class="stat-card" style="grid-column:span 2;cursor:pointer;" >
-      <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;">🛢 Nivel del depósito</div>
-      <div style="font-size:28px;font-weight:800;color:${nivelColor}">${nivel.toLocaleString('es-ES',{maximumFractionDigits:0})} L <span style="font-size:14px;color:var(--text-muted)">(${nivelPct.toFixed(0)}%)</span></div>
-      <div style="background:var(--input-bg);border-radius:99px;height:8px;margin-top:8px;overflow:hidden;"><div style="height:100%;border-radius:99px;width:${nivelPct}%;background:${nivelColor};transition:width 0.5s"></div></div>
-      ${nivel<=ALERTA_MIN?'<div style="color:var(--danger);font-size:12px;margin-top:6px;font-weight:600;">⚠️ Nivel crítico — pedir gasoil</div>':''}
-    </div>`;
+    <div class="stat-card"><div class="stat-val">${litrosHoy.toLocaleString('es-ES',{maximumFractionDigits:0})}<span style="font-size:14px"> L</span></div><div class="stat-label">Litros hoy</div></div>
+    <div class="stat-card"><div class="stat-val">${litrosMes.toLocaleString('es-ES',{maximumFractionDigits:0})}<span style="font-size:14px"> L</span></div><div class="stat-label">Litros este mes</div></div>
+    <div class="stat-card"><div class="stat-val">${total.toLocaleString('es-ES',{maximumFractionDigits:0})}<span style="font-size:14px"> L</span></div><div class="stat-label">Total registrado</div></div>
+    <div class="stat-card"><div class="stat-val">${mats}</div><div class="stat-label">Vehículos</div></div>`;
 }
 
 window.verCierreMensual = () => {
@@ -5096,8 +5084,24 @@ async function descargarCierreMensualPDF() {
   }
 }
 
+const GS_PAGINA = 50;
+let gsLimite = GS_PAGINA;
+const gsNum = (v, d=1) => (Number(v)||0).toLocaleString('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d});
+window.gsLimpiarFiltros = () => {
+  ['filter-driver','filter-mat','filter-date'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  gsLimite = GS_PAGINA; renderAdminRecords();
+};
+window.gsMas = () => { gsLimite += GS_PAGINA; renderAdminRecords(); };
+
+// Consumo medio de cada vehículo, para marcar repostajes raros
+function gsMediaConsumo(mat) {
+  const c = recordsCache.filter(r=>r.matricula===mat && r.consumo).map(r=>r.consumo);
+  return c.length ? c.reduce((s,v)=>s+v,0)/c.length : null;
+}
+
 function renderAdminRecords() {
   const list = document.getElementById('admin-records-list');
+  if (!list) return;
   let f = [...recordsCache];
   const fd = document.getElementById('filter-driver').value;
   const fm = document.getElementById('filter-mat').value;
@@ -5105,90 +5109,130 @@ function renderAdminRecords() {
   if (fd) f=f.filter(r=>r.driverCode===fd);
   if (fm) f=f.filter(r=>r.matricula===fm);
   if (ff) { const [fy,fmo,fd2]=ff.split('-'); const fdate=new Date(+fy,+fmo-1,+fd2).toLocaleDateString('es-ES'); f=f.filter(r=>r.fechaStr===fdate); }
-  if (!f.length) { list.innerHTML='<div class="empty-state"><div class="empty-icon">🔍</div>No hay registros con esos filtros</div>'; return; }
-  list.innerHTML = f.map(r=>`
-    <div class="admin-record">
-      <div class="admin-record-top">
-        <div class="admin-driver">${r.driverName} <span class="badge">${r.driverCode}</span></div>
-        <div style="display:flex;align-items:center;gap:0.6rem;">
-          <div class="admin-litros">${r.litros.toFixed(1)} L</div>
-          <button class="row-act" onclick="editRecord('${r.id}')" title="Editar">✏️</button>
-          <button class="row-act row-act-del" onclick="deleteRecord('${r.id}')" title="Eliminar">🗑</button>
-        </div>
-      </div>
-      <div class="admin-meta">
-        <span>🚗 ${r.matricula}</span>
-        <span>📅 ${r.fechaStr} ${r.horaStr}</span>
-        <span>📊 ${r.lecturaIni!=null?r.lecturaIni+'→'+r.lecturaFin+' L':'—'}</span>
-        ${r.kmAnt!=null&&r.kmAct!=null?'<span>🛣 '+r.kmAnt+'→'+r.kmAct+' km</span>':''}
-        ${r.consumo?'<span>⛽ <strong style="color:var(--accent)">'+r.consumo+' L/100km</strong></span>':''}
-        ${r.obs?'<span>💬 '+r.obs+'</span>':''}
-      </div>
-    </div>`).join('');
+  if (!f.length) { list.innerHTML='<div class="refuel-card"><div class="empty-state"><div class="empty-icon">🔍</div>No hay repostajes con esos filtros</div></div>'; return; }
+  const total = f.length, litros = f.reduce((s,r)=>s+r.litros,0);
+  const vis = f.slice(0, gsLimite);
+  const medias = {};
+  list.innerHTML = `
+    ${(fd||fm||ff) ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">${total} repostaje${total===1?'':'s'} · <strong style="color:var(--text)">${gsNum(litros,1)} L</strong></div>` : ''}
+    <div class="refuel-card" style="padding:0">
+      ${vis.map(r => {
+        const m = medias[r.matricula] ??= gsMediaConsumo(r.matricula);
+        const raro = r.consumo && m && r.consumo > m*1.4;
+        const km = r.kmAnt!=null && r.kmAct!=null ? r.kmAct - r.kmAnt : null;
+        return `
+        <div class="gs-fila">
+          <div class="gs-litros"><strong>${gsNum(r.litros,1)}</strong><span>litros</span></div>
+          <div class="gs-fila-info">
+            <div class="gs-mat">${almEsc(r.matricula)}</div>
+            <div class="gs-sub">${almEsc(r.driverName)} · ${almEsc(r.fechaStr)} ${almEsc(r.horaStr)}</div>
+            <div class="gs-chips">
+              ${km!=null ? `<span class="gs-chip">🛣 ${km.toLocaleString('es-ES')} km</span>` : ''}
+              ${r.consumo ? `<span class="gs-chip ${raro?'gs-chip-mal':''}">${raro?'🚨':'⛽'} ${gsNum(r.consumo,2)} L/100km</span>` : ''}
+              ${r.obs ? `<span class="gs-chip">💬 ${almEsc(r.obs)}</span>` : ''}
+            </div>
+          </div>
+          <div class="gs-acciones">
+            <button class="alm-accion alm-accion-ver" onclick="gsVer('${r.id}')">👁 Ver</button>
+            <button class="alm-accion" onclick="editRecord('${r.id}')">✏️ Editar</button>
+            <button class="alm-accion alm-accion-borrar" onclick="deleteRecord('${r.id}')" aria-label="Borrar">🗑</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    ${total > vis.length ? `<button class="btn btn-ghost" style="margin-top:0.75rem" onclick="gsMas()">Ver ${Math.min(GS_PAGINA, total-vis.length)} más (quedan ${total-vis.length})</button>` : ''}`;
 }
 
-// ── MODAL EDICIÓN ──
+// ── VER un repostaje ──
+window.gsVer = (id) => {
+  const r = recordsCache.find(x=>x.id===id);
+  if (!r) return;
+  const m = gsMediaConsumo(r.matricula);
+  const raro = r.consumo && m && r.consumo > m*1.4;
+  const km = r.kmAnt!=null && r.kmAct!=null ? r.kmAct - r.kmAnt : null;
+  const dato = (k, v) => `<div><span>${k}</span><strong>${v}</strong></div>`;
+  const cuerpo = `
+    <div class="alm-ver-cab">
+      <div>
+        <div class="alm-etq">Vehículo</div>
+        <div class="alm-ver-exp">${almEsc(r.matricula)}</div>
+      </div>
+      <span class="alm-chip-ag">${almEsc(r.driverCode||'')}</span>
+    </div>
+    <div class="alm-ver-meta">👤 ${almEsc(r.driverName)} · 📅 ${almEsc(r.fechaStr)} · ${almEsc(r.horaStr)}</div>
+    ${raro ? `<div class="alm-banner alm-banner-mal">🚨 Consumo anómalo: un ${Math.round((r.consumo/m-1)*100)} % por encima de la media de este vehículo (${gsNum(m,2)} L/100km)</div>` : ''}
+    <div class="alm-cmp-grid">
+      <div class="alm-cmp">
+        <div style="display:flex;justify-content:space-between;align-items:center"><div class="alm-cmp-tit">⛽ Litros</div>
+        <button type="button" class="alm-copiar" onclick="almCopiar('${gsNum(r.litros,1)}','Litros')">📋 Copiar</button></div>
+        <div class="alm-cmp-val">${gsNum(r.litros,1)} <small>L</small></div>
+      </div>
+      <div class="alm-cmp ${raro?'alm-cmp-mal':''}">
+        <div class="alm-cmp-tit">📈 Consumo</div>
+        <div class="alm-cmp-val">${r.consumo ? gsNum(r.consumo,2)+' <small>L/100km</small>' : '—'}</div>
+        ${m ? `<div class="alm-cmp-sub">Media del vehículo: ${gsNum(m,2)}</div>` : ''}
+      </div>
+    </div>
+    <div class="alm-sec-tit">Datos</div>
+    <div class="alm-datos">
+      ${dato('Surtidor', r.lecturaIni!=null ? `${gsNum(r.lecturaIni,0)} → ${gsNum(r.lecturaFin,0)} L` : '—')}
+      ${dato('Km', r.kmAnt!=null ? `${r.kmAnt.toLocaleString('es-ES')} → ${r.kmAct!=null?r.kmAct.toLocaleString('es-ES'):'—'}` : (r.kmAct!=null ? r.kmAct.toLocaleString('es-ES') : '—'))}
+      ${dato('Km recorridos', km!=null ? km.toLocaleString('es-ES')+' km' : '—')}
+      ${dato('Conductor', almEsc(r.driverName))}
+    </div>
+    ${r.obs ? `<div class="alm-sec-tit">Observaciones</div><div class="refuel-card" style="margin:0;font-size:14px">${almEsc(r.obs)}</div>` : ''}`;
+  almAbrirModal('⛽ Repostaje', cuerpo, `
+    <button class="btn btn-primary" onclick="editRecord('${r.id}')">✏️ Editar</button>
+    <button class="btn btn-ghost" onclick="almCerrarModal()">Cerrar</button>`);
+};
+
+// ── EDITAR un repostaje ──
 window.editRecord = (id) => {
   const r = recordsCache.find(x=>x.id===id);
   if (!r) return;
-
-  const modal = document.createElement('div');
-  modal.id = 'edit-modal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999;display:flex;align-items:center;justify-content:center;padding:1rem;';
-  modal.innerHTML = `
-    <div style="background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:1.5rem;width:100%;max-width:400px;max-height:90vh;overflow-y:auto;">
-      <div style="font-size:16px;font-weight:700;margin-bottom:1.25rem;color:var(--accent);">✏️ Editar repostaje</div>
-      <div class="form-group">
-        <label class="form-label">Litros echados</label>
-        <input class="form-input" type="number" id="edit-litros" value="${r.litros}">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Lectura inicial (L)</label>
-        <input class="form-input" type="number" id="edit-ini" value="${r.lecturaIni??''}">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Lectura final (L)</label>
-        <input class="form-input" type="number" id="edit-fin" value="${r.lecturaFin??''}">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Km actuales</label>
-        <input class="form-input" type="number" id="edit-km" value="${r.kmAct??''}">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Observaciones</label>
-        <textarea class="form-input" id="edit-obs">${r.obs||''}</textarea>
-      </div>
-      <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
-        <button id="btn-save-edit" style="flex:1;padding:0.75rem;background:var(--accent);color:#111;border:none;border-radius:var(--radius-sm);font-size:15px;font-weight:700;cursor:pointer;">Guardar</button>
-        <button onclick="document.getElementById('edit-modal').remove()" style="flex:1;padding:0.75rem;background:var(--navy-light);color:var(--text);border:1px solid var(--card-border);border-radius:var(--radius-sm);font-size:15px;cursor:pointer;">Cancelar</button>
-      </div>
-      <div id="edit-alert" class="alert" style="margin-top:0.75rem;"></div>
-    </div>`;
-  document.body.appendChild(modal);
-
-  document.getElementById('btn-save-edit').addEventListener('click', async () => {
-    const litros = parseFloat(document.getElementById('edit-litros').value);
-    const ini = parseFloat(document.getElementById('edit-ini').value);
-    const fin = parseFloat(document.getElementById('edit-fin').value);
-    const km = parseFloat(document.getElementById('edit-km').value);
-    const obs = document.getElementById('edit-obs').value.trim();
-    const al = document.getElementById('edit-alert');
-    if (isNaN(litros)||litros<=0) { showAlert(al,'Introduce los litros',true); return; }
-    const updates = {
-      litros, obs,
-      lecturaIni: isNaN(ini)?null:ini,
-      lecturaFin: isNaN(fin)?null:fin,
-      kmAct: isNaN(km)?null:km
-    };
-    try {
-      const { doc: fbDoc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-      await updateDoc(fbDoc(db,'repostajes',id), updates);
-      const idx = recordsCache.findIndex(x=>x.id===id);
-      if (idx>=0) recordsCache[idx] = {...recordsCache[idx], ...updates};
-      document.getElementById('edit-modal').remove();
-      renderAdminRecords(); renderAdminStats();
-    } catch(e) { showAlert(al,'Error al guardar: '+e.message,true); }
-  });
+  const campo = (id2, lbl, val, extra='') => `
+    <label class="alm-num" style="margin-bottom:0.6rem"><span>${lbl}</span>
+      <input type="number" inputmode="decimal" id="${id2}" value="${val??''}" ${extra}></label>`;
+  const cuerpo = `
+    <div class="alm-ver-cab" style="margin-bottom:1rem">
+      <div><div class="alm-etq">Vehículo</div><div class="alm-ver-exp" style="font-size:22px">${almEsc(r.matricula)}</div></div>
+      <span class="alm-chip-ag" style="font-size:13px">${almEsc(r.fechaStr)} ${almEsc(r.horaStr)}</span>
+    </div>
+    <div class="alm-num-dest">${campo('edit-litros','Litros echados',r.litros)}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem">
+      ${campo('edit-ini','Surtidor inicial (L)',r.lecturaIni)}
+      ${campo('edit-fin','Surtidor final (L)',r.lecturaFin)}
+    </div>
+    ${campo('edit-km','Km actuales',r.kmAct)}
+    ${r.kmAnt!=null ? `<div style="font-size:12px;color:var(--text-muted);margin:-0.3rem 0 0.6rem">Km del repostaje anterior: ${r.kmAnt.toLocaleString('es-ES')}. El consumo se recalcula al guardar.</div>` : ''}
+    <label class="alm-etq" for="edit-obs">Observaciones</label>
+    <textarea class="form-input" id="edit-obs" rows="2">${almEsc(r.obs||'')}</textarea>
+    <div id="edit-alert" class="alert" style="margin-top:0.75rem;"></div>`;
+  almAbrirModal('✏️ Editar repostaje', cuerpo, `
+    <button class="btn btn-primary" onclick="gsGuardarRepostaje('${r.id}')">✓ Guardar cambios</button>
+    <button class="btn btn-ghost" onclick="almCerrarModal()">Cancelar</button>`);
+  document.getElementById('edit-litros')?.focus();
+};
+window.gsGuardarRepostaje = async (id) => {
+  const r = recordsCache.find(x=>x.id===id);
+  if (!r) return;
+  const n = k => { const v = parseFloat(String(document.getElementById(k).value).replace(',','.')); return isNaN(v) ? null : v; };
+  const litros = n('edit-litros'), ini = n('edit-ini'), fin = n('edit-fin'), km = n('edit-km');
+  const obs = document.getElementById('edit-obs').value.trim();
+  const al = document.getElementById('edit-alert');
+  if (!(litros>0)) { showAlert(al,'Introduce los litros',true); return; }
+  if (ini!=null && fin!=null && fin<=ini) { showAlert(al,'La lectura final del surtidor debe ser mayor que la inicial',true); return; }
+  let consumo = r.consumo ?? null;
+  if (km!=null && r.kmAnt!=null && km>r.kmAnt) consumo = parseFloat(((litros/(km-r.kmAnt))*100).toFixed(2));
+  else if (km==null) consumo = null;
+  const updates = { litros, obs, lecturaIni: ini, lecturaFin: fin, kmAct: km, consumo };
+  try {
+    await updateDoc(doc(db,'repostajes',id), updates);
+    Object.assign(r, updates);
+    almCerrarModal();
+    renderAdminRecords(); renderAdminStats(); renderDeposito();
+    gsVer(id);
+  } catch(e) { showAlert(al,'Error al guardar: '+e.message,true); }
 };
 
 window.deleteRecord = async (id) => {
@@ -5216,18 +5260,30 @@ function renderDeposito() {
   barra.style.width=pct+'%';
   barra.style.background = pct<=10?'var(--danger)':pct<=25?'#f0a030':'var(--success)';
   document.getElementById('deposito-alerta').className='deposito-alerta'+(nivel<=ALERTA_MIN?' show':'');
+  const nivelEl = document.getElementById('dep-nivel-txt');
+  if (nivelEl) nivelEl.style.color = nivel<=ALERTA_MIN ? 'var(--danger)' : pct<=25 ? '#f0a030' : 'var(--success)';
   const cntEl = document.getElementById('recarga-count'); if (cntEl) cntEl.textContent = recargasCache.length;
   const hist=document.getElementById('recarga-hist-list');
-  if (!recargasCache.length) { hist.innerHTML='<div class="empty-state"><div class="empty-icon">🛢</div>Sin recargas registradas aún</div>'; return; }
-  hist.innerHTML=[...recargasCache].map(r=>`
-    <div class="recarga-hist-item">
-      <div><div class="recarga-litros">+${r.litros.toLocaleString('es-ES')} L</div>
-      <div class="recarga-meta">${r.fechaStr} · ${r.horaStr}${r.obs?' · '+r.obs:''}</div></div>
-      <div style="display:flex;gap:0.4rem;">
-        <button class="btn-sm" onclick="editarRecarga('${r.id}')">✏️</button>
-        <button class="btn-sm btn-sm-danger" onclick="eliminarRecarga('${r.id}')">🗑</button>
-      </div>
-    </div>`).join('');
+  if (!hist) return;
+  if (!recargasCache.length) { hist.innerHTML='<div class="refuel-card"><div class="empty-state"><div class="empty-icon">🛢</div>Sin recargas registradas aún</div></div>'; return; }
+  const totalRec = recargasCache.reduce((s,r)=>s+r.litros,0);
+  hist.innerHTML = `
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">${recargasCache.length} recarga${recargasCache.length===1?'':'s'} · <strong style="color:var(--text)">${totalRec.toLocaleString('es-ES')} L</strong> recibidos en total</div>
+    <div class="refuel-card" style="padding:0">
+    ${recargasCache.map(r=>`
+      <div class="gs-fila">
+        <div class="gs-litros gs-litros-rec"><strong>+${r.litros.toLocaleString('es-ES')}</strong><span>litros</span></div>
+        <div class="gs-fila-info">
+          <div class="gs-mat" style="font-family:inherit">Recarga del proveedor</div>
+          <div class="gs-sub">📅 ${almEsc(r.fechaStr)} · ${almEsc(r.horaStr)}</div>
+          ${r.obs ? `<div class="gs-chips"><span class="gs-chip">💬 ${almEsc(r.obs)}</span></div>` : ''}
+        </div>
+        <div class="gs-acciones">
+          <button class="alm-accion" onclick="editarRecarga('${r.id}')">✏️ Editar</button>
+          <button class="alm-accion alm-accion-borrar" onclick="eliminarRecarga('${r.id}')" aria-label="Borrar">🗑</button>
+        </div>
+      </div>`).join('')}
+    </div>`;
 }
 
 window.registrarRecarga = async () => {
@@ -5247,34 +5303,52 @@ window.registrarRecarga = async () => {
   } catch(e) { showAlert(al,'Error al guardar',true); }
 };
 
+// Registrar recarga en ventana (usa los mismos campos que registrarRecarga)
+window.gsAbrirRecarga = () => {
+  const nivel = calcNivelDeposito();
+  const cabe = Math.max(0, DEPOSITO_CAP - nivel);
+  almAbrirModal('➕ Registrar recarga', `
+    <div style="font-size:14px;color:var(--text-muted);margin-bottom:1rem">Ahora hay <strong style="color:var(--text)">${nivel.toLocaleString('es-ES',{maximumFractionDigits:0})} L</strong>. Caben hasta <strong style="color:var(--text)">${cabe.toLocaleString('es-ES',{maximumFractionDigits:0})} L</strong>.</div>
+    <div class="alm-num-dest"><label class="alm-num" style="margin-bottom:0.75rem"><span>Litros recibidos</span>
+      <input type="number" inputmode="numeric" id="recarga-litros" placeholder="Ej: 8000" min="1"></label></div>
+    <label class="alm-etq" for="recarga-obs">Proveedor / albarán (opcional)</label>
+    <input class="form-input" type="text" id="recarga-obs" placeholder="Nombre del proveedor, nº de albarán...">
+    <div id="deposito-form-alert" class="alert" style="margin-top:0.75rem"></div>`, `
+    <button class="btn btn-primary" onclick="gsGuardarRecarga()">✓ Registrar</button>
+    <button class="btn btn-ghost" onclick="almCerrarModal()">Cancelar</button>`);
+  document.getElementById('recarga-litros')?.focus();
+};
+window.gsGuardarRecarga = async () => {
+  const litros = document.getElementById('recarga-litros')?.value;
+  await window.registrarRecarga();
+  // registrarRecarga vacía la casilla solo si se ha guardado bien
+  if (litros && document.getElementById('recarga-litros')?.value === '') {
+    almCerrarModal();
+    mostrarMensajeFlotante(`✓ Recarga de ${Number(litros).toLocaleString('es-ES')} L registrada`);
+  }
+};
+
 window.editarRecarga = (id) => {
   const r = recargasCache.find(x=>x.id===id);
   if (!r) return;
-  const modal = document.createElement('div');
-  modal.id = 'edit-recarga-modal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999;display:flex;align-items:center;justify-content:center;padding:1rem;';
-  modal.innerHTML = `
-    <div style="background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:1.5rem;width:100%;max-width:360px;">
-      <div style="font-size:16px;font-weight:700;margin-bottom:1.25rem;color:var(--accent);">✏️ Editar recarga</div>
-      <div class="form-group"><label class="form-label">Litros</label>
-      <input class="form-input" type="number" id="edit-recarga-litros" value="${r.litros}"></div>
-      <div class="form-group"><label class="form-label">Observaciones</label>
-      <input class="form-input" type="text" id="edit-recarga-obs" value="${r.obs||''}"></div>
-      <div style="display:flex;gap:0.5rem;">
-        <button id="btn-save-recarga" style="flex:1;padding:0.75rem;background:var(--accent);color:#111;border:none;border-radius:var(--radius-sm);font-size:15px;font-weight:700;cursor:pointer;">Guardar</button>
-        <button onclick="document.getElementById('edit-recarga-modal').remove()" style="flex:1;padding:0.75rem;background:var(--navy-light);color:var(--text);border:1px solid var(--card-border);border-radius:var(--radius-sm);font-size:15px;cursor:pointer;">Cancelar</button>
-      </div>
-    </div>`;
-  document.body.appendChild(modal);
-  document.getElementById('btn-save-recarga').addEventListener('click', async () => {
-    const litros = parseFloat(document.getElementById('edit-recarga-litros').value);
-    const obs = document.getElementById('edit-recarga-obs').value.trim();
-    if (isNaN(litros) || litros<=0) { alert('Introduce un número de litros válido'); return; }
-    try {
-      await updateDoc(doc(db,'recargas',id), { litros, obs });
-      document.getElementById('edit-recarga-modal').remove();
-    } catch(e) { alert('Error: '+e.message); }
-  });
+  almAbrirModal('✏️ Editar recarga', `
+    <div class="alm-ver-meta" style="margin:0 0 1rem">📅 ${almEsc(r.fechaStr)} · ${almEsc(r.horaStr)}</div>
+    <div class="alm-num-dest"><label class="alm-num" style="margin-bottom:0.75rem"><span>Litros</span>
+      <input type="number" inputmode="numeric" id="edit-recarga-litros" value="${r.litros}"></label></div>
+    <label class="alm-etq" for="edit-recarga-obs">Observaciones</label>
+    <input class="form-input" type="text" id="edit-recarga-obs" value="${almEsc(r.obs||'')}">`, `
+    <button class="btn btn-primary" onclick="gsGuardarEdicionRecarga('${r.id}')">✓ Guardar cambios</button>
+    <button class="btn btn-ghost" onclick="almCerrarModal()">Cancelar</button>`);
+};
+window.gsGuardarEdicionRecarga = async (id) => {
+  const litros = parseFloat(document.getElementById('edit-recarga-litros').value);
+  const obs = document.getElementById('edit-recarga-obs').value.trim();
+  if (isNaN(litros) || litros<=0) { alert('Introduce un número de litros válido'); return; }
+  try {
+    await updateDoc(doc(db,'recargas',id), { litros, obs });
+    almCerrarModal();
+    mostrarMensajeFlotante('✓ Recarga actualizada');
+  } catch(e) { alert('Error: '+e.message); }
 };
 
 window.eliminarRecarga = async (id) => {
@@ -6118,12 +6192,12 @@ window.editVehiculo = (mat) => {
 window.switchAdminTab = (tab) => {
   document.querySelectorAll('#module-gasoil .tab-pane').forEach(p=>p.classList.remove('active'));
   document.getElementById('atab-'+tab).classList.add('active');
-  ['registros','deposito','consumo'].forEach(t=>{
-    document.getElementById('atab-btn-'+t).className='btn atab-btn '+(t===tab?'btn-secondary':'btn-ghost');
+  ['registros','deposito','consumo','exportar'].forEach(t=>{
+    document.getElementById('atab-btn-'+t)?.classList.toggle('on', t===tab);
   });
-  if (tab==='deposito') renderDeposito();
+  renderDeposito();
   if (tab==='consumo') renderConsumo();
-  if (tab==='registros') { renderAdminStats(); if(document.getElementById('historial-wrapper').style.display!=='none') renderAdminRecords(); }
+  if (tab==='registros') { renderAdminStats(); renderAdminRecords(); }
 };
 
 window.switchGestionTab = (tab) => {
@@ -6157,7 +6231,7 @@ function switchModule(mod) {
   document.getElementById('btn-cambiar-modulo').style.display = 'inline-block';
   const titulos = {gasoil:'⛽ Gasoil', fleet:'🚛 Flota', ropa:'👔 Ropa', adrcap:'🪪 ADR/CAP', seguros:'🛡️ Seguros', almacen:'📦 Almacén', gestion:'⚙️ Configuración'};
   document.getElementById('admin-topbar-title').textContent = titulos[mod]||'';
-  if (mod==='gasoil') { renderAdminRecords(); }
+  if (mod==='gasoil') { renderAdminStats(); renderAdminRecords(); renderDeposito(); }
   if (mod==='fleet') { renderHistorial(); renderMantenimiento(); updateFleetBadge(); populateHistMantMatriculas(); renderHistorialMant(); }
   if (mod==='ropa') { populateRopaSelects(); updatePendientesBadge(); }
   if (mod==='almacen') {
