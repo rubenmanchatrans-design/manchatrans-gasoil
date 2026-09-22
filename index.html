@@ -361,6 +361,15 @@ input[type="number"] { -moz-appearance: textfield; }
 .alm-tipo-nom { font-size: 18px; font-weight: 800; }
 .alm-tipo-sub { width: 100%; text-align: center; font-size: 11px; opacity: 0.75; margin-top: -4px; }
 .alm-tipo-elegido { text-align: center; font-size: 15px; font-weight: 700; color: var(--success); margin-top: 0.6rem; }
+
+.alm-estados { display: grid; grid-template-columns: 1.4fr 1fr 0.7fr; gap: 0.4rem; margin-bottom: 0.75rem; }
+.alm-estado { background: transparent; border: 2px solid rgba(255,255,255,0.14); color: var(--text); border-radius: 12px; padding: 0.7rem 0.4rem; font-size: 14px; font-weight: 700; cursor: pointer; }
+.alm-estado.on { border-color: var(--accent); background: rgba(245,166,35,0.12); color: var(--accent); }
+.alm-badge { display: inline-block; min-width: 22px; padding: 1px 7px; border-radius: 11px; background: var(--navy-light); color: var(--text); font-size: 13px; margin-left: 4px; }
+.alm-badge-pend { background: var(--warning); color: #111; }
+.alm-tick { width: 34px; height: 34px; flex-shrink: 0; border-radius: 9px; border: 2px solid rgba(255,255,255,0.35); background: transparent; color: #0b2415; font-size: 20px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.alm-tick:hover { border-color: var(--success); }
+.alm-tick.on { background: var(--success); border-color: var(--success); }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -1997,7 +2006,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v10 · 22/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v11 · 22/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_NEREID = 8;      // días de alta que se cargan de nereidDias
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2925,7 +2934,12 @@ function almFechaISO(ts) {
   const d = new Date(ts);
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
-function almFiltrarAdmin() {
+// Estado "pasada al sistema": en la oficina se marca cada medida cuando ya se
+// ha metido en el sistema de la agencia. Por defecto se ven las pendientes.
+let almVistaEstado = 'pendientes';        // pendientes | pasadas | todas
+const almPasada = r => !!r.pasadoSistema;
+
+function almFiltrarAdmin(conEstado = false) {
   const ag = document.getElementById('alm-fil-agencia')?.value||'';
   const desde = document.getElementById('alm-fil-desde')?.value||'';
   const hasta = document.getElementById('alm-fil-hasta')?.value||'';
@@ -2933,7 +2947,52 @@ function almFiltrarAdmin() {
   if (ag) lista = lista.filter(r=>r.agencia===ag);
   if (desde) lista = lista.filter(r=>almFechaISO(r.ts)>=desde);
   if (hasta) lista = lista.filter(r=>almFechaISO(r.ts)<=hasta);
-  return {lista, ag, desde, hasta};
+  const nPend = lista.filter(r=>!almPasada(r)).length, nPas = lista.length - nPend;
+  if (conEstado && almVistaEstado === 'pendientes') lista = lista.filter(r=>!almPasada(r)).sort((a,b)=>a.ts-b.ts);  // las más antiguas primero
+  if (conEstado && almVistaEstado === 'pasadas') lista = lista.filter(almPasada);
+  return {lista, ag, desde, hasta, nPend, nPas};
+}
+function almTurno(ts) {
+  const h = new Date(ts).getHours();
+  return (h >= 22 || h < 6) ? '🌙 Noche' : '☀️ Día';
+}
+function almVerEstado(v) { almVistaEstado = v; renderAlmacenAdmin(); }
+
+async function almMarcarPasada(id, pasada) {
+  const r = almCache.find(x => x.id === id);
+  if (!r) return;
+  if (!pasada && !confirm('¿Volver a dejarla como pendiente de pasar al sistema?')) return;
+  const cambios = pasada
+    ? {pasadoSistema:true, pasadoTs:Date.now(), pasadoPor:(typeof currentUser!=='undefined' && currentUser?.name)||''}
+    : {pasadoSistema:false, pasadoTs:null, pasadoPor:''};
+  try {
+    await updateDoc(doc(db,'almacenExpediciones',id), cambios);
+    Object.assign(r, cambios);
+    renderAlmacenAdmin();
+    if (document.getElementById('alm-modal') && document.querySelector('.alm-sheet[data-id]')?.dataset.id === id) almVer(id);
+  } catch(e) { alert('No se ha podido guardar: '+e.message); }
+}
+async function almMarcarTodasPasadas() {
+  const lista = almFiltrarAdmin(true).lista.filter(r => !almPasada(r));
+  if (!lista.length) return;
+  if (!confirm(`¿Marcar las ${lista.length} medidas de la lista como pasadas al sistema?`)) return;
+  const cambios = {pasadoSistema:true, pasadoTs:Date.now(), pasadoPor:(typeof currentUser!=='undefined' && currentUser?.name)||''};
+  try {
+    await Promise.all(lista.map(r => updateDoc(doc(db,'almacenExpediciones',r.id), cambios)));
+    lista.forEach(r => Object.assign(r, cambios));
+    renderAlmacenAdmin();
+  } catch(e) { alert('Alguna no se ha podido guardar: '+e.message); }
+}
+
+// En la oficina la lista se actualiza sola mientras el almacén va midiendo
+let almRegUnsub = null;
+function almEscucharRegistros() {
+  if (almRegUnsub) return;
+  almRegUnsub = onSnapshot(query(collection(db,'almacenExpediciones'), orderBy('ts','desc')), snap => {
+    almCache = snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderAlmacenAdmin();
+    if (document.getElementById('alm-admin-resumen')?.style.display==='block') renderAlmacenResumen();
+  }, err => { console.warn('Registros almacén:', err); almCargarRegistros().then(()=>renderAlmacenAdmin()); });
 }
 function almHtmlFiltros(f, onchange) {
   return `
@@ -2951,7 +3010,7 @@ function almHtmlFiltros(f, onchange) {
 function renderAlmacenAdmin() {
   const listEl = document.getElementById('alm-admin-registros');
   if (!listEl) return;
-  const f = almFiltrarAdmin();
+  const f = almFiltrarAdmin(true);
   const lista = f.lista;
   const totalVol = lista.reduce((s,r)=>s+(r.volumen||0),0);
   const totalPeso = lista.reduce((s,r)=>s+(r.peso||0),0);
@@ -2963,18 +3022,30 @@ function renderAlmacenAdmin() {
       <div class="stat-card"><div class="stat-val">${totalPeso.toFixed(0)}</div><div class="stat-label">kg total</div></div>
       <div class="stat-card"><div class="stat-val" style="color:${avisos?'var(--danger)':'inherit'}">${avisos}</div><div class="stat-label">Declarado de menos</div></div>
     </div>
+    <div class="alm-estados">
+      <button type="button" class="alm-estado ${almVistaEstado==='pendientes'?'on':''}" onclick="almVerEstado('pendientes')">⏳ Pendientes de pasar <span class="alm-badge ${f.nPend?'alm-badge-pend':''}">${f.nPend}</span></button>
+      <button type="button" class="alm-estado ${almVistaEstado==='pasadas'?'on':''}" onclick="almVerEstado('pasadas')">✅ Pasadas <span class="alm-badge">${f.nPas}</span></button>
+      <button type="button" class="alm-estado ${almVistaEstado==='todas'?'on':''}" onclick="almVerEstado('todas')">Todas</button>
+    </div>
     ${almHtmlFiltros(f, 'renderAlmacenAdmin()')}
+    ${almVistaEstado==='pendientes' && lista.length ? `<div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.6rem">
+      <div style="font-size:13px;color:var(--text-muted)">Marca la casilla <span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.4);border-radius:4px;vertical-align:-2px"></span> cuando la hayas pasado al sistema. Las más antiguas salen primero.</div>
+      ${lista.length>1 ? `<button type="button" class="alm-accion" onclick="almMarcarTodasPasadas()">✅ Marcar las ${lista.length} como pasadas</button>` : ''}
+    </div>` : ''}
     <div class="refuel-card" style="padding:0">
-      ${lista.length===0?`<div style="text-align:center;color:var(--text-muted);padding:2rem;font-size:13px">No hay expediciones registradas</div>`:
+      ${lista.length===0?`<div style="text-align:center;color:var(--text-muted);padding:2rem;font-size:14px">${almVistaEstado==='pendientes'?'🎉 No hay nada pendiente de pasar al sistema':'No hay medidas'}</div>`:
       lista.map(r=>{
         const dKg = almDiferencia(r.peso, r.kgDeclarados);
         const dM3 = almDiferencia(r.volumen, r.m3Declarados);
         const chip = (txt, col) => `<span style="background:${col}22;color:${col};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap">${txt}</span>`;
-        return `<div style="padding:0.75rem 1rem;border-bottom:1px solid var(--card-border);font-size:13px">
+        const pas = almPasada(r);
+        return `<div style="padding:0.75rem 1rem;border-bottom:1px solid var(--card-border);font-size:13px;${pas?'opacity:0.75':''}">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-            <div style="min-width:0">
+            <button type="button" class="alm-tick ${pas?'on':''}" onclick="almMarcarPasada('${r.id}', ${!pas})" title="${pas?'Pasada al sistema. Toca para dejarla pendiente':'Marcar como pasada al sistema'}">${pas?'✓':''}</button>
+            <div style="min-width:0;flex:1">
               <div style="font-weight:600;font-family:monospace;color:var(--accent);word-break:break-all">${almEsc(r.expedicion||r.codigo)}</div>
-              <div style="font-size:11px;color:var(--text-muted)">${almEsc(r.fechaStr)} ${almEsc(r.horaStr)}${r.albaran?' · Alb. '+almEsc(r.albaran):''}${r.sinLecturaNereid?' · <span style="color:var(--warning)">sin lectura</span>':''}${r.editadoTs?' · editado':''}</div>
+              <div style="font-size:11px;color:var(--text-muted)">${almTurno(r.ts)} · ${almEsc(r.fechaStr)} ${almEsc(r.horaStr)}${r.albaran?' · Alb. '+almEsc(r.albaran):''}${r.sinLecturaNereid?' · <span style="color:var(--warning)">sin lectura</span>':''}${r.editadoTs?' · editado':''}</div>
+              ${pas ? `<div style="font-size:11px;color:var(--success)">✅ Pasada al sistema ${r.pasadoTs?new Date(r.pasadoTs).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}${r.pasadoPor?' · '+almEsc(r.pasadoPor):''}</div>` : ''}
             </div>
             <div style="display:flex;gap:0.35rem;align-items:center;flex-wrap:wrap;justify-content:flex-end">
               <span style="background:var(--navy-light);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">${almEsc(r.agencia)}</span>
@@ -3072,14 +3143,14 @@ function almHtmlDetalleMedida(r) {
 }
 
 // Ventana genérica
-function almAbrirModal(titulo, cuerpo, pie) {
+function almAbrirModal(titulo, cuerpo, pie, idReg = '') {
   almCerrarModal();
   const m = document.createElement('div');
   m.id = 'alm-modal';
   m.className = 'alm-modal';
   m.onclick = ev => { if (ev.target === m) almCerrarModal(); };
   m.innerHTML = `
-    <div class="alm-sheet" role="dialog" aria-modal="true" aria-label="${almEsc(titulo)}">
+    <div class="alm-sheet" role="dialog" aria-modal="true" aria-label="${almEsc(titulo)}" ${idReg?`data-id="${almEsc(idReg)}"`:''}>
       <div class="alm-sheet-cab">
         <div class="alm-sheet-tit">${titulo}</div>
         <button class="alm-sheet-x" onclick="almCerrarModal()" aria-label="Cerrar">✕</button>
@@ -3127,7 +3198,8 @@ function almVer(id) {
       </div>
       <span class="alm-chip-ag">${almEsc(r.agencia)}</span>
     </div>
-    <div class="alm-ver-meta">📅 ${almEsc(r.fechaStr)} · ${almEsc(r.horaStr)}${r.editadoTs?' · ✏️ editado':''}</div>
+    <div class="alm-ver-meta">📅 ${almEsc(r.fechaStr)} · ${almEsc(r.horaStr)} · ${almTurno(r.ts)}${r.editadoTs?' · ✏️ editado':''}</div>
+    <div class="alm-ver-meta" style="color:${almPasada(r)?'var(--success)':'var(--warning)'};font-weight:700">${almPasada(r)?`✅ Pasada al sistema${r.pasadoTs?' el '+new Date(r.pasadoTs).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}`:'⏳ Pendiente de pasar al sistema'}</div>
 
     ${hayDecl ? (aviso
       ? `<div class="alm-banner alm-banner-mal">⚠️ La agencia ha declarado <strong>menos</strong> de lo medido</div>`
@@ -3169,8 +3241,11 @@ function almVer(id) {
     </div>`;
 
   almAbrirModal('Ver medida', cuerpo, `
-    <button class="btn btn-primary" onclick="almEditar('${r.id}')">✏️ Editar</button>
-    <button class="btn btn-ghost" onclick="almCerrarModal()">Cerrar</button>`);
+    ${almPasada(r)
+      ? `<button class="btn btn-ghost" onclick="almMarcarPasada('${r.id}', false)" style="color:var(--success)">✅ Pasada</button>`
+      : `<button class="btn btn-primary" onclick="almMarcarPasada('${r.id}', true)" style="background:var(--success);border-color:var(--success)">✓ Marcar pasada</button>`}
+    <button class="btn btn-ghost" onclick="almEditar('${r.id}')">✏️ Editar</button>
+    <button class="btn btn-ghost" onclick="almCerrarModal()">Cerrar</button>`, r.id);
 }
 
 // ── EDITAR ──
@@ -3325,7 +3400,7 @@ async function almBorrarExpedicion(id) {
 }
 
 async function almExportarExcel() {
-  const lista = almFiltrarAdmin().lista;
+  const lista = almFiltrarAdmin(true).lista;
   if (!lista.length) { alert('No hay expediciones para exportar'); return; }
   try {
     const XLSX = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm');
@@ -3337,6 +3412,9 @@ async function almExportarExcel() {
       'Peso medido (kg)': r.peso||0, 'Peso declarado (kg)': r.kgDeclarados||0,
       'Kg tasados declarados': r.kgTasadosDeclarados||0,
       'Volumen medido (m³)': r.volumen||0, 'Volumen declarado (m³)': r.m3Declarados||0,
+      'Pasada al sistema': almPasada(r) ? 'Sí' : 'Pendiente',
+      'Fecha pasada': r.pasadoTs ? new Date(r.pasadoTs).toLocaleString('es-ES') : '',
+      'Turno': almTurno(r.ts).replace(/^\S+ /,''),
       'Bultos medidos': almCantLineas(almLineasDe(r)) || '',
       'Detalle bultos': almTextoLineas(almLineasDe(r)),
     }));
@@ -3354,7 +3432,7 @@ Object.assign(window, {
   almSelAgencia, almRenderPaso, almSelMedida,
   almCalcPeso, almIrConfirmar, almGuardar, almNueva,
   renderAlmacenAdmin, renderAlmacenResumen, almBorrarExpedicion, almExportarExcel,
-  almVer, almCopiar, almEditar, almCerrarModal, almGuardarEdicion, almEdSelAg, almEdLeer, almEdTipo,
+  almVer, almCopiar, almVerEstado, almMarcarPasada, almMarcarTodasPasadas, almEditar, almCerrarModal, almGuardarEdicion, almEdSelAg, almEdLeer, almEdTipo,
   almEdAnadir, almEdQuitar, almLinTipo, almLinInput, almLinCant, almLinCantSet, almLinModo, almAltKey, almAnadirLinea, almQuitarLinea,
 });
 
@@ -5982,7 +6060,8 @@ function switchModule(mod) {
   if (mod==='fleet') { renderHistorial(); renderMantenimiento(); updateFleetBadge(); populateHistMantMatriculas(); renderHistorialMant(); }
   if (mod==='ropa') { populateRopaSelects(); updatePendientesBadge(); }
   if (mod==='almacen') {
-    almCargarRegistros().then(()=>renderAlmacenAdmin());
+    almEscucharRegistros();
+    renderAlmacenAdmin();
     document.getElementById('alm-btn-escanear').onclick = () => entrarAlmacen(true);
     const bReg = document.getElementById('almtab-btn-registros');
     const bRes = document.getElementById('almtab-btn-resumen');
