@@ -404,6 +404,29 @@ input[type="number"] { -moz-appearance: textfield; }
 @media (max-width: 560px) { .gs-fila { flex-wrap: wrap; } .gs-acciones { width: 100%; justify-content: flex-start; padding-left: calc(72px + 0.9rem); } }
 .gs-consumo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.75rem; }
 .gs-consumo-grid .consumo-card { margin-bottom: 0; border-radius: 14px; }
+
+/* ── Flota (mismo estilo que Almacén y Gasoil) ── */
+.fl-barra { display: grid; grid-template-columns: 1.4fr 1fr; gap: 0.5rem; margin-bottom: 0.75rem; }
+.fl-barra .form-input { font-size: 14px; }
+@media (max-width: 560px) { .fl-barra { grid-template-columns: 1fr; } }
+.fl-ico { width: 46px; height: 46px; flex-shrink: 0; border-radius: 12px; background: var(--navy-light); display: flex; align-items: center; justify-content: center; font-size: 22px; }
+.fl-texto { font-size: 14px; margin-top: 0.3rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.fl-seg { display: flex; gap: 0.4rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+.fl-seg button { flex: 1; min-width: 120px; background: transparent; border: 1px solid rgba(255,255,255,0.16); color: var(--text-muted); border-radius: 10px; padding: 0.6rem 0.5rem; font-size: 14px; font-weight: 600; cursor: pointer; }
+.fl-seg button.on { background: var(--navy-light); color: var(--text); border-color: var(--accent); }
+.fl-sub { display: none; }
+.fl-sub.on { display: block; }
+.fl-estado { flex-shrink: 0; color: #111; font-size: 11px; font-weight: 800; padding: 4px 8px; border-radius: 8px; letter-spacing: 0.3px; min-width: 78px; text-align: center; }
+.fl-veh { margin: 0 !important; border-radius: 14px; }
+.fl-rev { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; background: var(--navy-light); border-radius: 10px; padding: 0.55rem 0.7rem; margin-top: 0.4rem; cursor: pointer; }
+.fl-rev:hover { outline: 1px solid var(--accent); }
+.fl-filtros { display: grid; grid-template-columns: 1.3fr 1fr 1fr auto; gap: 0.5rem; margin-bottom: 0.75rem; }
+.fl-filtros .form-input { font-size: 14px; padding: 0.6rem 0.75rem; }
+@media (max-width: 700px) { .fl-filtros { grid-template-columns: 1fr 1fr; } }
+#alm-modal-cuerpo .refuel-card { margin-bottom: 0; }
+.fl-rev-etq { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--text); font-size: 14px; font-weight: 700; margin-left: 4px; }
+.gs-tit { font-size: 16px; font-weight: 700; color: var(--accent); }
+.alm-ver-txt { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -829,23 +852,81 @@ html.giro-fijo #screen-chat { height: 100% !important; }
     <!-- ═══════════ FIN MÓDULO GESTIÓN ═══════════ -->
 
     <!-- ═══════════ MÓDULO FLEET ═══════════ -->
-    <div id="module-fleet" style="display:none;">
-      <div class="mod-tabs">
-        <button class="btn btn-secondary atab-btn" id="ftab-btn-historial">Cambio/Reparación</button>
-        <button class="btn btn-ghost atab-btn" id="ftab-btn-mantenimiento">Mantenimiento</button>
-        <button class="btn btn-ghost atab-btn" id="ftab-btn-limpieza">🧹 Limpieza</button>
+    <div id="module-fleet" style="display:none;max-width:900px;margin:0 auto;">
+      <div id="fl-resumen"></div>
+
+      <div class="alm-estados">
+        <button type="button" class="alm-estado on" id="ftab-btn-historial">🔧 Reparaciones <span class="alm-badge" id="fl-n-rep">0</span></button>
+        <button type="button" class="alm-estado" id="ftab-btn-mantenimiento">🛠 ITV y tacógrafo <span class="alm-badge" id="fl-n-avisos">0</span></button>
+        <button type="button" class="alm-estado" id="ftab-btn-limpieza">🧹 Limpieza <span class="alm-badge" id="fl-n-lim">0</span></button>
       </div>
 
-      <!-- HISTORIAL DE CAMBIOS -->
+      <!-- REPARACIONES -->
       <div id="ftab-historial" class="tab-pane active">
-        <div class="mod-layout">
-          <div class="mod-side">
-            <button class="mod-side-item active" data-pane="fr-nuevo">🔧 Nuevo registro</button>
-            <button class="mod-side-item" data-pane="fr-historial">📋 Historial</button>
+        <div class="fl-barra">
+          <button class="btn btn-primary" onclick="flNuevaReparacion()">➕ Nuevo cambio o reparación</button>
+          <select class="form-input" id="hist-filter-mat"><option value="">Todos los vehículos</option></select>
+        </div>
+        <div id="hist-cambios-wrapper"><div id="hist-list"></div></div>
+      </div>
+
+      <!-- ITV Y TACÓGRAFO -->
+      <div id="ftab-mantenimiento" class="tab-pane">
+        <div class="fl-seg">
+          <button type="button" class="on" data-fm="avisos" onclick="flSubMant('avisos')">⚠️ Avisos</button>
+          <button type="button" data-fm="vehiculos" onclick="flSubMant('vehiculos')">🚛 Todos los vehículos</button>
+          <button type="button" data-fm="historial" onclick="flSubMant('historial')">📋 Renovaciones</button>
+        </div>
+        <div id="fm-avisos" class="fl-sub on">
+          <div id="mant-alertas"></div>
+          <button class="btn btn-ghost" id="btn-ver-pendientes" style="margin-top:0.75rem">📅 Ver lo que vence este mes</button>
+        </div>
+        <div id="fm-vehiculo" class="fl-sub">
+          <input class="form-input" id="fl-buscar-veh" placeholder="🔍 Buscar matrícula..." oninput="renderMantenimiento()" style="margin-bottom:0.75rem">
+          <select id="mant-filter-mat" style="display:none"></select>
+          <div id="mant-list"></div>
+        </div>
+        <div id="fm-historial" class="fl-sub">
+          <select class="form-input" id="hist-mant-filter-mat" style="margin-bottom:0.75rem"><option value="">Todos los vehículos</option></select>
+          <div id="hist-mant-list"></div>
+        </div>
+      </div>
+
+      <!-- LIMPIEZA -->
+      <div id="ftab-limpieza" class="tab-pane">
+        <div class="fl-seg">
+          <button type="button" class="on" id="lim-subtab-btn-vehiculos">🚗 Vehículos</button>
+          <button type="button" id="lim-subtab-btn-instalaciones">🏭 Instalaciones</button>
+        </div>
+        <div id="lim-sub-vehiculos" class="tab-pane active">
+          <button class="btn btn-primary" style="margin-bottom:0.75rem" onclick="flNuevaLimpieza('veh')">➕ Registrar limpieza de vehículo</button>
+          <div id="hist-limpieza-veh-wrapper">
+            <div class="fl-filtros">
+              <select class="form-input" id="hist-limpieza-veh-filter-mat"><option value="">Todos los vehículos</option></select>
+              <input class="form-input" type="date" id="hist-limpieza-veh-fecha-desde" title="Desde">
+              <input class="form-input" type="date" id="hist-limpieza-veh-fecha-hasta" title="Hasta">
+              <button class="alm-accion" id="btn-exportar-pdf-limpieza-veh">📄 PDF del filtro</button>
+            </div>
+            <div id="hist-limpieza-veh-list"></div>
           </div>
-          <div class="mod-content">
-            <div id="fr-nuevo" class="mod-pane active">
-              <div class="section-title">Registrar cambio o reparación</div>
+        </div>
+        <div id="lim-sub-instalaciones" class="tab-pane">
+          <button class="btn btn-primary" style="margin-bottom:0.75rem" onclick="flNuevaLimpieza('inst')">➕ Registrar limpieza de instalaciones</button>
+          <div id="hist-limpieza-inst-wrapper">
+            <div class="fl-filtros">
+              <select class="form-input" id="hist-limpieza-inst-filter-area"><option value="">Todas las áreas</option></select>
+              <input class="form-input" type="date" id="hist-limpieza-inst-fecha-desde" title="Desde">
+              <input class="form-input" type="date" id="hist-limpieza-inst-fecha-hasta" title="Hasta">
+              <button class="alm-accion" id="btn-exportar-pdf-limpieza-inst">📄 PDF del filtro</button>
+            </div>
+            <div id="hist-limpieza-inst-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Formularios: se abren en ventana (se mueven dentro y vuelven aquí al cerrar) -->
+      <div id="fl-formularios" style="display:none">
+        <div id="fl-form-rep">
               <div id="hist-alert" class="alert"></div>
               <div class="refuel-card">
                 <div class="form-group">
@@ -863,72 +944,9 @@ html.giro-fijo #screen-chat { height: 100% !important; }
                   <button class="btn btn-ghost" id="btn-borrar-hist" type="button">🗑 Borrar</button>
                 </div>
               </div>
-            </div>
-            <div id="fr-historial" class="mod-pane">
-              <div class="section-title">Historial de cambios y reparaciones</div>
-              <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;">
-                <button class="btn btn-secondary" id="btn-hist-todos" style="flex:1;padding:0.6rem;font-size:13px;">Ver todo</button>
-                <button class="btn btn-ghost" id="btn-hist-filtrar" style="flex:1;padding:0.6rem;font-size:13px;">Filtrar por vehículo</button>
-              </div>
-              <div class="form-group" id="hist-filter-wrapper" style="display:none;">
-                <select class="form-input" id="hist-filter-mat" style="font-size:14px;padding:0.6rem;">
-                  <option value="">— Selecciona vehículo —</option>
-                </select>
-              </div>
-              <div id="hist-cambios-wrapper">
-                <div id="hist-list"></div>
-              </div>
-            </div>
-          </div>
         </div>
-      </div>
-
-      <!-- MANTENIMIENTO -->
-      <div id="ftab-mantenimiento" class="tab-pane">
-        <div class="mod-layout">
-          <div class="mod-side">
-            <button class="mod-side-item active" data-pane="fm-avisos">⚠️ Avisos</button>
-            <button class="mod-side-item" data-pane="fm-vehiculo">🚛 Por vehículo</button>
-            <button class="mod-side-item" data-pane="fm-historial">📋 Historial</button>
-          </div>
-          <div class="mod-content">
-            <div id="fm-avisos" class="mod-pane active">
-              <div class="section-title">Avisos de ITV y Tacógrafo</div>
-              <button class="btn btn-secondary" style="width:100%;font-size:13px;margin-bottom:1rem;" id="btn-ver-pendientes">📅 Ver pendientes del mes</button>
-              <div id="mant-alertas"></div>
-            </div>
-            <div id="fm-vehiculo" class="mod-pane">
-              <div class="section-title">ITV y Tacógrafo por vehículo</div>
-              <div class="form-group">
-                <select class="form-input" id="mant-filter-mat" style="font-size:14px;padding:0.6rem;">
-                  <option value="">— Selecciona vehículo —</option>
-                </select>
-              </div>
-              <div id="mant-list"></div>
-            </div>
-            <div id="fm-historial" class="mod-pane">
-              <div class="section-title">Historial de mantenimiento</div>
-              <div class="form-group">
-                <select class="form-input" id="hist-mant-filter-mat" style="font-size:14px;padding:0.6rem;">
-                  <option value="">Todos los vehículos</option>
-                </select>
-              </div>
-              <div id="hist-mant-list"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- LIMPIEZA -->
-      <div id="ftab-limpieza" class="tab-pane">
-        <div style="display:flex;gap:0.4rem;margin-bottom:1.25rem;">
-          <button class="btn btn-secondary" id="lim-subtab-btn-vehiculos" style="flex:1;font-size:13px;">🚗 Vehículos</button>
-          <button class="btn btn-ghost" id="lim-subtab-btn-instalaciones" style="flex:1;font-size:13px;">🏭 Instalaciones</button>
-        </div>
-
-        <!-- LIMPIEZA DE VEHÍCULOS -->
-        <div id="lim-sub-vehiculos" class="tab-pane active">
-          <div class="section-title">Registrar limpieza de vehículo</div>
+        <div id="fl-form-limveh">
+          
           <div id="lim-veh-alert" class="alert"></div>
           <div class="refuel-card">
             <div class="form-group">
@@ -972,25 +990,10 @@ html.giro-fijo #screen-chat { height: 100% !important; }
               <button class="btn btn-ghost" id="btn-borrar-limpieza-veh" type="button">🗑 Borrar</button>
             </div>
           </div>
-          <div class="section-title" style="margin-top:1.5rem;">Historial de limpieza de vehículos</div>
-          <div id="hist-limpieza-veh-wrapper">
-            <div class="form-group">
-              <select class="form-input" id="hist-limpieza-veh-filter-mat" style="font-size:14px;padding:0.6rem;">
-                <option value="">Todos los vehículos</option>
-              </select>
-            </div>
-            <div class="two-col" style="margin-bottom:0.75rem;">
-              <div><label class="form-label">Desde</label><input class="form-input" type="date" id="hist-limpieza-veh-fecha-desde"></div>
-              <div><label class="form-label">Hasta</label><input class="form-input" type="date" id="hist-limpieza-veh-fecha-hasta"></div>
-            </div>
-            <button class="btn btn-secondary" id="btn-exportar-pdf-limpieza-veh" style="margin-bottom:1rem;width:100%;font-size:13px;padding:0.6rem;">📄 Exportar PDF del filtro</button>
-            <div id="hist-limpieza-veh-list"></div>
-          </div>
-        </div>
 
-        <!-- LIMPIEZA DE INSTALACIONES -->
-        <div id="lim-sub-instalaciones" class="tab-pane">
-          <div class="section-title">Registrar limpieza de instalaciones</div>
+        </div>
+        <div id="fl-form-liminst">
+          
           <div id="lim-inst-alert" class="alert"></div>
           <div class="refuel-card">
             <div class="form-group">
@@ -1032,20 +1035,7 @@ html.giro-fijo #screen-chat { height: 100% !important; }
               <button class="btn btn-ghost" id="btn-borrar-limpieza-inst" type="button">🗑 Borrar</button>
             </div>
           </div>
-          <div class="section-title" style="margin-top:1.5rem;">Historial de limpieza de instalaciones</div>
-          <div id="hist-limpieza-inst-wrapper">
-            <div class="form-group">
-              <select class="form-input" id="hist-limpieza-inst-filter-area">
-                <option value="">Todas las áreas</option>
-              </select>
-            </div>
-            <div class="two-col" style="margin-bottom:0.75rem;">
-              <div><label class="form-label">Desde</label><input class="form-input" type="date" id="hist-limpieza-inst-fecha-desde"></div>
-              <div><label class="form-label">Hasta</label><input class="form-input" type="date" id="hist-limpieza-inst-fecha-hasta"></div>
-            </div>
-            <button class="btn btn-secondary" id="btn-exportar-pdf-limpieza-inst" style="margin-bottom:1rem;width:100%;font-size:13px;padding:0.6rem;">📄 Exportar PDF del filtro</button>
-            <div id="hist-limpieza-inst-list"></div>
-          </div>
+
         </div>
       </div>
     </div>
@@ -2000,7 +1990,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v13 · 22/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v14 · 22/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_NEREID = 8;      // días de alta que se cargan de nereidDias
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -3250,7 +3240,9 @@ function almAbrirModal(titulo, cuerpo, pie, idReg = '') {
   document.body.appendChild(m);
   document.addEventListener('keydown', almEscModal);
 }
+let almAlCerrar = null;        // si la ventana tiene dentro un formulario prestado, se devuelve a su sitio
 function almCerrarModal() {
+  if (almAlCerrar) { const f = almAlCerrar; almAlCerrar = null; try { f(); } catch(e) { console.warn(e); } }
   document.getElementById('alm-modal')?.remove();
   document.removeEventListener('keydown', almEscModal);
 }
@@ -3907,7 +3899,7 @@ async function initApp() {
   document.querySelectorAll('.mod-side-item[data-pane="fr-historial"]').forEach(b => {
     b.addEventListener('click', renderHistorial);
   });
-  document.getElementById('btn-hist-todos').addEventListener('click', ()=>{
+  document.getElementById('btn-hist-todos')?.addEventListener('click', ()=>{
     histFiltroMat='';
     document.getElementById('hist-filter-wrapper').style.display='none';
     document.getElementById('hist-filter-mat').value='';
@@ -3915,7 +3907,7 @@ async function initApp() {
     document.getElementById('btn-hist-filtrar').className='btn btn-ghost';
     renderHistorial();
   });
-  document.getElementById('btn-hist-filtrar').addEventListener('click', ()=>{
+  document.getElementById('btn-hist-filtrar')?.addEventListener('click', ()=>{
     document.getElementById('hist-filter-wrapper').style.display='block';
     document.getElementById('btn-hist-todos').className='btn btn-ghost';
     document.getElementById('btn-hist-filtrar').className='btn btn-secondary';
@@ -5274,7 +5266,7 @@ function renderDeposito() {
       <div class="gs-fila">
         <div class="gs-litros gs-litros-rec"><strong>+${r.litros.toLocaleString('es-ES')}</strong><span>litros</span></div>
         <div class="gs-fila-info">
-          <div class="gs-mat" style="font-family:inherit">Recarga del proveedor</div>
+          <div class="gs-tit">Recarga del proveedor</div>
           <div class="gs-sub">📅 ${almEsc(r.fechaStr)} · ${almEsc(r.horaStr)}</div>
           ${r.obs ? `<div class="gs-chips"><span class="gs-chip">💬 ${almEsc(r.obs)}</span></div>` : ''}
         </div>
@@ -6232,7 +6224,7 @@ function switchModule(mod) {
   const titulos = {gasoil:'⛽ Gasoil', fleet:'🚛 Flota', ropa:'👔 Ropa', adrcap:'🪪 ADR/CAP', seguros:'🛡️ Seguros', almacen:'📦 Almacén', gestion:'⚙️ Configuración'};
   document.getElementById('admin-topbar-title').textContent = titulos[mod]||'';
   if (mod==='gasoil') { renderAdminStats(); renderAdminRecords(); renderDeposito(); }
-  if (mod==='fleet') { renderHistorial(); renderMantenimiento(); updateFleetBadge(); populateHistMantMatriculas(); renderHistorialMant(); }
+  if (mod==='fleet') { populateHistMatriculas(); renderHistorial(); renderMantenimiento(); updateFleetBadge(); populateHistMantMatriculas(); renderHistorialMant(); flRenderResumen(); }
   if (mod==='ropa') { populateRopaSelects(); updatePendientesBadge(); }
   if (mod==='almacen') {
     almEscucharRegistros();
@@ -6329,16 +6321,15 @@ function switchFleetTab(tab) {
   document.querySelectorAll('#module-fleet .tab-pane').forEach(p=>p.classList.remove('active'));
   document.getElementById('ftab-'+tab).classList.add('active');
   ['historial','mantenimiento','limpieza'].forEach(t=>{
-    document.getElementById('ftab-btn-'+t).className='btn atab-btn '+(t===tab?'btn-secondary':'btn-ghost');
+    document.getElementById('ftab-btn-'+t)?.classList.toggle('on', t===tab);
   });
   if (tab==='historial') renderHistorial();
   if (tab==='mantenimiento') renderMantenimiento();
   if (tab==='limpieza') {
     document.querySelectorAll('#ftab-limpieza .tab-pane').forEach(p=>p.classList.remove('active'));
     document.getElementById('lim-sub-vehiculos').classList.add('active');
-    document.getElementById('lim-subtab-btn-vehiculos').className='btn btn-secondary';
-    document.getElementById('lim-subtab-btn-instalaciones').className='btn btn-ghost';
-    initFirmaLimpiezaVehSiNecesario();
+    document.getElementById('lim-subtab-btn-vehiculos').classList.add('on');
+    document.getElementById('lim-subtab-btn-instalaciones').classList.remove('on');
     renderHistorialLimpiezaVeh();
   }
 }
@@ -6347,10 +6338,11 @@ function switchLimpiezaSubtab(sub) {
   document.querySelectorAll('#ftab-limpieza .tab-pane').forEach(p=>p.classList.remove('active'));
   document.getElementById('lim-sub-'+sub).classList.add('active');
   ['vehiculos','instalaciones'].forEach(t=>{
-    document.getElementById('lim-subtab-btn-'+t).className='btn '+(t===sub?'btn-secondary':'btn-ghost');
+    document.getElementById('lim-subtab-btn-'+t)?.classList.toggle('on', t===sub);
   });
-  if (sub==='vehiculos') { initFirmaLimpiezaVehSiNecesario(); renderHistorialLimpiezaVeh(); }
-  if (sub==='instalaciones') { initFirmaLimpiezaInstSiNecesario(); renderHistorialLimpiezaInst(); }
+  // La firma se prepara al abrir el formulario en su ventana (tiene que estar visible)
+  if (sub==='vehiculos') renderHistorialLimpiezaVeh();
+  if (sub==='instalaciones') renderHistorialLimpiezaInst();
 }
 
 function updateFleetBadge() {
@@ -6362,7 +6354,8 @@ function updateFleetBadge() {
     // "no aplica"), se cuenta igualmente como pendiente para no perderlo de vista.
     else if(m[keyUltima] && !m[keyNoAplica]) alertas++;
   }); });
-  document.getElementById('ftab-btn-mantenimiento').textContent=alertas>0?`Mantenimiento 🔴${alertas}`:'Mantenimiento';
+  const nAv = document.getElementById('fl-n-avisos');
+  if (nAv) { nAv.textContent = alertas; nAv.classList.toggle('alm-badge-mal', alertas>0); }
   const badgeHome = document.getElementById('home-badge-flota');
   if (badgeHome) badgeHome.innerHTML = alertas>0 ? `<span style="background:rgba(231,76,60,0.15);color:var(--danger);padding:3px 10px;border-radius:12px;">🔴 ${alertas} aviso${alertas>1?'s':''}</span>` : '';
 }
@@ -6382,7 +6375,7 @@ function populateHistMatriculas() {
   const selFilter = document.getElementById('hist-filter-mat');
   const todasMat = ['TOROS CESAB',...matriculasCache,...remolquesCache];
   if (sel) { sel.innerHTML = '<option value="">— Selecciona vehículo —</option>'; todasMat.forEach(m=>{ sel.innerHTML+=`<option value="${m}">${m}</option>`; }); }
-  if (selFilter) { selFilter.innerHTML = '<option value="">— Selecciona vehículo —</option>'; todasMat.forEach(m=>{ selFilter.innerHTML+=`<option value="${m}">${m}</option>`; }); }
+  if (selFilter) { const v = selFilter.value; selFilter.innerHTML = '<option value="">Todos los vehículos</option>'; todasMat.forEach(m=>{ selFilter.innerHTML+=`<option value="${m}">${m}</option>`; }); selFilter.value = v; }
 }
 
 function limpiarFormularioHistorial() {
@@ -6408,69 +6401,115 @@ async function guardarHistorial() {
   } catch(e) { showAlert(al,'Error al guardar: '+e.message,true); }
 }
 
+// Abre un formulario que ya existe en la página dentro de una ventana
+function flAbrirFormulario(titulo, nodoId, alAbrir) {
+  const nodo = document.getElementById(nodoId);
+  if (!nodo) return;
+  const casa = document.getElementById('fl-formularios');
+  almAbrirModal(titulo, '', '');
+  document.getElementById('alm-modal-cuerpo').appendChild(nodo);
+  almAlCerrar = () => casa.appendChild(nodo);
+  if (alAbrir) setTimeout(alAbrir, 30);
+}
+window.flNuevaReparacion = () => {
+  populateHistMatriculas();
+  const sel = document.getElementById('hist-matricula');
+  const filtro = document.getElementById('hist-filter-mat')?.value;
+  flAbrirFormulario('🔧 Nuevo cambio o reparación', 'fl-form-rep', () => {
+    if (filtro && sel) sel.value = filtro;
+    (filtro ? document.getElementById('hist-comentarios') : sel)?.focus();
+  });
+};
+window.flNuevaLimpieza = (tipo) => {
+  if (tipo === 'veh') {
+    flAbrirFormulario('🧹 Limpieza de vehículo', 'fl-form-limveh', () => {
+      const c = document.getElementById('firma-limpieza-veh-canvas');
+      if (firmaLimpiezaVeh && c && c.width === 0) firmaLimpiezaVeh = null;   // se preparó oculta: rehacer
+      initFirmaLimpiezaVehSiNecesario();
+    });
+  } else {
+    flAbrirFormulario('🧹 Limpieza de instalaciones', 'fl-form-liminst', () => {
+      const c = document.getElementById('firma-limpieza-inst-canvas');
+      if (firmaLimpiezaInst && c && c.width === 0) firmaLimpiezaInst = null;
+      initFirmaLimpiezaInstSiNecesario();
+    });
+  }
+};
+window.flSubMant = (sub) => {
+  document.querySelectorAll('#ftab-mantenimiento .fl-seg button').forEach(b => b.classList.toggle('on', b.dataset.fm === sub));
+  const ids = {avisos:'fm-avisos', vehiculos:'fm-vehiculo', historial:'fm-historial'};
+  Object.entries(ids).forEach(([k,id]) => document.getElementById(id)?.classList.toggle('on', k === sub));
+  if (sub === 'historial') { populateHistMantMatriculas(); renderHistorialMant(); }
+  else renderMantenimiento();
+};
+const flEsteMes = f => { const d = new Date(f); const h = new Date(); return d.getMonth()===h.getMonth() && d.getFullYear()===h.getFullYear(); };
+
 function renderHistorial() {
   const list = document.getElementById('hist-list');
   if (!list) return;
+  const n = document.getElementById('fl-n-rep'); if (n) n.textContent = historialCache.length;
+  flRenderResumen();
   let f = histFiltroMat ? historialCache.filter(h=>h.matricula===histFiltroMat) : historialCache;
-  if (!f.length) { list.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div>No hay registros'+(histFiltroMat?' para este vehículo':'')+'</div>'; return; }
-  list.innerHTML = f.map(h=>{
-    const safeId = h.id.replace(/[^a-zA-Z0-9]/g,'_');
-    return `<div style="background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius-sm);margin-bottom:0.5rem;overflow:hidden;">
-      <div onclick="toggleHist('${safeId}')" style="display:flex;justify-content:space-between;align-items:center;padding:0.85rem 1rem;cursor:pointer;">
-        <div>
-          <div style="font-weight:600;font-size:14px;">🚗 ${h.matricula}</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">📅 ${h.fechaStr} ${h.horaStr}</div>
+  if (!f.length) { list.innerHTML='<div class="refuel-card"><div class="empty-state"><div class="empty-icon">🔧</div>No hay reparaciones'+(histFiltroMat?' de este vehículo':'')+'</div></div>'; return; }
+  list.innerHTML = `
+    ${histFiltroMat ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">${f.length} registro${f.length===1?'':'s'} de ${almEsc(histFiltroMat)}</div>` : ''}
+    <div class="refuel-card" style="padding:0">
+    ${f.map(h=>`
+      <div class="gs-fila">
+        <div class="fl-ico">🔧</div>
+        <div class="gs-fila-info">
+          <div class="gs-mat">${almEsc(h.matricula)}</div>
+          <div class="gs-sub">📅 ${almEsc(h.fechaStr)} ${almEsc(h.horaStr||'')}</div>
+          <div class="fl-texto">${almEsc(h.comentarios)}</div>
         </div>
-        <span id="hist-arrow-${safeId}" style="color:var(--text-muted);font-size:12px;">▼</span>
-      </div>
-      <div id="hist-body-${safeId}" style="display:none;padding:0 1rem 1rem 1rem;border-top:1px solid var(--card-border);">
-        <div style="font-size:14px;margin:0.75rem 0;line-height:1.5;">${h.comentarios}</div>
-        <div style="display:flex;gap:0.5rem;">
-          <button class="btn-sm" style="flex:1;" onclick="editarHistorial('${h.id}')">✏️ Editar</button>
-          <button class="btn-sm btn-sm-danger" style="flex:1;" onclick="eliminarHistorial('${h.id}')">🗑 Eliminar</button>
+        <div class="gs-acciones">
+          <button class="alm-accion alm-accion-ver" onclick="flVerReparacion('${h.id}')">👁 Ver</button>
+          <button class="alm-accion" onclick="editarHistorial('${h.id}')">✏️ Editar</button>
+          <button class="alm-accion alm-accion-borrar" onclick="eliminarHistorial('${h.id}')" aria-label="Borrar">🗑</button>
         </div>
-      </div>
+      </div>`).join('')}
     </div>`;
-  }).join('');
 }
+window.toggleHist = () => {};
 
-window.toggleHist = (safeId) => {
-  const body=document.getElementById('hist-body-'+safeId);
-  const arrow=document.getElementById('hist-arrow-'+safeId);
-  if(body.style.display==='none'){ body.style.display='block'; arrow.textContent='▲'; }
-  else { body.style.display='none'; arrow.textContent='▼'; }
+window.flVerReparacion = (id) => {
+  const h = historialCache.find(x=>x.id===id);
+  if (!h) return;
+  const otras = historialCache.filter(x=>x.matricula===h.matricula && x.id!==id).slice(0,5);
+  almAbrirModal('🔧 Cambio o reparación', `
+    <div class="alm-etq">Vehículo</div>
+    <div class="alm-ver-exp">${almEsc(h.matricula)}</div>
+    <div class="alm-ver-meta">📅 ${almEsc(h.fechaStr)} · ${almEsc(h.horaStr||'')}</div>
+    <div class="alm-sec-tit">Qué se hizo</div>
+    <div class="refuel-card" style="margin:0;font-size:15px;line-height:1.5;white-space:pre-wrap">${almEsc(h.comentarios)}</div>
+    ${otras.length ? `<div class="alm-sec-tit">Anteriores de este vehículo</div>
+      <div class="alm-bultos">${otras.map(o=>`<div class="alm-bulto" style="cursor:pointer" onclick="flVerReparacion('${o.id}')">
+        <div class="alm-bulto-info"><div class="alm-bulto-dim">📅 ${almEsc(o.fechaStr)}</div><div style="font-size:14px">${almEsc(o.comentarios).slice(0,120)}${o.comentarios.length>120?'…':''}</div></div></div>`).join('')}</div>` : ''}`, `
+    <button class="btn btn-primary" onclick="editarHistorial('${h.id}')">✏️ Editar</button>
+    <button class="btn btn-ghost" onclick="almCerrarModal()">Cerrar</button>`);
 };
 
 window.editarHistorial = (id) => {
   const h = historialCache.find(x=>x.id===id);
   if (!h) return;
-  const modal = document.createElement('div');
-  modal.id = 'edit-hist-modal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999;display:flex;align-items:center;justify-content:center;padding:1rem;';
-  modal.innerHTML = `
-    <div style="background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:1.5rem;width:100%;max-width:400px;">
-      <div style="font-size:16px;font-weight:700;margin-bottom:1.25rem;color:var(--accent);">✏️ Editar registro — ${h.matricula}</div>
-      <div class="form-group">
-        <label class="form-label">Comentarios</label>
-        <textarea class="form-input" id="edit-hist-comentarios">${h.comentarios}</textarea>
-      </div>
-      <div style="display:flex;gap:0.5rem;">
-        <button id="btn-save-hist-edit" style="flex:1;padding:0.75rem;background:var(--accent);color:#111;border:none;border-radius:var(--radius-sm);font-size:15px;font-weight:700;cursor:pointer;">Guardar</button>
-        <button onclick="document.getElementById('edit-hist-modal').remove()" style="flex:1;padding:0.75rem;background:var(--navy-light);color:var(--text);border:1px solid var(--card-border);border-radius:var(--radius-sm);font-size:15px;cursor:pointer;">Cancelar</button>
-      </div>
-    </div>`;
-  document.body.appendChild(modal);
-  document.getElementById('btn-save-hist-edit').addEventListener('click', async () => {
-    const comentarios = document.getElementById('edit-hist-comentarios').value.trim();
-    if (!comentarios) { alert('Escribe el comentario'); return; }
-    try {
-      await updateDoc(doc(dbFleet,'historial',id), {comentarios});
-      const idx = historialCache.findIndex(x=>x.id===id);
-      if (idx>=0) historialCache[idx].comentarios = comentarios;
-      document.getElementById('edit-hist-modal').remove();
-      renderHistorial();
-    } catch(e) { alert('Error: '+e.message); }
-  });
+  almAbrirModal('✏️ Editar reparación', `
+    <div class="alm-etq">Vehículo</div>
+    <div class="alm-ver-exp" style="font-size:22px;margin-bottom:0.25rem">${almEsc(h.matricula)}</div>
+    <div class="alm-ver-meta" style="margin-bottom:1rem">📅 ${almEsc(h.fechaStr)} · ${almEsc(h.horaStr||'')}</div>
+    <label class="alm-etq" for="edit-hist-comentarios">Qué se hizo</label>
+    <textarea class="form-input" id="edit-hist-comentarios" rows="5" style="font-size:15px">${almEsc(h.comentarios)}</textarea>`, `
+    <button class="btn btn-primary" onclick="flGuardarReparacion('${h.id}')">✓ Guardar cambios</button>
+    <button class="btn btn-ghost" onclick="almCerrarModal()">Cancelar</button>`);
+  document.getElementById('edit-hist-comentarios')?.focus();
+};
+window.flGuardarReparacion = async (id) => {
+  const comentarios = document.getElementById('edit-hist-comentarios').value.trim();
+  if (!comentarios) { alert('Escribe qué se hizo'); return; }
+  try {
+    await updateDoc(doc(dbFleet,'historial',id), {comentarios});
+    const h = historialCache.find(x=>x.id===id); if (h) h.comentarios = comentarios;
+    almCerrarModal(); renderHistorial(); flVerReparacion(id);
+  } catch(e) { alert('Error: '+e.message); }
 };
 
 window.eliminarHistorial = async (id) => {
@@ -6497,94 +6536,97 @@ function populateMantMatriculas() {
   todasMat.forEach(m=>{ sel.innerHTML+=`<option value="${m}">${m}</option>`; });
 }
 
-function renderMantenimiento() {
-  const list=document.getElementById('mant-list');
-  if (!list) return;
-  const alertasEl=document.getElementById('mant-alertas');
-  const hoy=new Date();
-  const alertasItems=[]; // { html, dias } — dias=null para "pendiente sin fecha" (más urgente)
-  const todasMat = ['TOROS CESAB',...matriculasCache,...remolquesCache];
+// Estado de una revisión (ITV / Tacógrafo) de un vehículo
+function flEstadoRev(m, rev) {
+  const hoy = new Date();
+  const key = revKey(rev);
+  const fecha = m[key] ? new Date(m[key]) : null;
+  const ultima = m[key+'_ultima'] ? new Date(m[key+'_ultima']) : null;
+  const noAplica = !fecha && !!m[key+'_noaplica'];
+  const dias = fecha ? Math.ceil((fecha-hoy)/86400000) : null;
+  if (noAplica) return {tipo:'noaplica', fecha, ultima, dias, txt:`No tiene ${rev}`, color:'var(--text-muted)'};
+  if (!fecha && ultima) return {tipo:'pendiente', fecha, ultima, dias, txt:'Pendiente, sin próxima fecha', color:'var(--danger)'};
+  if (!fecha) return {tipo:'sin', fecha, ultima, dias, txt:'Sin fecha', color:'var(--text-muted)'};
+  if (dias < 0) return {tipo:'vencida', fecha, ultima, dias, txt:`Vencida hace ${Math.abs(dias)} día${Math.abs(dias)===1?'':'s'}`, color:'var(--danger)'};
+  if (dias <= DIAS_AVISO) return {tipo:'proxima', fecha, ultima, dias, txt: dias===0?'Vence hoy':`Vence en ${dias} día${dias===1?'':'s'}`, color: dias<=5?'#ff6b00':'var(--warning)'};
+  return {tipo:'ok', fecha, ultima, dias, txt:`Al día · faltan ${dias} días`, color:'var(--success)'};
+}
+const FL_ETQ = {vencida:'VENCIDA', pendiente:'PENDIENTE', proxima:'PRÓXIMA', ok:'AL DÍA', sin:'SIN FECHA', noaplica:'NO APLICA'};
 
-  mantenimientoCache.forEach(m=>{
-    REVISIONES.forEach(rev=>{
-      const key=revKey(rev);
-      const keyUltima=key+'_ultima';
-      const keyNoAplica=key+'_noaplica';
-      if (m[key]) {
-        const fecha=new Date(m[key]);
-        const dias=Math.ceil((fecha-hoy)/(1000*60*60*24));
-        if (dias<=DIAS_AVISO) {
-          const color=dias<0?'var(--danger)':dias<=5?'#ff6b00':'var(--warning)';
-          const txt=dias<0?`Vencida hace ${Math.abs(dias)} días`:`Vence en ${dias} días`;
-          alertasItems.push({ dias, html:`<div style="background:#3a1e1e;border:1px solid ${color};border-radius:var(--radius-sm);padding:0.75rem 1rem;margin-bottom:0.5rem;font-size:13px;">⚠️ <strong>${m.matricula}</strong> — ${rev}: <span style="color:${color};font-weight:700;">${txt}</span> (${fecha.toLocaleDateString('es-ES')})</div>` });
-        }
-      } else if (m[keyUltima] && !m[keyNoAplica]) {
-        // Tiene "última vez" apuntada pero todavía no se sabe la próxima fecha (ej: el
-        // vehículo está en el taller esperando a pasarla). Se muestra igualmente para
-        // que no se pierda de vista, y se trata como lo más urgente (dias=-Infinity).
-        alertasItems.push({ dias:-Infinity, html:`<div style="background:#3a1e1e;border:1px solid var(--danger);border-radius:var(--radius-sm);padding:0.75rem 1rem;margin-bottom:0.5rem;font-size:13px;">⚠️ <strong>${m.matricula}</strong> — ${rev}: <span style="color:var(--danger);font-weight:700;">Pendiente, sin próxima fecha aún</span></div>` });
-      }
+function flRenderResumen() {
+  const el = document.getElementById('fl-resumen');
+  if (!el) return;
+  const todasMat = ['TOROS CESAB',...matriculasCache,...remolquesCache];
+  let venc = 0, prox = 0;
+  todasMat.forEach(mat => {
+    const m = mantenimientoCache.find(x=>x.matricula===mat) || {matricula:mat};
+    REVISIONES.forEach(rev => { const e = flEstadoRev(m, rev); if (e.tipo==='vencida'||e.tipo==='pendiente') venc++; else if (e.tipo==='proxima') prox++; });
+  });
+  const repMes = historialCache.filter(h=>flEsteMes(h.fecha)).length;
+  const limMes = (typeof limpiezaVehCache!=='undefined' ? limpiezaVehCache : []).concat(typeof limpiezaInstCache!=='undefined' ? limpiezaInstCache : []).filter(h=>h.fecha && flEsteMes(h.fecha+'T12:00')).length;
+  const nl = document.getElementById('fl-n-lim'); if (nl) nl.textContent = limMes;
+  el.innerHTML = `
+    <div class="stats-grid gs-stats">
+      <div class="stat-card" style="cursor:pointer;${venc?'box-shadow:inset 0 0 0 2px var(--danger)':''}" onclick="switchFleetTab('mantenimiento');flSubMant('avisos')"><div class="stat-val" style="color:${venc?'var(--danger)':'inherit'}">${venc}</div><div class="stat-label">🔴 ITV/tacógrafo vencidas</div></div>
+      <div class="stat-card" style="cursor:pointer" onclick="switchFleetTab('mantenimiento');flSubMant('avisos')"><div class="stat-val" style="color:${prox?'var(--warning)':'inherit'}">${prox}</div><div class="stat-label">🟠 Vencen en ${DIAS_AVISO} días</div></div>
+      <div class="stat-card"><div class="stat-val">${repMes}</div><div class="stat-label">🔧 Reparaciones este mes</div></div>
+      <div class="stat-card"><div class="stat-val">${limMes}</div><div class="stat-label">🧹 Limpiezas este mes</div></div>
+    </div>`;
+}
+
+function renderMantenimiento() {
+  const list = document.getElementById('mant-list');
+  const alertasEl = document.getElementById('mant-alertas');
+  if (!list || !alertasEl) return;
+  const todasMat = ['TOROS CESAB',...matriculasCache,...remolquesCache];
+  flRenderResumen();
+
+  // Avisos: vencidas, pendientes sin fecha y las que vencen pronto
+  const avisos = [];
+  todasMat.forEach(mat => {
+    const m = mantenimientoCache.find(x=>x.matricula===mat) || {matricula:mat};
+    REVISIONES.forEach(rev => {
+      const e = flEstadoRev(m, rev);
+      if (['vencida','pendiente','proxima'].includes(e.tipo)) avisos.push({mat, rev, e, orden: e.tipo==='pendiente' ? -1e9 : e.dias});
     });
   });
+  avisos.sort((a,b)=>a.orden-b.orden);
+  alertasEl.innerHTML = !avisos.length
+    ? `<div class="refuel-card"><div class="empty-state"><div class="empty-icon">🎉</div>Todo al día. Ninguna ITV ni tacógrafo vence en los próximos ${DIAS_AVISO} días.</div></div>`
+    : `<div class="refuel-card" style="padding:0">${avisos.map(({mat,rev,e})=>`
+        <div class="gs-fila" style="cursor:pointer" onclick="editMant('${almEsc(mat)}','${rev}')">
+          <div class="fl-estado" style="background:${e.color}">${FL_ETQ[e.tipo]}</div>
+          <div class="gs-fila-info">
+            <div class="gs-mat">${almEsc(mat)} <span class="fl-rev-etq">· ${rev}</span></div>
+            <div class="gs-sub" style="color:${e.color};font-weight:700">${e.txt}${e.fecha?' · '+e.fecha.toLocaleDateString('es-ES'):''}</div>
+            ${e.ultima ? `<div class="gs-sub">Última vez: ${e.ultima.toLocaleDateString('es-ES')}</div>` : ''}
+          </div>
+          <div class="gs-acciones"><button class="alm-accion alm-accion-ver" onclick="event.stopPropagation();editMant('${almEsc(mat)}','${rev}')">✏️ Actualizar</button></div>
+        </div>`).join('')}</div>`;
 
-  // Las más urgentes (vencidas y pendientes sin fecha) primero, luego por días restantes.
-  alertasItems.sort((a,b)=>a.dias-b.dias);
-  let alertasHtml = '';
-  if (alertasItems.length) {
-    alertasHtml = `<div id="mant-alertas-ocultas" style="display:none;">${alertasItems.map(it=>it.html).join('')}</div>
-      <button class="btn-sm" data-texto="⚠️ Ver ${alertasItems.length} aviso${alertasItems.length>1?'s':''} de ITV/Tacógrafo" onclick="toggleSeccionAnios('mant-alertas-ocultas', this)" style="width:100%;font-size:12px;">⚠️ Ver ${alertasItems.length} aviso${alertasItems.length>1?'s':''} de ITV/Tacógrafo</button>`;
-  }
-  alertasEl.innerHTML=alertasHtml?`<div style="margin-bottom:1.25rem;">${alertasHtml}</div>`:'';
-
-  if (!mantFiltroMat) {
-    list.innerHTML = '<div class="empty-state"><div class="empty-icon">🚛</div>Selecciona un vehículo arriba para ver su ITV y Tacógrafo</div>';
-    return;
-  }
-
-  const matsAMostrar = [mantFiltroMat];
-  list.innerHTML=matsAMostrar.map((mat)=>{
-    const m=mantenimientoCache.find(x=>x.matricula===mat)||{matricula:mat};
-    let tieneAlerta = false;
-    REVISIONES.forEach(rev=>{ const key=revKey(rev); if(m[key]){ const dias=Math.ceil((new Date(m[key])-hoy)/(1000*60*60*24)); if(dias<=DIAS_AVISO) tieneAlerta=true; } });
-    const safeId = mat.replace(/[^a-zA-Z0-9]/g,'_');
-    return `<div style="background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius-sm);margin-bottom:0.5rem;overflow:hidden;">
-      <div onclick="toggleMant('${safeId}')" style="display:flex;justify-content:space-between;align-items:center;padding:0.85rem 1rem;cursor:pointer;">
-        <span style="font-size:14px;font-weight:600;">🚗 ${mat} ${tieneAlerta?'<span style="color:var(--danger);font-size:12px;">⚠️</span>':''}</span>
-        <span id="arrow-${safeId}" style="color:var(--text-muted);font-size:12px;">▼</span>
-      </div>
-      <div id="mant-body-${safeId}" style="display:block;padding:0 1rem 1rem 1rem;border-top:1px solid var(--card-border);">
-        ${REVISIONES.map(rev=>{
-          const key=revKey(rev);
-          const keyUltima=key+'_ultima';
-          const keyNoAplica=key+'_noaplica';
-          const fechaStr=m[key];
-          const fecha=fechaStr?new Date(fechaStr):null;
-          const fechaUltimaStr=m[keyUltima];
-          const noAplica=!fecha && !!m[keyNoAplica];
-          const dias=fecha?Math.ceil((fecha-hoy)/(1000*60*60*24)):null;
-          // Si hay "Última vez" pero todavía no se sabe la próxima (ej: el vehículo está
-          // en el taller esperando a pasarla), lo tratamos como pendiente/vencido, para
-          // que no se pierda de vista solo porque aún no hay fecha futura puesta.
-          const pendienteSinFecha = !fecha && !noAplica && !!fechaUltimaStr;
-          let color='var(--text-muted)';
-          if(dias!==null){ if(dias<0) color='var(--danger)'; else if(dias<=DIAS_AVISO) color='var(--warning)'; else color='var(--success)'; }
-          else if (pendienteSinFecha) color='var(--danger)';
-          return `<div class="mant-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
-            <div style="display:flex;justify-content:space-between;width:100%;align-items:center;">
-              <span style="font-weight:500;">${rev} ${(dias!==null && dias<=DIAS_AVISO) || pendienteSinFecha?`<span style="background:${color};color:#111;padding:1px 8px;border-radius:10px;font-size:10px;font-weight:700;margin-left:4px;">${pendienteSinFecha?'PENDIENTE':dias<0?'VENCIDA':'PRÓXIMA'}</span>`:''}</span>
-              <div style="display:flex;align-items:center;gap:0.5rem;">
-                <span style="color:${noAplica?'var(--text-muted)':color};font-size:13px;font-style:${noAplica?'italic':'normal'};">${fecha?fecha.toLocaleDateString('es-ES'):(noAplica?`No tiene ${rev}`:pendienteSinFecha?'Sin próxima fecha':'Sin fecha')}</span>
-                <button class="btn-sm" onclick="editMant('${mat}','${rev}')">Editar</button>
-              </div>
+  // Todos los vehículos, con su ITV y tacógrafo
+  const q = (document.getElementById('fl-buscar-veh')?.value||'').trim().toUpperCase().replace(/[^0-9A-Z]/g,'');
+  const mats = todasMat.filter(mat => !q || mat.toUpperCase().replace(/[^0-9A-Z]/g,'').includes(q));
+  list.innerHTML = !mats.length ? '<div class="refuel-card"><div class="empty-state">No hay ningún vehículo con esa matrícula</div></div>' : `
+    <div class="gs-consumo-grid">
+    ${mats.map(mat => {
+      const m = mantenimientoCache.find(x=>x.matricula===mat) || {matricula:mat};
+      const estados = REVISIONES.map(rev => ({rev, e: flEstadoRev(m, rev)}));
+      const mal = estados.some(x => ['vencida','pendiente'].includes(x.e.tipo));
+      return `<div class="refuel-card fl-veh" style="${mal?'box-shadow:inset 0 0 0 2px var(--danger)':''}">
+        <div class="gs-mat" style="font-size:18px;margin-bottom:0.5rem">🚛 ${almEsc(mat)}</div>
+        ${estados.map(({rev,e}) => `
+          <div class="fl-rev" onclick="editMant('${almEsc(mat)}','${rev}')">
+            <div>
+              <div style="font-weight:700;font-size:14px">${rev}</div>
+              <div style="font-size:12px;color:${e.color};font-weight:600">${e.fecha ? e.fecha.toLocaleDateString('es-ES')+' · ' : ''}${e.txt}</div>
+              ${e.ultima ? `<div style="font-size:11px;color:var(--text-muted)">Última: ${e.ultima.toLocaleDateString('es-ES')}</div>` : ''}
             </div>
-            ${dias!==null?`<div style="font-size:12px;color:${color};font-weight:600;">${dias<0?`Vencida hace ${Math.abs(dias)} días`:dias===0?'Vence hoy':`Vence en ${dias} días`}</div>`:''}
-            ${pendienteSinFecha?`<div style="font-size:12px;color:${color};font-weight:600;">⚠️ Pendiente de pasar, sin próxima fecha aún</div>`:''}
-            ${fechaUltimaStr?`<div style="font-size:11px;color:var(--text-muted);">Última vez: ${new Date(fechaUltimaStr).toLocaleDateString('es-ES')}</div>`:''}
-          </div>`;
-        }).join('')}
-      </div>
+            <span class="fl-estado" style="background:${e.color}">${FL_ETQ[e.tipo]}</span>
+          </div>`).join('')}
+      </div>`;
+    }).join('')}
     </div>`;
-  }).join('');
 }
 
 window.marcarNoTieneMant = async (mat, rev) => {
@@ -6735,20 +6777,22 @@ function populateHistMantMatriculas() {
 
 function renderHistorialMant() {
   const list = document.getElementById('hist-mant-list');
+  if (!list) return;
   let f = histMantFiltroMat ? historialMantCache.filter(h=>h.matricula===histMantFiltroMat) : historialMantCache;
-  if (!f.length) { list.innerHTML='<div class="empty-state"><div class="empty-icon">🔧</div>No hay renovaciones registradas'+(histMantFiltroMat?' para este vehículo':'')+'</div>'; return; }
-  list.innerHTML = f.map(h=>`
-    <div class="record">
-      <div class="record-top">
-        <div style="font-weight:600;font-size:14px;">🚗 ${h.matricula} — ${h.revision}</div>
-        <div style="display:flex;flex-direction:column;gap:0.3rem;">
-          <button class="btn-sm" onclick="editarHistorialMant('${h.id}')">✏️ Editar</button>
-          <button class="btn-sm btn-sm-danger" onclick="eliminarHistorialMant('${h.id}')">🗑 Eliminar</button>
-        </div>
+  if (!f.length) { list.innerHTML='<div class="refuel-card"><div class="empty-state"><div class="empty-icon">🔧</div>No hay renovaciones registradas'+(histMantFiltroMat?' de este vehículo':'')+'</div></div>'; return; }
+  list.innerHTML = `<div class="refuel-card" style="padding:0">${f.map(h=>`
+    <div class="gs-fila">
+      <div class="fl-ico">${h.revision==='ITV'?'🛠':'⏱'}</div>
+      <div class="gs-fila-info">
+        <div class="gs-mat">${almEsc(h.matricula)} <span class="fl-rev-etq">· ${almEsc(h.revision||'')}</span></div>
+        <div class="fl-texto">✓ ${almEsc(h.descripcion)}</div>
+        <div class="gs-sub">📅 Registrado el ${almEsc(h.fechaStr)} ${almEsc(h.horaStr||'')}</div>
       </div>
-      <div style="font-size:14px;margin-bottom:0.4rem;">✓ ${h.descripcion}</div>
-      <div class="record-meta"><span>📅 Registrado el ${h.fechaStr} ${h.horaStr}</span></div>
-    </div>`).join('');
+      <div class="gs-acciones">
+        <button class="alm-accion" onclick="editarHistorialMant('${h.id}')">✏️ Editar</button>
+        <button class="alm-accion alm-accion-borrar" onclick="eliminarHistorialMant('${h.id}')" aria-label="Borrar">🗑</button>
+      </div>
+    </div>`).join('')}</div>`;
 }
 
 window.editarHistorialMant = (id) => {
@@ -8790,39 +8834,27 @@ function getFilteredLimpiezaVeh() {
 function renderHistorialLimpiezaVeh() {
   const list = document.getElementById('hist-limpieza-veh-list');
   if (!list) return;
+  flRenderResumen();
   const f = getFilteredLimpiezaVeh();
-  if (!f.length) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">🧹</div>No hay registros para este filtro</div>'; return; }
-  list.innerHTML = f.map(h=>{
-    const safeId = h.id.replace(/[^a-zA-Z0-9]/g,'_');
-    const tipos = [h.interior?'Interior':null, h.exterior?'Exterior':null, h.desinfeccion?'Desinfección':null].filter(Boolean).join(' · ') || '—';
-    return `<div style="background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius-sm);margin-bottom:0.5rem;overflow:hidden;">
-      <div onclick="toggleHistLimpiezaVeh('${safeId}')" style="display:flex;justify-content:space-between;align-items:center;padding:0.85rem 1rem;cursor:pointer;">
-        <div>
-          <div style="font-weight:600;font-size:14px;">🚗 ${h.matricula} — ${h.operario}</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">📅 ${h.fechaStr} · ${tipos}</div>
-        </div>
-        <span id="hist-lim-veh-arrow-${safeId}" style="color:var(--text-muted);font-size:12px;">▼</span>
+  if (!f.length) { list.innerHTML = '<div class="refuel-card"><div class="empty-state"><div class="empty-icon">🧹</div>No hay limpiezas con este filtro</div></div>'; return; }
+  list.innerHTML = `<div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">${f.length} limpieza${f.length===1?'':'s'}</div>
+    <div class="refuel-card" style="padding:0">${f.map(h=>{
+    const tipos = [h.interior?'Interior':null, h.exterior?'Exterior':null, h.desinfeccion?'Desinfección':null].filter(Boolean);
+    return `<div class="gs-fila">
+      <div class="fl-ico">🚗</div>
+      <div class="gs-fila-info">
+        <div class="gs-mat">${almEsc(h.matricula)}</div>
+        <div class="gs-sub">📅 ${almEsc(h.fechaStr)} · 👤 ${almEsc(h.operario)}</div>
+        <div class="gs-chips">${tipos.map(t=>`<span class="gs-chip">✓ ${t}</span>`).join('')}${h.firmaBase64?'<span class="gs-chip">✍️ Firmada</span>':''}</div>
       </div>
-      <div id="hist-lim-veh-body-${safeId}" style="display:none;padding:0 1rem 1rem 1rem;border-top:1px solid var(--card-border);">
-        ${h.obs ? `<div style="font-size:14px;margin:0.75rem 0;line-height:1.5;"><strong>Observaciones:</strong> ${h.obs}</div>` : ''}
-        ${h.firmaBase64 ? `<div style="margin:0.75rem 0;"><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Firma:</div><img src="${h.firmaBase64}" style="max-width:220px;background:#fff;border-radius:var(--radius-sm);border:1px solid var(--card-border);"></div>` : ''}
-        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-          <button class="btn-sm" style="flex:1;min-width:90px;" onclick="editarLimpiezaVeh('${h.id}')">✏️ Editar</button>
-          <button class="btn-sm" style="flex:1;min-width:90px;" onclick="verPdfLimpiezaVehUnico('${h.id}')">👁 Ver PDF</button>
-          <button class="btn-sm" style="flex:1;min-width:90px;" onclick="descargarPdfLimpiezaVehUnico('${h.id}')">📄 Descargar PDF</button>
-          <button class="btn-sm btn-sm-danger" style="flex:1;min-width:90px;" onclick="eliminarLimpiezaVeh('${h.id}')">🗑 Eliminar</button>
-        </div>
+      <div class="gs-acciones">
+        <button class="alm-accion alm-accion-ver" onclick="flVerLimpieza('veh','${h.id}')">👁 Ver</button>
+        <button class="alm-accion" onclick="editarLimpiezaVeh('${h.id}')">✏️ Editar</button>
+        <button class="alm-accion alm-accion-borrar" onclick="eliminarLimpiezaVeh('${h.id}')" aria-label="Borrar">🗑</button>
       </div>
-    </div>`;
-  }).join('');
+    </div>`; }).join('')}</div>`;
 }
-
-window.toggleHistLimpiezaVeh = (safeId) => {
-  const body = document.getElementById('hist-lim-veh-body-'+safeId);
-  const arrow = document.getElementById('hist-lim-veh-arrow-'+safeId);
-  if (body.style.display==='none') { body.style.display='block'; arrow.textContent='▲'; }
-  else { body.style.display='none'; arrow.textContent='▼'; }
-};
+window.toggleHistLimpiezaVeh = () => {};
 
 window.editarLimpiezaVeh = (id) => {
   const h = limpiezaVehCache.find(x=>x.id===id);
@@ -9129,37 +9161,50 @@ function getFilteredLimpiezaInst() {
 function renderHistorialLimpiezaInst() {
   const list = document.getElementById('hist-limpieza-inst-list');
   if (!list) return;
+  flRenderResumen();
   const f = getFilteredLimpiezaInst();
-  if (!f.length) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">🧹</div>No hay registros para este filtro</div>'; return; }
-  list.innerHTML = f.map(h=>{
-    const safeId = h.id.replace(/[^a-zA-Z0-9]/g,'_');
-    return `<div style="background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius-sm);margin-bottom:0.5rem;overflow:hidden;">
-      <div onclick="toggleHistLimpiezaInst('${safeId}')" style="display:flex;justify-content:space-between;align-items:center;padding:0.85rem 1rem;cursor:pointer;">
-        <div>
-          <div style="font-weight:600;font-size:14px;">🏭 ${h.area} — ${h.operario}</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">📅 ${h.fechaStr}${h.material?' · '+h.material:''}</div>
-        </div>
-        <span id="hist-lim-inst-arrow-${safeId}" style="color:var(--text-muted);font-size:12px;">▼</span>
+  if (!f.length) { list.innerHTML = '<div class="refuel-card"><div class="empty-state"><div class="empty-icon">🧹</div>No hay limpiezas con este filtro</div></div>'; return; }
+  list.innerHTML = `<div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">${f.length} limpieza${f.length===1?'':'s'}</div>
+    <div class="refuel-card" style="padding:0">${f.map(h=>`
+    <div class="gs-fila">
+      <div class="fl-ico">🏭</div>
+      <div class="gs-fila-info">
+        <div class="gs-tit">${almEsc(h.area)}</div>
+        <div class="gs-sub">📅 ${almEsc(h.fechaStr)} · 👤 ${almEsc(h.operario)}</div>
+        <div class="gs-chips">${h.material?`<span class="gs-chip">🧴 ${almEsc(h.material)}</span>`:''}${h.firmaBase64?'<span class="gs-chip">✍️ Firmada</span>':''}</div>
       </div>
-      <div id="hist-lim-inst-body-${safeId}" style="display:none;padding:0 1rem 1rem 1rem;border-top:1px solid var(--card-border);">
-        ${h.obs ? `<div style="font-size:14px;margin:0.75rem 0;line-height:1.5;"><strong>Observaciones:</strong> ${h.obs}</div>` : ''}
-        ${h.firmaBase64 ? `<div style="margin:0.75rem 0;"><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Firma:</div><img src="${h.firmaBase64}" style="max-width:220px;background:#fff;border-radius:var(--radius-sm);border:1px solid var(--card-border);"></div>` : ''}
-        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-          <button class="btn-sm" style="flex:1;min-width:90px;" onclick="editarLimpiezaInst('${h.id}')">✏️ Editar</button>
-          <button class="btn-sm" style="flex:1;min-width:90px;" onclick="verPdfLimpiezaInstUnico('${h.id}')">👁 Ver PDF</button>
-          <button class="btn-sm" style="flex:1;min-width:90px;" onclick="descargarPdfLimpiezaInstUnico('${h.id}')">📄 Descargar PDF</button>
-          <button class="btn-sm btn-sm-danger" style="flex:1;min-width:90px;" onclick="eliminarLimpiezaInst('${h.id}')">🗑 Eliminar</button>
-        </div>
+      <div class="gs-acciones">
+        <button class="alm-accion alm-accion-ver" onclick="flVerLimpieza('inst','${h.id}')">👁 Ver</button>
+        <button class="alm-accion" onclick="editarLimpiezaInst('${h.id}')">✏️ Editar</button>
+        <button class="alm-accion alm-accion-borrar" onclick="eliminarLimpiezaInst('${h.id}')" aria-label="Borrar">🗑</button>
       </div>
-    </div>`;
-  }).join('');
+    </div>`).join('')}</div>`;
 }
+window.toggleHistLimpiezaInst = () => {};
 
-window.toggleHistLimpiezaInst = (safeId) => {
-  const body = document.getElementById('hist-lim-inst-body-'+safeId);
-  const arrow = document.getElementById('hist-lim-inst-arrow-'+safeId);
-  if (body.style.display==='none') { body.style.display='block'; arrow.textContent='▲'; }
-  else { body.style.display='none'; arrow.textContent='▼'; }
+window.flVerLimpieza = (tipo, id) => {
+  const veh = tipo === 'veh';
+  const h = (veh ? limpiezaVehCache : limpiezaInstCache).find(x=>x.id===id);
+  if (!h) return;
+  const tipos = veh ? [h.interior?'Interior':null, h.exterior?'Exterior':null, h.desinfeccion?'Desinfección':null].filter(Boolean) : [];
+  const dato = (k, v) => `<div><span>${k}</span><strong>${almEsc(v)}</strong></div>`;
+  almAbrirModal(veh ? '🧹 Limpieza de vehículo' : '🧹 Limpieza de instalaciones', `
+    <div class="alm-etq">${veh?'Vehículo':'Área'}</div>
+    <div class="${veh?'alm-ver-exp':'alm-ver-exp alm-ver-txt'}">${almEsc(veh ? h.matricula : h.area)}</div>
+    <div class="alm-ver-meta">📅 ${almEsc(h.fechaStr)} · 👤 ${almEsc(h.operario)}</div>
+    <div class="alm-sec-tit">Datos</div>
+    <div class="alm-datos">
+      ${veh ? dato('Limpieza', tipos.join(' · ') || '—') : dato('Material', h.material || '—')}
+      ${dato('Operario', h.operario || '—')}
+    </div>
+    ${h.obs ? `<div class="alm-sec-tit">Observaciones</div><div class="refuel-card" style="margin:0;font-size:14px">${almEsc(h.obs)}</div>` : ''}
+    ${h.firmaBase64 ? `<div class="alm-sec-tit">Firma</div><img src="${h.firmaBase64}" alt="Firma" style="max-width:100%;width:280px;background:#fff;border-radius:10px;border:1px solid var(--card-border)">` : ''}
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:1rem">
+      <button class="alm-accion" onclick="${veh?'verPdfLimpiezaVehUnico':'verPdfLimpiezaInstUnico'}('${h.id}')">👁 Ver PDF</button>
+      <button class="alm-accion" onclick="${veh?'descargarPdfLimpiezaVehUnico':'descargarPdfLimpiezaInstUnico'}('${h.id}')">📄 Descargar PDF</button>
+    </div>`, `
+    <button class="btn btn-primary" onclick="almCerrarModal();${veh?'editarLimpiezaVeh':'editarLimpiezaInst'}('${h.id}')">✏️ Editar</button>
+    <button class="btn btn-ghost" onclick="almCerrarModal()">Cerrar</button>`);
 };
 
 window.editarLimpiezaInst = (id) => {
