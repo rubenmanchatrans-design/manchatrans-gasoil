@@ -2202,7 +2202,10 @@ function almRenderPaso1() {
       <div class="section-title">Escanear etiqueta</div>
       <div class="form-group">
         <label class="form-label">Pasa la pistola por el código de barras</label>
-        <input class="form-input" type="text" id="alm-inp-codigo" placeholder="Escanea aquí..." autocomplete="off" style="font-size:18px;letter-spacing:2px;">
+        <div style="display:flex;gap:0.5rem">
+          <input class="form-input" type="text" inputmode="none" id="alm-inp-codigo" placeholder="Escanea aquí..." autocomplete="off" style="font-size:18px;letter-spacing:2px;flex:1;min-width:0">
+          <button type="button" class="btn btn-ghost" id="alm-btn-teclado" onclick="almTeclado()" style="width:auto;flex-shrink:0;padding:0.6rem 0.9rem;font-size:20px" aria-label="Sacar el teclado">⌨️</button>
+        </div>
       </div>
       <button class="btn btn-primary" onclick="almUsarCodigo()">Buscar →</button>
       <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almAbrirManual()">✍️ Meter nº de expedición a mano</button>
@@ -2213,6 +2216,16 @@ function almRenderPaso1() {
     inp.focus();
     inp.addEventListener('keydown', e => { if (e.key==='Enter') almUsarCodigo(); });
   }
+}
+
+// La casilla de escanear no saca el teclado (inputmode="none"): la pistola
+// escribe igual. El botón ⌨️ lo saca, numérico, solo cuando se quiere teclear.
+function almTeclado() {
+  const inp = document.getElementById('alm-inp-codigo');
+  if (!inp) return;
+  inp.blur();
+  inp.setAttribute('inputmode', inp.getAttribute('inputmode') === 'none' ? 'numeric' : 'none');
+  setTimeout(() => inp.focus(), 50);
 }
 
 async function almUsarCodigo() {
@@ -2333,11 +2346,25 @@ function almHtmlManual() {
     <div class="refuel-card">
       <div class="section-title">Nº de expedición a mano</div>
       ${e.noEncontrado ? `<div style="background:rgba(255,179,71,0.12);color:var(--warning);border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:0.75rem">No se ha encontrado el código <strong style="font-family:monospace;word-break:break-all">${almEsc(e.codigo)}</strong>. Escribe la expedición que pone en la etiqueta.</div>` : ''}
-      <input class="form-input" type="text" inputmode="numeric" id="alm-man-exp" value="${almEsc(e.textoManual||'')}" placeholder="Nº de expedición" autocomplete="off" style="font-family:monospace;font-size:18px;letter-spacing:1px">
+      <div style="display:flex;gap:0.5rem">
+        <input class="form-input" type="text" inputmode="numeric" id="alm-man-exp" value="${almEsc(e.textoManual||'')}" placeholder="Nº de expedición" autocomplete="off" style="font-family:monospace;font-size:18px;letter-spacing:1px;flex:1;min-width:0">
+        <button type="button" class="btn btn-ghost" id="alm-btn-abc" onclick="almTecladoLetras()" style="width:auto;flex-shrink:0;padding:0.6rem 0.8rem;font-size:14px" title="Teclado con letras">ABC</button>
+      </div>
       <button class="btn btn-primary" style="margin-top:0.75rem" onclick="almBuscarManual()">Buscar →</button>
       ${bloque}
       <button class="btn btn-ghost" style="margin-top:0.75rem" onclick="almRenderPaso(1)">← Volver a escanear</button>
     </div>`;
+}
+
+// Por si alguna expedición lleva letras (p. ej. Coditral 325A002256)
+function almTecladoLetras() {
+  const inp = document.getElementById('alm-man-exp'), btn = document.getElementById('alm-btn-abc');
+  if (!inp) return;
+  const letras = inp.getAttribute('inputmode') !== 'text';
+  inp.blur();
+  inp.setAttribute('inputmode', letras ? 'text' : 'numeric');
+  if (btn) btn.textContent = letras ? '123' : 'ABC';
+  setTimeout(() => inp.focus(), 50);
 }
 
 async function almBuscarManual() {
@@ -3007,7 +3034,7 @@ function almEditar(id) {
   const ags = AGENCIAS_ALM.includes(r.agencia) ? AGENCIAS_ALM : [...AGENCIAS_ALM, r.agencia];
   const cuerpo = `
     <label class="alm-etq" for="alm-ed-exp">Expedición</label>
-    <input class="form-input alm-ed-exp" type="text" id="alm-ed-exp" value="${almEsc(r.expedicion||r.codigo||'')}">
+    <input class="form-input alm-ed-exp" type="text" inputmode="numeric" id="alm-ed-exp" value="${almEsc(r.expedicion||r.codigo||'')}">
 
     <div class="alm-etq" style="margin-top:1rem">Agencia</div>
     <div class="alm-ags" id="alm-ed-ags">
@@ -3173,7 +3200,7 @@ async function almExportarExcel() {
 // Este bloque vive dentro de <script type="module">: las funciones que se
 // llaman desde onclick="" tienen que colgarse de window para existir.
 Object.assign(window, {
-  almUsarCodigo, almAbrirManual, almBuscarManual, almElegir, almRemedir,
+  almUsarCodigo, almTeclado, almTecladoLetras, almAbrirManual, almBuscarManual, almElegir, almRemedir,
   almSelAgencia, almRenderPaso, almSelMedida,
   almCalcPeso, almIrConfirmar, almGuardar, almNueva,
   renderAlmacenAdmin, renderAlmacenResumen, almBorrarExpedicion, almExportarExcel,
