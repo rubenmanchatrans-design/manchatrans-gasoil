@@ -2066,7 +2066,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v17 · 22/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v18 · 22/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_NEREID = 8;      // días de alta que se cargan de nereidDias
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -5324,6 +5324,7 @@ function renderAdminRecords() {
             <div class="gs-chips">
               ${km!=null ? `<span class="gs-chip">🛣 ${km.toLocaleString('es-ES')} km</span>` : ''}
               ${r.consumo ? `<span class="gs-chip ${raro?'gs-chip-mal':''}">${raro?'🚨':'⛽'} ${gsNum(r.consumo,2)} L/100km</span>` : ''}
+              ${r.lecturaIni!=null ? `<span class="gs-chip" title="Lectura del surtidor">📊 ${r.lecturaIni}→${r.lecturaFin} L</span>` : ''}
               ${r.obs ? `<span class="gs-chip">💬 ${almEsc(r.obs)}</span>` : ''}
             </div>
           </div>
