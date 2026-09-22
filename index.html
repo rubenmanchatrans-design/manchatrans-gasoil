@@ -1989,6 +1989,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
+const ALM_VERSION = 'Almacén v8 · 22/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_NEREID = 8;      // días de alta que se cargan de nereidDias
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2222,6 +2223,7 @@ function almRenderPaso1() {
       <button class="btn btn-primary" onclick="almUsarCodigo()">Buscar →</button>
       <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almAbrirManual()">✍️ Meter nº de expedición a mano</button>
       <div id="alm-nereid-estado" style="margin-top:0.75rem;font-size:12px;color:var(--text-muted);text-align:center">${almTextoEstadoNereid()}</div>
+      <div style="margin-top:0.25rem;font-size:11px;color:var(--text-muted);text-align:center;opacity:0.7">${ALM_VERSION}</div>
     </div>`;
   const inp = document.getElementById('alm-inp-codigo');
   if (inp) {
