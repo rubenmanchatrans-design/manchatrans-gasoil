@@ -449,6 +449,49 @@ input[type="number"] { -moz-appearance: textfield; }
 .hc-info { font-size: 13px; margin-top: 0.35rem; color: var(--text); }
 .hc-info:empty { display: none; }
 .hc-badge { display: flex; flex-wrap: wrap; gap: 0.3rem; font-size: 12px; margin-top: auto; padding-top: 0.5rem; }
+
+/* ── Ropa, ADR/CAP, Seguros y Configuración: mismo estilo que el resto ── */
+.mod-nuevo { max-width: 900px; margin: 0 auto; }
+.mod-nuevo .mod-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.4rem; border-bottom: none; margin-bottom: 1rem; }
+.mod-nuevo .atab-btn { background: transparent !important; border: 2px solid rgba(255,255,255,0.14) !important; border-radius: 12px !important; color: var(--text) !important; padding: 0.75rem 0.5rem; font-size: 14px; font-weight: 700; white-space: normal; margin: 0; }
+.mod-nuevo .atab-btn.btn-secondary { border-color: var(--accent) !important; background: rgba(245,166,35,0.12) !important; color: var(--accent) !important; }
+.mod-nuevo .atab-btn:hover { border-color: rgba(245,166,35,0.6) !important; }
+.mod-nuevo .mod-layout { display: block; }
+.mod-nuevo .mod-side { display: flex; flex-wrap: wrap; gap: 0.4rem; background: none; border: none; margin-bottom: 0.9rem; overflow: visible; }
+.mod-nuevo .mod-side-item { flex: 1; min-width: 130px; text-align: center; border: 1px solid rgba(255,255,255,0.16) !important; border-radius: 10px; padding: 0.6rem 0.5rem; font-size: 14px; font-weight: 600; background: transparent; }
+.mod-nuevo .mod-side-item.active { background: var(--navy-light); color: var(--text); border-color: var(--accent) !important; }
+.mod-nuevo .refuel-card { border-radius: 16px; }
+.mod-nuevo .section-title { font-size: 13px; margin: 1.1rem 0 0.6rem; }
+.mod-nuevo .btn { border-radius: 12px; }
+.mod-nuevo [id^="btn-toggle-add-"] { background: var(--accent); color: #111; font-weight: 800; font-size: 15px; padding: 0.85rem; border: none; }
+.mod-nuevo .driver-list-item, .mod-nuevo .record { border-radius: 14px; padding: 0.85rem 1rem; margin-bottom: 0.5rem; gap: 0.75rem; }
+.mod-nuevo .driver-list-item:hover, .mod-nuevo .record:hover { border-color: rgba(245,166,35,0.45); }
+.mod-nuevo .driver-info { font-size: 15px; font-weight: 600; }
+.mod-nuevo .driver-code { font-size: 12px; }
+.mod-nuevo .record-meta { font-size: 12.5px; }
+.mod-nuevo .btn-sm, .mod-nuevo .btn-del { border-radius: 10px; padding: 6px 12px; font-size: 13px; font-weight: 600; min-height: 34px; }
+.mod-nuevo .btn-sm { background: transparent; border: 1px solid rgba(255,255,255,0.2); }
+.mod-nuevo .btn-sm:hover { border-color: var(--accent); }
+.mod-nuevo .empty-state { background: var(--card); border: 1px solid var(--card-border); border-radius: 16px; }
+.mod-nuevo .mant-row { padding: 0.7rem 0; font-size: 14px; }
+.mod-nuevo .form-input { border-radius: 10px; }
+/* Tarjetas desplegables que se pintan con estilo en línea */
+.mod-nuevo div[style*="background:var(--card)"][style*="border:1px solid var(--card-border)"] { border-radius: 14px !important; }
+.mod-nuevo div[style*="background:var(--card)"][style*="border:1px solid var(--card-border)"]:hover { border-color: rgba(245,166,35,0.45) !important; }
+#alm-modal-cuerpo > [id$="-wrapper"] > .refuel-card { border: none; padding: 0; background: none; margin: 0; }
+#alm-modal-cuerpo > [id$="-wrapper"] .section-title:first-child { display: none; }
+
+/* Ventanas antiguas (editar empleado, póliza, ITV...): mismo aspecto que las nuevas */
+body > div[id$="-modal"]:not(#alm-modal) { backdrop-filter: blur(2px); background: rgba(0,0,0,0.65) !important; }
+body > div[id$="-modal"]:not(#alm-modal) > div { border-radius: 18px !important; padding: 1.4rem !important; box-shadow: 0 20px 60px rgba(0,0,0,0.5) !important; max-height: 92vh; overflow-y: auto; }
+body > div[id$="-modal"]:not(#alm-modal) > div > div:first-child { font-size: 18px !important; }
+body > div[id$="-modal"]:not(#alm-modal) button { min-height: 44px; border-radius: 12px !important; font-weight: 700; }
+body > div[id$="-modal"]:not(#alm-modal) .form-input { font-size: 16px; border-radius: 10px; }
+@media (max-width: 560px) {
+  body > div[id$="-modal"]:not(#alm-modal) { align-items: flex-end !important; padding: 0 !important; }
+  body > div[id$="-modal"]:not(#alm-modal) > div { max-width: 100% !important; width: 100% !important; border-radius: 18px 18px 0 0 !important; max-height: 94vh !important; }
+}
+.mod-nuevo #btn-toggle-asignar-credito { margin-top: 0.75rem; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -733,10 +776,10 @@ html.giro-fijo #screen-chat { height: 100% !important; }
       <div id="alm-admin-resumen" style="display:none;"></div>
     </div>
 
-    <div id="module-gestion" style="display:none;">
+    <div id="module-gestion" class="mod-nuevo" style="display:none;">
     <div class="mod-tabs">
-      <button class="btn btn-secondary atab-btn" id="atab-btn-conductores">Empleados</button>
-      <button class="btn btn-ghost atab-btn" id="atab-btn-vehiculos">Vehículos</button>
+      <button class="btn btn-secondary atab-btn" id="atab-btn-conductores">👤 Empleados</button>
+      <button class="btn btn-ghost atab-btn" id="atab-btn-vehiculos">🚛 Vehículos</button>
       <button class="btn btn-ghost atab-btn" id="atab-btn-backup">💾 Copia de seguridad</button>
     </div>
 
@@ -832,6 +875,8 @@ html.giro-fijo #screen-chat { height: 100% !important; }
     <!-- VEHÍCULOS (unificado) -->
     <div id="atab-vehiculos" class="tab-pane">
       <div id="mat-alert" class="alert"></div>
+      <button class="btn btn-secondary" id="btn-toggle-add-mat" style="margin-bottom:1rem;width:100%;" onclick="const w=document.getElementById('add-mat-wrapper');w.style.display=w.style.display==='none'?'block':'none'">➕ Añadir vehículo</button>
+      <div id="add-mat-wrapper" style="display:none;">
       <div class="refuel-card" style="margin-bottom:1rem;">
         <div class="section-title">Añadir vehículo</div>
         <div class="form-group">
@@ -850,6 +895,7 @@ html.giro-fijo #screen-chat { height: 100% !important; }
           <button class="btn btn-primary" id="btn-add-mat">Añadir vehículo</button>
           <button class="btn btn-ghost" id="btn-borrar-mat" type="button">🗑 Borrar</button>
         </div>
+      </div>
       </div>
       <button class="btn btn-secondary" id="btn-toggle-mat" style="margin-bottom:1rem;">📋 Ver vehículos activos (<span class="mat-count">0</span>)</button>
       <div id="mat-list-wrapper" style="display:none;">
@@ -1071,16 +1117,17 @@ html.giro-fijo #screen-chat { height: 100% !important; }
     <!-- ═══════════ FIN MÓDULO FLEET ═══════════ -->
 
     <!-- ═══════════ MÓDULO ADR/CAP (independiente) ═══════════ -->
-    <div id="module-adrcap" style="display:none;">
+    <div id="module-adrcap" class="mod-nuevo" style="display:none;">
+
+      <div class="mod-tabs" id="adr-tabs">
+        <button class="btn btn-secondary atab-btn" id="adr-tab-conductores" onclick="document.getElementById('btn-volver-mant-cond').click()">🪪 Por conductor</button>
+        <button class="btn btn-ghost atab-btn" id="btn-ver-hist-mant-cond">📋 Historial</button>
+        <button class="btn btn-ghost atab-btn" id="btn-ver-creditos-formacion">💰 Créditos y cursos</button>
+      </div>
 
       <!-- ADR/CAP POR CONDUCTOR -->
       <div id="ftab-mant-conductores" class="tab-pane active">
-        <div class="section-title">ADR y CAP por conductor</div>
-        <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
-          <button class="btn btn-secondary" style="flex:1;font-size:13px;" id="btn-ver-pendientes-cond">📅 Pendiente Mes</button>
-          <button class="btn btn-ghost" style="flex:1;font-size:13px;" id="btn-ver-hist-mant-cond">📋 Historial</button>
-          <button class="btn btn-ghost" style="flex:1;font-size:13px;" id="btn-ver-creditos-formacion">💰 Créditos</button>
-        </div>
+        <button class="btn btn-ghost" style="margin-bottom:0.75rem" id="btn-ver-pendientes-cond">📅 Ver lo que vence este mes</button>
         <div class="form-group">
           <select class="form-input" id="mantcond-filter-cod" style="font-size:14px;padding:0.6rem;">
             <option value="">— Selecciona conductor —</option>
@@ -1094,7 +1141,7 @@ html.giro-fijo #screen-chat { height: 100% !important; }
       <div id="ftab-hist-mant-cond" class="tab-pane">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
           <div class="section-title" style="margin-bottom:0;">Historial de ADR/CAP</div>
-          <button class="btn-sm" id="btn-volver-mant-cond">← Volver</button>
+          <button class="btn-sm" id="btn-volver-mant-cond" style="display:none">← Volver</button>
         </div>
         <div class="form-group">
           <select class="form-input" id="hist-mant-cond-filter-cod" style="font-size:14px;padding:0.6rem;">
@@ -1108,7 +1155,7 @@ html.giro-fijo #screen-chat { height: 100% !important; }
       <div id="ftab-creditos-formacion" class="tab-pane">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
           <div class="section-title" style="margin-bottom:0;">Créditos de formación</div>
-          <button class="btn-sm" id="btn-volver-creditos">← Volver</button>
+          <button class="btn-sm" id="btn-volver-creditos" style="display:none">← Volver</button>
         </div>
 
         <div class="two-col" style="margin-bottom:0.75rem;">
@@ -1182,10 +1229,10 @@ html.giro-fijo #screen-chat { height: 100% !important; }
     <!-- ═══════════ FIN MÓDULO ADR/CAP ═══════════ -->
 
     <!-- ═══════════ MÓDULO SEGUROS ═══════════ -->
-    <div id="module-seguros" style="display:none;">
+    <div id="module-seguros" class="mod-nuevo" style="display:none;">
       <div class="mod-tabs">
         <button class="btn btn-secondary atab-btn" id="seg-tab-btn-vehiculos">🚗 Vehículos</button>
-        <button class="btn btn-ghost atab-btn" id="seg-tab-btn-carretillas">🚜 Carretillas/Transpaletas</button>
+        <button class="btn btn-ghost atab-btn" id="seg-tab-btn-carretillas">🚜 Carretillas</button>
         <button class="btn btn-ghost atab-btn" id="seg-tab-btn-polizas">📄 Pólizas</button>
         <button class="btn btn-ghost atab-btn" id="seg-tab-btn-tractor">🚛 Tractor</button>
         <button class="btn btn-ghost atab-btn" id="seg-tab-btn-comparativa">📊 Comparativa</button>
@@ -1338,13 +1385,13 @@ html.giro-fijo #screen-chat { height: 100% !important; }
     <!-- ═══════════ FIN MÓDULO SEGUROS ═══════════ -->
 
     <!-- ═══════════ MÓDULO ROPA ═══════════ -->
-    <div id="module-ropa" style="display:none;">
+    <div id="module-ropa" class="mod-nuevo" style="display:none;">
       <div class="mod-tabs">
-        <button class="btn btn-secondary atab-btn" id="rtab-btn-entregar">Nueva entrega</button>
-        <button class="btn btn-ghost atab-btn" id="rtab-btn-historial">Historial</button>
-        <button class="btn btn-ghost atab-btn" id="rtab-btn-pendientes">Pendientes de firma</button>
-        <button class="btn btn-ghost atab-btn" id="rtab-btn-inventario">Inventario</button>
-        <button class="btn btn-ghost atab-btn" id="rtab-btn-pedido">📦 Pedido anual</button>
+        <button class="btn btn-secondary atab-btn" id="rtab-btn-entregar">👔 Nueva entrega</button>
+        <button class="btn btn-ghost atab-btn" id="rtab-btn-historial">📋 Historial</button>
+        <button class="btn btn-ghost atab-btn" id="rtab-btn-pendientes">✍️ Pendientes de firma</button>
+        <button class="btn btn-ghost atab-btn" id="rtab-btn-inventario">📦 Inventario</button>
+        <button class="btn btn-ghost atab-btn" id="rtab-btn-pedido">🧾 Pedido anual</button>
       </div>
 
       <!-- NUEVA ENTREGA -->
@@ -2019,7 +2066,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v15 · 22/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v16 · 22/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_NEREID = 8;      // días de alta que se cargan de nereidDias
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -3233,6 +3280,89 @@ function almAvisoCopiado(msg, ok, texto) {
   t.innerHTML = `<div>${almEsc(msg)}</div>${ok && texto.length < 80 ? `<div class="alm-toast-txt">${almEsc(texto).replace(/\n/g,' · ')}</div>` : ''}`;
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
+}
+
+
+// ════════════════════════════════════════════════════════════════════════════
+// ESTILO NUEVO PARA ROPA, ADR/CAP, SEGUROS Y CONFIGURACIÓN
+// Los formularios que antes se desplegaban dentro de la página ("➕ Añadir...")
+// ahora se abren en una ventana. Se hace vigilando cuándo se muestra su caja:
+// así siguen funcionando igual los botones y el código de siempre.
+// ════════════════════════════════════════════════════════════════════════════
+const MOD_FORMULARIOS = {
+  'add-driver-wrapper':      {titulo:'👤 Empleado',               boton:'btn-toggle-add-driver',  alerta:'admin-alert'},
+  'add-mat-wrapper':         {titulo:'🚛 Añadir vehículo',        boton:'btn-toggle-add-mat',     alerta:'mat-alert'},
+  'add-curso-wrapper':       {titulo:'🎓 Registrar curso',        boton:'btn-toggle-add-curso',   alerta:'curso-alert'},
+  'asignar-credito-wrapper': {titulo:'💰 Crédito de formación',   boton:'btn-toggle-asignar-credito', alerta:'credito-total-alert'},
+  'add-seg-veh-wrapper':     {titulo:'🛡️ Seguro',                 boton:'btn-toggle-add-seg-veh', alerta:'seg-veh-alert'},
+  'add-seg-pol-wrapper':     {titulo:'📄 Póliza',                 boton:'btn-toggle-add-seg-pol', alerta:'seg-pol-alert'},
+  'notas-seg-veh-wrapper':   {titulo:'📝 Notas generales',        boton:'btn-toggle-notas-seg-veh', alerta:'notas-seg-veh-alert'},
+  'notas-seg-pol-wrapper':   {titulo:'📝 Notas generales',        boton:'btn-toggle-notas-seg-pol', alerta:'notas-seg-pol-alert'},
+};
+const modTextoBoton = {};
+let modFormAbierto = null;
+
+function modAbrirFormulario(id) {
+  const w = document.getElementById(id), cfg = MOD_FORMULARIOS[id];
+  if (!w || modFormAbierto === id) return;
+  const casa = w.parentNode, sig = w.nextSibling;
+  // Título: el texto del botón que lo abre (p. ej. "Añadir seguro de carretilla")
+  const tmp = document.createElement('div'); tmp.innerHTML = modTextoBoton[cfg.boton] || '';
+  const txtBoton = tmp.textContent.replace(/^[➖➕✏️📝💰\s]+/u, '').replace(/\(.*\)$/, '').trim();
+  const titulo = txtBoton ? `${cfg.titulo.split(' ')[0]} ${txtBoton}` : cfg.titulo;
+  almAbrirModal(titulo, '', '');
+  document.getElementById('alm-modal-cuerpo').appendChild(w);
+  modFormAbierto = id;
+  almAlCerrar = () => {
+    modFormAbierto = null;
+    casa.insertBefore(w, sig);
+    w.style.display = 'none';
+    const b = document.getElementById(cfg.boton);
+    if (b && modTextoBoton[cfg.boton]) b.innerHTML = modTextoBoton[cfg.boton];
+  };
+  setTimeout(() => w.querySelector('input:not([type=checkbox]):not([type=date]),select,textarea')?.focus(), 60);
+}
+
+function modPrepararFormularios() {
+  Object.entries(MOD_FORMULARIOS).forEach(([id, cfg]) => {
+    const w = document.getElementById(id);
+    if (!w || w.dataset.modVigilado) return;
+    w.dataset.modVigilado = '1';
+    const b = document.getElementById(cfg.boton);
+    if (b) {
+      modTextoBoton[cfg.boton] = b.innerHTML;
+      // se guarda siempre el último texto "normal" del botón (no el de "Ocultar formulario")
+      new MutationObserver(() => { if (!/ocultar/i.test(b.textContent)) modTextoBoton[cfg.boton] = b.innerHTML; })
+        .observe(b, {childList:true, characterData:true, subtree:true});
+    }
+    new MutationObserver(() => {
+      const visible = w.style.display !== 'none';
+      const enVentana = modFormAbierto === id;
+      if (visible && !enVentana) modAbrirFormulario(id);
+      else if (!visible && enVentana) almCerrarModal();          // se guardó y el código lo ocultó
+    }).observe(w, {attributes:true, attributeFilter:['style']});
+    // Si el guardado sale bien (mensaje con ✓) y la ventana sigue abierta, se cierra sola
+    const al = document.getElementById(cfg.alerta);
+    if (al) new MutationObserver(() => {
+      const t = (al.textContent || '').trim();
+      if (modFormAbierto === id && t.startsWith('✓')) {
+        setTimeout(() => { if (modFormAbierto === id) { almCerrarModal(); mostrarMensajeFlotante?.(t); } }, 900);
+      }
+    }).observe(al, {childList:true, characterData:true, subtree:true});
+  });
+  // Pestañas de ADR/CAP: marcar la activa
+  const tabs = document.querySelectorAll('#adr-tabs .atab-btn');
+  tabs.forEach(t => t.addEventListener('click', () => tabs.forEach(x => {
+    x.classList.toggle('btn-secondary', x === t); x.classList.toggle('btn-ghost', x !== t);
+  })));
+}
+
+// En Configuración las listas se enseñan abiertas desde el principio
+function modAbrirListas() {
+  [['driver-list-wrapper','btn-toggle-drivers'], ['mat-list-wrapper','btn-toggle-mat']].forEach(([w, b]) => {
+    const el = document.getElementById(w);
+    if (el && el.style.display === 'none') document.getElementById(b)?.click();
+  });
 }
 
 // ── Ver y editar una medida (ventana emergente, vista admin) ──
@@ -4901,7 +5031,7 @@ function homeResumen() {
     cifra('⏳', pend, 'Por pasar al sistema', pend ? '#f5a623' : null, 'almacen');
 }
 
-function renderAdminPage() { try { almEscucharRegistros(); } catch(e) {} actualizarSaludoHome(); populateFilters(); renderAdminStats(); renderDriverList(); updateAdrCapBadge(); updateSegurosBadge(); updateFleetBadge(); updatePendientesBadge(); }
+function renderAdminPage() { try { modPrepararFormularios(); } catch(e) { console.warn(e); } try { almEscucharRegistros(); } catch(e) {} actualizarSaludoHome(); populateFilters(); renderAdminStats(); renderDriverList(); updateAdrCapBadge(); updateSegurosBadge(); updateFleetBadge(); updatePendientesBadge(); }
 
 function populateFilters() {
   // Conductores (todos, incluidos los de baja, para poder filtrar su histórico)
@@ -6331,7 +6461,7 @@ function switchModule(mod) {
     renderSegurosPolizas();
     updateSegurosBadge();
   }
-  if (mod==='gestion') { switchGestionTab('conductores'); }
+  if (mod==='gestion') { switchGestionTab('conductores'); modAbrirListas(); }
 }
 
 function volverASeleccionModulo() {
