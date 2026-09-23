@@ -2221,7 +2221,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v56 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v57 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2977,7 +2977,11 @@ function almHtmlManual() {
   const res = e.resultados;           // undefined = aún no se ha buscado
   let bloque = '';
   if (res && e.clientePropio && res.length === 0) {
-    bloque = `<div style="color:var(--text-muted);font-size:13px;margin-top:0.75rem">No hay palets de ${almEsc(e.clientePropio)} pendientes de medir. Escribe la expedición de la etiqueta pequeña.</div>`;
+    const total = almIdx.entradas.filter(f => f.cli === e.clientePropio).length;
+    bloque = `<div style="color:var(--warning);font-size:13px;margin-top:0.75rem">${total
+      ? `Las ${total} expediciones de ${almEsc(e.clientePropio)} de los últimos ${ALM_DIAS_EXP} días ya están medidas.`
+      : `No hay ninguna expedición marcada como ${almEsc(e.clientePropio)} en los últimos ${ALM_DIAS_EXP} días. Puede que el programa del PC no las esté reconociendo: avisa a quien lleva la app.`}
+      Escribe la expedición de la etiqueta pequeña.</div>`;
   } else if (res && ((e.clientePropio && res.length >= 1 && res.length <= 12) || (res.length > 1 && res.length <= 8))) {
     bloque = `<div style="font-size:13px;color:var(--text-muted);margin:0.75rem 0 0.4rem">${e.clientePropio
         ? `Palets de <strong style="color:var(--text)">${almEsc(e.clientePropio)}</strong> pendientes de medir. Toca el que tienes delante (su nº está en la etiqueta pequeña):`
