@@ -492,6 +492,26 @@ body > div[id$="-modal"]:not(#alm-modal) .form-input { font-size: 16px; border-r
   body > div[id$="-modal"]:not(#alm-modal) > div { max-width: 100% !important; width: 100% !important; border-radius: 18px 18px 0 0 !important; max-height: 94vh !important; }
 }
 .mod-nuevo #btn-toggle-asignar-credito { margin-top: 0.75rem; }
+
+/* ── Avisos (ADR/CAP y Seguros) ── */
+.avisos { border: 1px solid var(--card-border); border-radius: 14px; overflow: hidden; margin-bottom: 1rem; background: var(--card); }
+.avisos-cab { width: 100%; display: flex; align-items: center; gap: 0.6rem; background: rgba(231,76,60,0.10); border: none; border-left: 4px solid var(--danger); color: var(--text); padding: 0.85rem 1rem; cursor: pointer; font-family: inherit; text-align: left; }
+.avisos-cab:hover { background: rgba(231,76,60,0.16); }
+.avisos-tit { font-size: 15px; font-weight: 700; }
+.avisos-pills { display: flex; gap: 0.35rem; flex: 1; flex-wrap: wrap; }
+.avisos-pill { font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 11px; }
+.avisos-pill.mal { background: rgba(231,76,60,0.2); color: #ff8b80; }
+.avisos-pill.prox { background: rgba(245,166,35,0.2); color: var(--warning); }
+.avisos-flecha { font-size: 18px; color: var(--text-muted); }
+.avisos-lista { max-height: 380px; overflow-y: auto; }
+.aviso-fila { display: flex; align-items: center; gap: 0.75rem; padding: 0.7rem 1rem; border-top: 1px solid var(--card-border); }
+.aviso-fila:hover { background: var(--navy-light); }
+.aviso-info { flex: 1; min-width: 0; }
+.aviso-nom { font-size: 15px; font-weight: 700; }
+.aviso-tipo { font-weight: 500; color: var(--text-muted); font-size: 13px; }
+.aviso-sub { font-size: 13px; font-weight: 600; margin-top: 1px; }
+.aviso-ir { color: var(--text-muted); font-size: 20px; }
+.avisos-ok { background: rgba(46,204,113,0.10); border: 1px solid rgba(46,204,113,0.35); color: var(--success); border-radius: 14px; padding: 0.8rem 1rem; font-size: 14px; font-weight: 600; margin-bottom: 1rem; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -676,8 +696,14 @@ html.giro-fijo #screen-chat { height: 100% !important; }
         <button class="home-card" id="home-btn-adrcap">
           <span class="hc-icon" style="background:rgba(168,85,247,0.15);">🪪</span>
           <span class="hc-name">ADR / CAP</span>
-          <span class="hc-desc">Formación · Créditos · Cursos</span>
+          <span class="hc-desc">Vencimientos · Renovaciones</span>
           <span id="home-badge-adrcap" class="hc-badge"></span>
+        </button>
+        <button class="home-card" id="home-btn-formacion">
+          <span class="hc-icon" style="background:rgba(34,197,94,0.15);">🎓</span>
+          <span class="hc-name">Formación</span>
+          <span class="hc-desc">Créditos · Cursos · Gasto por empresa</span>
+          <span id="home-info-formacion" class="hc-info"></span>
         </button>
       </div>
       <div class="home-grid home-grid-3">
@@ -1122,7 +1148,6 @@ html.giro-fijo #screen-chat { height: 100% !important; }
       <div class="mod-tabs" id="adr-tabs">
         <button class="btn btn-secondary atab-btn" id="adr-tab-conductores" onclick="document.getElementById('btn-volver-mant-cond').click()">🪪 Por conductor</button>
         <button class="btn btn-ghost atab-btn" id="btn-ver-hist-mant-cond">📋 Historial</button>
-        <button class="btn btn-ghost atab-btn" id="btn-ver-creditos-formacion">💰 Créditos y cursos</button>
       </div>
 
       <!-- ADR/CAP POR CONDUCTOR -->
@@ -1152,7 +1177,13 @@ html.giro-fijo #screen-chat { height: 100% !important; }
       </div>
 
       <!-- CRÉDITOS DE FORMACIÓN -->
-      <div id="ftab-creditos-formacion" class="tab-pane">
+    </div>
+
+    <!-- ═══════════ FIN MÓDULO ADR/CAP ═══════════ -->
+
+    <!-- ═══════════ MÓDULO FORMACIÓN (créditos y cursos) ═══════════ -->
+    <div id="module-formacion" class="mod-nuevo" style="display:none;">
+      <div id="ftab-creditos-formacion" class="tab-pane active">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
           <div class="section-title" style="margin-bottom:0;">Créditos de formación</div>
           <button class="btn-sm" id="btn-volver-creditos" style="display:none">← Volver</button>
@@ -1226,7 +1257,7 @@ html.giro-fijo #screen-chat { height: 100% !important; }
         <div id="cursos-formacion-list"></div>
       </div>
     </div>
-    <!-- ═══════════ FIN MÓDULO ADR/CAP ═══════════ -->
+    <!-- ═══════════ FIN MÓDULO FORMACIÓN ═══════════ -->
 
     <!-- ═══════════ MÓDULO SEGUROS ═══════════ -->
     <div id="module-seguros" class="mod-nuevo" style="display:none;">
@@ -1579,7 +1610,8 @@ let MODULO_CODIGOS = {
   ropa: '3333',
   adrcap: '4444',
   seguros: '5555',
-  almacen: '6666'
+  almacen: '6666',
+  formacion: '7777'
 };
 const DEPOSITO_CAP = 10000;
 const ALERTA_MIN = 1000;
@@ -2054,10 +2086,10 @@ window.anadirChatUsuario = async () => {
 // MÓDULO ALMACÉN
 // ════════════════════════════════════════════════════════════════════════════
 // Al escanear, la expedición y la agencia se sacan de la tabla que el script
-// almacen_nereid.py sube cada 5 minutos a la colección `nereidDias` (un
+// el programa del PC sube cada 5 minutos a la colección `expedicionesDia` (un
 // documento por día de alta, con la lista en JSON en el campo `datos`).
-// Orden de búsqueda: 1) lectura de Nereid  2) referencia  3) referencia dentro
-// del código  4) buscador manual (queda marcado como "sin lectura en Nereid").
+// Orden de búsqueda: 1) lectura del sistema  2) referencia  3) referencia dentro
+// del código  4) buscador manual (queda marcado como "sin lectura en el sistema").
 
 const AGENCIAS_ALM = ['CBL','XPO','ONTIME','NTL','RHENUS','CODITRAL'];
 const TIPOS_PALET = {
@@ -2066,16 +2098,16 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v18 · 22/09';   // se ve en la pantalla de escanear
-const ALM_DIAS_NEREID = 8;      // días de alta que se cargan de nereidDias
+const ALM_VERSION = 'Almacén v19 · 23/09';   // se ve en la pantalla de escanear
+const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
 let almEstado = {};
 let almCache = [];              // expediciones medidas (almacenExpediciones)
 let almUnsubscribe = null;      // compatibilidad con el logout antiguo
-let almNereidSubs = [];         // listeners de nereidDias
-let almNereidDias = {};         // díaId → filas
-let almNereidListo = false;
+let almExpSubs = [];         // listeners de expedicionesDia
+let almExpDias = {};         // díaId → filas
+let almExpListo = false;
 let almIdx = { cod:new Map(), ref:new Map(), id:new Map(), entradas:[] };
 
 const almEsc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -2083,11 +2115,11 @@ const almNum = (v, d=1) => (Number(v)||0).toLocaleString('es-ES',{minimumFractio
 
 function almReset() {
   almEstado = {codigo:'',agencia:'',medida:'',tipo:'',largo:0,ancho:0,alto:0,peso:0,volumen:0,
-               exp:'',alb:'',idNereid:null,kgDecl:0,kgtDecl:0,m3Decl:0,via:'',leida:false,pob:'',bultos:0,tipoDecl:'',
+               exp:'',alb:'',idExp:null,kgDecl:0,kgtDecl:0,m3Decl:0,via:'',leida:false,pob:'',bultos:0,tipoDecl:'',
                previas:[],remedir:false,vista:'',noEncontrado:false,textoManual:'',resultados:undefined,lineas:[]};
 }
 
-// ── Tabla de Nereid ──
+// ── Tabla del sistema ──
 // Hoy y ayer se escuchan en vivo (es donde entran los camiones del día). Los
 // días anteriores se leen una vez al entrar y se refrescan cada 30 minutos:
 // así cada móvil descarga mucho menos de Firebase.
@@ -2103,39 +2135,39 @@ function almGuardarDia(id, snap) {
   let filas = [];
   if (snap.exists()) { try { filas = JSON.parse(snap.data().datos||'[]'); } catch(e) {} }
   filas.forEach(f => f.dia = id);
-  almNereidDias[id] = filas;
+  almExpDias[id] = filas;
 }
 async function almLeerViejos() {
   const ids = [];
-  for (let n = ALM_DIAS_VIVO; n < ALM_DIAS_NEREID; n++) ids.push(almIdDia(n));
+  for (let n = ALM_DIAS_VIVO; n < ALM_DIAS_EXP; n++) ids.push(almIdDia(n));
   await Promise.all(ids.map(async id => {
-    try { almGuardarDia(id, await getDoc(doc(db,'nereidDias',id))); }
-    catch(e) { console.warn('nereidDias', id, e); }
+    try { almGuardarDia(id, await getDoc(doc(db,'expedicionesDia',id))); }
+    catch(e) { console.warn('expedicionesDia', id, e); }
   }));
   almIndexar();
 }
-function almEscucharNereid() {
-  almPararNereid();
-  almNereidDias = {};
+function almEscucharExp() {
+  almPararExp();
+  almExpDias = {};
   for (let n = 0; n < ALM_DIAS_VIVO; n++) {
     const id = almIdDia(n);
-    almNereidSubs.push(onSnapshot(doc(db,'nereidDias',id), snap => {
+    almExpSubs.push(onSnapshot(doc(db,'expedicionesDia',id), snap => {
       almGuardarDia(id, snap); almIndexar();
-    }, err => console.warn('nereidDias', id, err)));
+    }, err => console.warn('expedicionesDia', id, err)));
   }
   almLeerViejos();
   almRefrescoViejos = setInterval(almLeerViejos, 30*60*1000);
 }
-function almPararNereid() {
-  almNereidSubs.forEach(u => { try{u();}catch(e){} });
-  almNereidSubs = [];
+function almPararExp() {
+  almExpSubs.forEach(u => { try{u();}catch(e){} });
+  almExpSubs = [];
   if (almRefrescoViejos) { clearInterval(almRefrescoViejos); almRefrescoViejos = null; }
 }
 function almIndexar() {
   const idx = { cod:new Map(), ref:new Map(), id:new Map(), entradas:[] };
   const push = (m, k, f) => { if (!k) return; const a = m.get(k); a ? a.push(f) : m.set(k,[f]); };
-  Object.keys(almNereidDias).sort().forEach(dia => {        // del más viejo al más nuevo
-    almNereidDias[dia].forEach(f => {
+  Object.keys(almExpDias).sort().forEach(dia => {        // del más viejo al más nuevo
+    almExpDias[dia].forEach(f => {
       idx.id.set(String(f.id), f);
       if (f.esp) return;          // espejo de otra entrada (CBL CENTRAL): no se mide aparte
       (f.cod||[]).forEach(c => push(idx.cod, almNormCod(c), f));
@@ -2146,14 +2178,14 @@ function almIndexar() {
   });
   idx.entradas.reverse();                                     // más recientes primero
   almIdx = idx;
-  almNereidListo = true;
-  const est = document.getElementById('alm-nereid-estado');
-  if (est) est.innerHTML = almTextoEstadoNereid();
+  almExpListo = true;
+  const est = document.getElementById('alm-el sistema-estado');
+  if (est) est.innerHTML = almTextoEstadoExp();
 }
-function almTextoEstadoNereid() {
-  if (!almNereidListo) return '⏳ Cargando expediciones de Nereid…';
+function almTextoEstadoExp() {
+  if (!almExpListo) return '⏳ Cargando expediciones…';
   const leidas = almIdx.entradas.filter(f => (f.cod||[]).length).length;
-  return `🟢 ${almIdx.entradas.length.toLocaleString('es-ES')} entradas de Nereid (${(almIdx.entradas.length-leidas).toLocaleString('es-ES')} sin leer)`;
+  return `🟢 ${almIdx.entradas.length.toLocaleString('es-ES')} expediciones (${(almIdx.entradas.length-leidas).toLocaleString('es-ES')} sin leer)`;
 }
 
 // ── Búsqueda del código escaneado ──
@@ -2200,7 +2232,7 @@ function almBuscarTexto(texto) {
 
 function almAplicarFila(f, via) {
   Object.assign(almEstado, {
-    exp: f.ref || f.alb, agencia: f.ag, alb: f.alb, idNereid: f.id,
+    exp: f.ref || f.alb, agencia: f.ag, alb: f.alb, idExp: f.id,
     kgDecl: f.kg||0, kgtDecl: f.kgt||0, m3Decl: f.m3||0, via,
     leida: (f.cod||[]).length > 0,
     pob: f.pob||'', bultos: f.bul||0, tipoDecl: f.tipo||'', diaAlta: f.dia||'',
@@ -2237,7 +2269,7 @@ function entrarAlmacen(desdeAdmin = false) {
   btn.textContent = desdeAdmin ? '← Volver' : 'Salir';
   btn.onclick = () => {
     if (almUnsubscribe) { try{almUnsubscribe();}catch(e){} almUnsubscribe=null; }
-    almPararNereid();
+    almPararExp();
     if (desdeAdmin) {
       showScreen('admin');
       almCargarRegistros().then(() => {
@@ -2249,9 +2281,10 @@ function entrarAlmacen(desdeAdmin = false) {
     }
   };
   almReset();
-  almEscucharNereid();
+  almEscucharExp();
   setTimeout(() => { almRenderPaso(1); almCargarRegistros(); }, 50);
 }
+
 
 // ── Cargar registros desde Firestore ──
 async function almCargarRegistros() {
@@ -2300,7 +2333,7 @@ function almRenderPaso1() {
       </div>
       <button class="btn btn-primary" onclick="almUsarCodigo()">Buscar →</button>
       <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almAbrirManual()">✍️ Meter nº de expedición a mano</button>
-      <div id="alm-nereid-estado" style="margin-top:0.75rem;font-size:12px;color:var(--text-muted);text-align:center">${almTextoEstadoNereid()}</div>
+      <div id="alm-el sistema-estado" style="margin-top:0.75rem;font-size:12px;color:var(--text-muted);text-align:center">${almTextoEstadoExp()}</div>
       <div style="margin-top:0.25rem;font-size:11px;color:var(--text-muted);text-align:center;opacity:0.7">${ALM_VERSION}</div>
     </div>`;
   const inp = document.getElementById('alm-inp-codigo');
@@ -2358,8 +2391,8 @@ document.addEventListener('keydown', almTeclaGlobal, true);
 async function almUsarCodigo() {
   const cod = (document.getElementById('alm-inp-codigo')?.value||'').trim();
   if (!cod) { alert('Escanea o escribe un código'); return; }
-  if (!almNereidListo) {
-    alert('Todavía se están cargando las expediciones de Nereid. Espera unos segundos y vuelve a escanear.');
+  if (!almExpListo) {
+    alert('Todavía se están cargando las expediciones. Espera unos segundos y vuelve a escanear.');
     return;
   }
   almReset();
@@ -2369,7 +2402,7 @@ async function almUsarCodigo() {
   // ¿Este código ya se asoció a mano a una expedición otra vez?
   const al = await almLeerAlias(cod);
   if (al) {
-    const f = al.idNereid != null ? almIdx.id.get(String(al.idNereid)) : null;
+    const f = al.idExp != null ? almIdx.id.get(String(al.idExp)) : null;
     if (f) { await almMostrarFicha(f, 'alias'); return; }
     almEstado.textoManual = al.expedicion || '';
   }
@@ -2380,7 +2413,7 @@ async function almUsarCodigo() {
 
 // ── Códigos aprendidos ──
 // Muchos palets llevan dos etiquetas (la de la agencia y la del cliente) y la
-// PDA de Nereid solo lee una. Cuando un código no se encuentra y se identifica
+// PDA del sistema solo lee una. Cuando un código no se encuentra y se identifica
 // la expedición a mano, se guarda la pareja en `almacenAlias` para que la
 // próxima vez que se escanee ese mismo bulto salga solo.
 async function almLeerAlias(cod) {
@@ -2396,7 +2429,7 @@ async function almGuardarAlias(r) {
   if (!k || k === almNormCod(r.expedicion)) return;
   try {
     await setDoc(doc(db,'almacenAlias',k), {codigo:r.codigo, expedicion:r.expedicion, agencia:r.agencia,
-      idNereid:r.idNereid||null, ts:Date.now()});
+      idExp:r.idExp||null, ts:Date.now()});
   } catch(e) { console.warn('Guardar alias:', e); }
 }
 
@@ -2456,7 +2489,7 @@ function almHtmlFicha() {
   return `
     <div class="refuel-card">
       ${cabecera}
-      ${!e.leida ? `<div style="background:rgba(255,179,71,0.12);color:var(--warning);border-radius:8px;padding:6px 10px;font-size:12px;margin-bottom:0.5rem">⚠️ Sin lectura en Nereid</div>` : ''}
+      ${!e.leida ? `<div style="background:rgba(255,179,71,0.12);color:var(--warning);border-radius:8px;padding:6px 10px;font-size:12px;margin-bottom:0.5rem">⚠️ Sin lectura</div>` : ''}
       ${previas.length ? `<div style="background:rgba(59,130,246,0.12);color:#3b82f6;border-radius:8px;padding:6px 10px;font-size:12px;margin-bottom:0.5rem">ℹ️ Ya tenía ${previas.length} medida${previas.length>1?'s':''}. Esta se guardará como otra más.</div>` : ''}
       ${fila('Albarán', almEsc(e.alb))}
       ${e.pob ? fila('Destino', almEsc(e.pob)) : ''}
@@ -2493,7 +2526,7 @@ function almHtmlManual() {
     bloque = `<div style="color:var(--warning);font-size:13px;margin-top:0.75rem">Hay demasiadas coincidencias. Escribe el número completo.</div>`;
   } else if (res && res.length === 0) {
     bloque = `
-      <div style="background:rgba(255,179,71,0.12);color:var(--warning);border-radius:8px;padding:8px 10px;font-size:13px;margin-top:0.75rem">No está en Nereid (últimos ${ALM_DIAS_NEREID} días). Si quieres registrarla igualmente, elige la agencia:</div>
+      <div style="background:rgba(255,179,71,0.12);color:var(--warning);border-radius:8px;padding:8px 10px;font-size:13px;margin-top:0.75rem">No aparece en el sistema (últimos ${ALM_DIAS_EXP} días). Si quieres registrarla igualmente, elige la agencia:</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-top:0.5rem">
         ${AGENCIAS_ALM.map(a=>`<button class="btn btn-ghost" onclick="almSelAgencia('${a}')" style="font-size:14px;font-weight:700;">${a}</button>`).join('')}
       </div>`;
@@ -2546,7 +2579,7 @@ async function almElegir(id) {
 async function almSelAgencia(ag) {
   const exp = almEstado.textoManual || (document.getElementById('alm-man-exp')?.value||'').trim();
   if (!exp) { alert('Escribe la expedición que pone en la etiqueta'); return; }
-  Object.assign(almEstado, {agencia:ag, exp, via:'manual', leida:false, idNereid:null, alb:'', kgDecl:0, kgtDecl:0, m3Decl:0, pob:'', bultos:0, tipoDecl:''});
+  Object.assign(almEstado, {agencia:ag, exp, via:'manual', leida:false, idExp:null, alb:'', kgDecl:0, kgtDecl:0, m3Decl:0, pob:'', bultos:0, tipoDecl:''});
   if (!almEstado.codigo) almEstado.codigo = exp;
   almEstado.previas = await almMedidasPrevias(exp);
   if (almEstado.previas.length) { almEstado.vista = 'ficha'; almRenderPaso(2); return; }
@@ -2831,7 +2864,7 @@ function almLinCantSet(i) {
   almCambiarCant(i, n);
 }
 // Añadir un grupo de otro tipo (p. ej. 3 europeos + 1 americano). Si con el
-// grupo nuevo se pasaría de los bultos que dice Nereid, se quita uno al
+// grupo nuevo se pasaría de los bultos que dice el sistema, se quita uno al
 // anterior, que casi siempre es lo que se quiere.
 function almAnadirLinea() {
   const e = almEstado;
@@ -2873,7 +2906,7 @@ function almActualizarTotales() {
     desg.textContent = e.lineas.length > 1 ? Object.entries(porTipo).map(([k,v]) => `${v} ${(NOM[k]||NOM[''])[v===1?0:1]}`).join(' + ') : '';
   }
   const av = document.getElementById('alm-res-aviso');
-  if (av) av.textContent = (e.idNereid && e.bultos>0 && n !== e.bultos) ? `Nereid dice ${e.bultos} bulto${e.bultos==1?'':'s'} y estás midiendo ${n}` : '';
+  if (av) av.textContent = (e.idExp && e.bultos>0 && n !== e.bultos) ? `El sistema dice ${e.bultos} bulto${e.bultos==1?'':'s'} y estás midiendo ${n}` : '';
 }
 function almCalcPeso() {
   const p = parseFloat(String(document.getElementById('alm-peso')?.value||'').replace(',','.'))||0;
@@ -2936,7 +2969,7 @@ function almRenderPaso4() {
         ${e.volumen>0 ? dato('📦 Volumen', almNum(e.volumen,3), 'm³') : ''}
         ${e.peso>0 ? dato('⚖️ Peso', almNum(e.peso,1), 'kg') : ''}
       </div>
-      ${e.idNereid && e.bultos>0 && e.lineas.length && n !== e.bultos ? `<div style="font-size:13px;color:var(--warning);margin-top:0.75rem">⚠️ Nereid dice ${e.bultos} bulto${e.bultos==1?'':'s'} y has medido ${n}.</div>` : ''}
+      ${e.idExp && e.bultos>0 && e.lineas.length && n !== e.bultos ? `<div style="font-size:13px;color:var(--warning);margin-top:0.75rem">⚠️ El sistema dice ${e.bultos} bulto${e.bultos==1?'':'s'} y has medido ${n}.</div>` : ''}
       <button class="btn btn-primary" style="margin-top:1rem;font-size:18px;padding:1rem" onclick="almGuardar()">✓ Guardar</button>
       <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almRenderPaso(3)">← Corregir</button>
     </div>`;
@@ -2949,12 +2982,12 @@ async function almGuardar() {
   const tipos = [...new Set(lineas.map(l=>l.tipo))];
   const registro = {
     codigo: e.codigo, expedicion: e.exp, agencia: e.agencia,
-    albaran: e.alb||'', idNereid: e.idNereid||null, poblacion: e.pob||'', bultos: e.bultos||0,
+    albaran: e.alb||'', idExp: e.idExp||null, poblacion: e.pob||'', bultos: e.bultos||0,
     identificacion: e.via,                        // lectura | referencia | contiene | mano | manual
-    sinLecturaNereid: !e.leida,
-    enNereid: !!e.idNereid,
+    sinLectura: !e.leida,
+    enSistema: !!e.idExp,
     kgDeclarados: e.kgDecl||0, kgTasadosDeclarados: e.kgtDecl||0, m3Declarados: e.m3Decl||0,
-    diaAlta: e.diaAlta||'',                       // para que el script siga el albarán en Nereid
+    diaAlta: e.diaAlta||'',                       // para que el script siga el albarán en el sistema
     medida: e.medida, volumen: e.volumen||0, peso: e.peso||0,
     lineas, bultosMedidos: almCantLineas(lineas),
     // compatibilidad con registros antiguos: medidas del primer grupo
@@ -3002,19 +3035,19 @@ const almPasada = r => !!r.pasadoSistema;
 const ALM_DIAS_RECLAMAR = 7;              // pasada y sin modificar tras estos días → aviso
 
 // ¿Ha modificado la agencia lo declarado después de pasárselo?
-//  · automático: el script compara lo que hay ahora en Nereid con lo declarado al medir
+//  · automático: el script compara lo que hay ahora en el sistema con lo declarado al medir
 //  · a mano: "Sí lo han modificado" / "No lo han modificado"
 function almResultado(r) {
   if (!almPasada(r)) return 'pendiente';
   if (r.agenciaEstado === 'modificada') return 'modificada';
   if (r.agenciaEstado === 'no') return 'nomod';
-  if (r.nereidCambio) return 'modificada';
+  if (r.huboCambio) return 'modificada';
   return 'esperando';
 }
 const almDiasDesde = ts => ts ? Math.floor((Date.now() - ts) / 86400000) : 0;
-// Qué ha cambiado en Nereid: [{que, antes, ahora, u}]
-function almCambiosNereid(r) {
-  const a = r.nereidActual; if (!a) return [];
+// Qué ha cambiado en el sistema: [{que, antes, ahora, u}]
+function almCambiosSistema(r) {
+  const a = r.datosActuales; if (!a) return [];
   const c = [];
   const mira = (que, antes, ahora, dec, u) => { if (ahora != null && Math.abs((ahora||0)-(antes||0)) > Math.max(0.005, (antes||0)*0.01)) c.push({que, antes, ahora, dec, u}); };
   mira('Kg', r.kgDeclarados, a.kg, 0, 'kg');
@@ -3023,7 +3056,7 @@ function almCambiosNereid(r) {
   return c;
 }
 function almTextoCambios(r) {
-  return almCambiosNereid(r).map(c => `${c.que}: ${almNum(c.antes,c.dec)} → <strong>${almNum(c.ahora,c.dec)}</strong> ${c.u}`).join(' · ');
+  return almCambiosSistema(r).map(c => `${c.que}: ${almNum(c.antes,c.dec)} → <strong>${almNum(c.ahora,c.dec)}</strong> ${c.u}`).join(' · ');
 }
 async function almMarcarAgencia(id, estado) {
   const r = almCache.find(x => x.id === id);
@@ -3063,7 +3096,7 @@ function almVerEstado(v) { almVistaEstado = v; renderAlmacenAdmin(); }
 
 function almHtmlControlAgencia(r) {
   const res = almResultado(r);
-  const a = r.nereidActual;
+  const a = r.datosActuales;
   const fila = (que, antes, ahora, dec, u) => {
     const cambia = ahora != null && Math.abs((ahora||0)-(antes||0)) > Math.max(0.005,(antes||0)*0.01);
     return `<tr><td style="padding:5px 0;color:var(--text-muted)">${que}</td>
@@ -3076,13 +3109,13 @@ function almHtmlControlAgencia(r) {
     <div style="background:var(--navy-light);border-radius:14px;padding:0.8rem 1rem">
       <div style="margin-bottom:0.5rem">${almHtmlEstadoAgencia(r)}</div>
       <table style="width:100%;border-collapse:collapse;font-size:14px">
-        <tr style="font-size:11px;color:var(--text-muted);text-transform:uppercase"><td></td><td style="text-align:right">Al medir</td><td style="text-align:right">Ahora en Nereid</td></tr>
+        <tr style="font-size:11px;color:var(--text-muted);text-transform:uppercase"><td></td><td style="text-align:right">Al medir</td><td style="text-align:right">Ahora en el sistema</td></tr>
         ${fila('Kg', r.kgDeclarados, a?.kg, 0, 'kg')}
         ${fila('Kg tasados', r.kgTasadosDeclarados, a?.kgt, 0, 'kg')}
         ${fila('Volumen', r.m3Declarados, a?.m3, 3, 'm³')}
       </table>
-      ${!a ? `<div style="font-size:12px;color:var(--text-muted);margin-top:0.4rem">Aún no se ha revisado en Nereid (lo hace el programa del PC cada 30 min).</div>` : ''}
-      <div style="font-size:12px;color:var(--text-muted);margin:0.75rem 0 0.4rem">¿La agencia lo ha modificado? (si no se ve en Nereid, márcalo tú)</div>
+      ${!a ? `<div style="font-size:12px;color:var(--text-muted);margin-top:0.4rem">Aún no se ha comprobado (lo hace el programa del PC cada 30 min).</div>` : ''}
+      <div style="font-size:12px;color:var(--text-muted);margin:0.75rem 0 0.4rem">¿La agencia lo ha modificado? (si no se refleja solo, márcalo tú)</div>
       <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
         ${btn('modificada','✅ Sí, lo han modificado','#2ecc71')}
         ${btn('no','❌ No lo han modificado','#e74c3c')}
@@ -3100,7 +3133,7 @@ function almHtmlEstadoAgencia(r) {
   }
   if (res === 'nomod') return `<div style="font-size:12px;color:var(--danger);font-weight:600">❌ La agencia no lo ha modificado</div>`;
   const tarde = dias >= ALM_DIAS_RECLAMAR;
-  return `<div style="font-size:12px;color:${tarde?'var(--danger)':'var(--text-muted)'};font-weight:${tarde?700:400}">${tarde?'⚠️':'🕐'} Pasada el ${f} · ${dias===0?'hoy':dias===1?'hace 1 día':'hace '+dias+' días'} sin modificar${r.nereidRevisadoTs?' · revisado en Nereid '+new Date(r.nereidRevisadoTs).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</div>`;
+  return `<div style="font-size:12px;color:${tarde?'var(--danger)':'var(--text-muted)'};font-weight:${tarde?700:400}">${tarde?'⚠️':'🕐'} Pasada el ${f} · ${dias===0?'hoy':dias===1?'hace 1 día':'hace '+dias+' días'} sin modificar${r.comprobadoTs?' · comprobado '+new Date(r.comprobadoTs).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</div>`;
 }
 
 async function almMarcarPasada(id, pasada) {
@@ -3175,7 +3208,7 @@ function renderAlmacenAdmin() {
       <button type="button" class="alm-estado ${almVistaEstado==='nomod'?'on':''}" onclick="almVerEstado('nomod')">❌ No modificadas <span class="alm-badge">${f.cuenta.nomod}</span></button>
       <button type="button" class="alm-estado ${almVistaEstado==='todas'?'on':''}" onclick="almVerEstado('todas')">Todas</button>
     </div>
-    ${almVistaEstado==='esperando' && f.lista.length ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:0.6rem">Ya pasadas al sistema. Se comprueba sola en Nereid si la agencia cambia los kilos o el volumen; si no se refleja en Nereid, márcalo tú en 👁 Ver. En rojo, las que llevan ${ALM_DIAS_RECLAMAR} días o más sin modificar.</div>` : ''}
+    ${almVistaEstado==='esperando' && f.lista.length ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:0.6rem">Ya pasadas al sistema. Se comprueba solo si la agencia cambia los kilos o el volumen; si no se refleja, márcalo tú en 👁 Ver. En rojo, las que llevan ${ALM_DIAS_RECLAMAR} días o más sin modificar.</div>` : ''}
     ${almHtmlFiltros(f, 'renderAlmacenAdmin()')}
     ${almVistaEstado==='pendientes' && lista.length ? `<div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.6rem">
       <div style="font-size:13px;color:var(--text-muted)">Marca la casilla <span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.4);border-radius:4px;vertical-align:-2px"></span> cuando la hayas pasado al sistema. Las más antiguas salen primero.</div>
@@ -3193,7 +3226,7 @@ function renderAlmacenAdmin() {
             <button type="button" class="alm-tick ${pas?'on':''}" onclick="almMarcarPasada('${r.id}', ${!pas})" title="${pas?'Pasada al sistema. Toca para dejarla pendiente':'Marcar como pasada al sistema'}">${pas?'✓':''}</button>
             <div style="min-width:0;flex:1">
               <div style="font-weight:600;font-family:monospace;color:var(--accent);word-break:break-all">${almEsc(r.expedicion||r.codigo)}</div>
-              <div style="font-size:11px;color:var(--text-muted)">${almTurno(r.ts)} · ${almEsc(r.fechaStr)} ${almEsc(r.horaStr)}${r.albaran?' · Alb. '+almEsc(r.albaran):''}${r.sinLecturaNereid?' · <span style="color:var(--warning)">sin lectura</span>':''}${r.editadoTs?' · editado':''}</div>
+              <div style="font-size:11px;color:var(--text-muted)">${almTurno(r.ts)} · ${almEsc(r.fechaStr)} ${almEsc(r.horaStr)}${r.albaran?' · Alb. '+almEsc(r.albaran):''}${r.sinLectura?' · <span style="color:var(--warning)">sin lectura</span>':''}${r.editadoTs?' · editado':''}</div>
               ${pas ? almHtmlEstadoAgencia(r) : ''}
             </div>
             <div style="display:flex;gap:0.35rem;align-items:center;flex-wrap:wrap;justify-content:flex-end">
@@ -3224,7 +3257,7 @@ function renderAlmacenResumen() {
     if (res !== 'pendiente') a.pas++;
     if (res === 'modificada') a.mod++;
     if (res === 'nomod') a.nomod++;
-    if (r.sinLecturaNereid) a.sinLect++;
+    if (r.sinLectura) a.sinLect++;
     if (r.peso>0 && r.kgDeclarados>0) { a.kgMed+=r.peso; a.kgDec+=r.kgDeclarados; a.nKg++; }
     if (r.volumen>0 && r.m3Declarados>0) { a.m3Med+=r.volumen; a.m3Dec+=r.m3Declarados; a.nM3++; }
     if ((almDiferencia(r.peso, r.kgDeclarados)||{}).aviso || (almDiferencia(r.volumen, r.m3Declarados)||{}).aviso) a.avisos++;
@@ -3365,6 +3398,57 @@ function modAbrirListas() {
   });
 }
 
+
+// ── Panel de avisos (ADR/CAP, Seguros): plegable y con etiquetas de estado ──
+const avisosAbiertos = new Set();
+window.toggleAvisos = (id) => {
+  const lista = document.getElementById(id);
+  const cab = document.querySelector(`[data-avisos="${id}"]`);
+  if (!lista) return;
+  const abrir = lista.style.display === 'none';
+  lista.style.display = abrir ? 'block' : 'none';
+  abrir ? avisosAbiertos.add(id) : avisosAbiertos.delete(id);
+  if (cab) cab.querySelector('.avisos-flecha').textContent = abrir ? '⌃' : '⌄';
+};
+// items: {dias, etiqueta, color, titulo, sub, accion}
+function panelAvisos(id, items, textoVacio = '') {
+  if (!items.length) {
+    return textoVacio ? `<div class="avisos-ok">✅ ${textoVacio}</div>` : '';
+  }
+  items = [...items].sort((a,b)=>a.dias-b.dias);
+  const venc = items.filter(i=>i.dias<0).length;
+  const prox = items.length - venc;
+  const abierto = avisosAbiertos.has(id);
+  return `
+    <div class="avisos">
+      <button type="button" class="avisos-cab" data-avisos="${id}" onclick="toggleAvisos('${id}')">
+        <span class="avisos-tit">⚠️ ${items.length} aviso${items.length===1?'':'s'}</span>
+        <span class="avisos-pills">
+          ${venc ? `<span class="avisos-pill mal">${venc} vencido${venc===1?'':'s'}</span>` : ''}
+          ${prox ? `<span class="avisos-pill prox">${prox} por vencer</span>` : ''}
+        </span>
+        <span class="avisos-flecha">${abierto?'⌃':'⌄'}</span>
+      </button>
+      <div class="avisos-lista" id="${id}" style="display:${abierto?'block':'none'}">
+        ${items.map(i=>`
+          <div class="aviso-fila"${i.accion?` onclick="${i.accion}" style="cursor:pointer"`:''}>
+            <span class="fl-estado" style="background:${i.color}">${i.etiqueta}</span>
+            <div class="aviso-info">
+              <div class="aviso-nom">${i.titulo}</div>
+              <div class="aviso-sub" style="color:${i.color}">${i.sub}</div>
+            </div>
+            ${i.accion?`<span class="aviso-ir">›</span>`:''}
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+function avisoEstado(dias) {
+  if (dias < 0) return {etiqueta:'VENCIDA', color:'var(--danger)', txt:`Venció hace ${Math.abs(dias)} día${Math.abs(dias)===1?'':'s'}`};
+  if (dias === 0) return {etiqueta:'HOY', color:'#ff6b00', txt:'Vence hoy'};
+  if (dias <= 5) return {etiqueta:'URGENTE', color:'#ff6b00', txt:`Vence en ${dias} día${dias===1?'':'s'}`};
+  return {etiqueta:'PRÓXIMA', color:'var(--warning)', txt:`Vence en ${dias} días`};
+}
+
 // ── Ver y editar una medida (ventana emergente, vista admin) ──
 let almEdId = null;
 let almEdBultos = [];          // en la edición, un elemento por bulto: {tipo, largo, ancho, alto}
@@ -3474,12 +3558,12 @@ function almVer(id) {
       </div>`).join('')}
     </div>` : ''}
 
-    <div class="alm-sec-tit">Datos de Nereid</div>
+    <div class="alm-sec-tit">Datos de la expedición</div>
     <div class="alm-datos">
       ${[['Albarán', r.albaran||'—'], ['Destino', r.poblacion||'—'],
          ['Bultos declarados', r.bultos>0 ? r.bultos : '—'],
          ['Kg tasados', r.kgTasadosDeclarados>0 ? almNum(r.kgTasadosDeclarados,0)+' kg' : '—'],
-         ['Lectura', !r.enNereid && r.enNereid!==undefined ? 'No está en Nereid' : r.sinLecturaNereid ? '⚠️ Sin lectura' : '✓ Leída'],
+         ['Lectura', !r.enSistema && r.enSistema!==undefined ? 'No aparece en el sistema' : r.sinLectura ? '⚠️ Sin lectura' : '✓ Leída'],
         ].map(([k,v]) => `<div><span>${k}</span><strong>${almEsc(v)}</strong></div>`).join('')}
     </div>`;
 
@@ -3620,8 +3704,8 @@ async function almGuardarEdicion() {
   };
   // Si se cambia la expedición, lo declarado era de la anterior: se quita
   if (exp !== (r.expedicion||r.codigo)) {
-    if (!confirm('Has cambiado el número de expedición. Se borrarán los datos declarados de Nereid de la anterior. ¿Seguir?')) return;
-    Object.assign(cambios, {albaran:'', idNereid:null, enNereid:false, poblacion:'', bultos:0,
+    if (!confirm('Has cambiado el número de expedición. Se borrarán los datos declarados del sistema de la anterior. ¿Seguir?')) return;
+    Object.assign(cambios, {albaran:'', idExp:null, enSistema:false, poblacion:'', bultos:0,
       kgDeclarados:0, kgTasadosDeclarados:0, m3Declarados:0});
   }
   try {
@@ -3651,13 +3735,13 @@ async function almExportarExcel() {
       'Fecha': r.fechaStr, 'Hora': r.horaStr,
       'Expedición': r.expedicion||r.codigo, 'Código escaneado': r.codigo,
       'Albarán': r.albaran||'', 'Agencia': r.agencia, 'Destino': r.poblacion||'', 'Bultos': r.bultos||'',
-      'Identificada por': r.identificacion||'', 'Sin lectura Nereid': r.sinLecturaNereid?'Sí':'',
+      'Identificada por': r.identificacion||'', 'Sin lectura': r.sinLectura?'Sí':'',
       'Peso medido (kg)': r.peso||0, 'Peso declarado (kg)': r.kgDeclarados||0,
       'Kg tasados declarados': r.kgTasadosDeclarados||0,
       'Volumen medido (m³)': r.volumen||0, 'Volumen declarado (m³)': r.m3Declarados||0,
       'Pasada al sistema': almPasada(r) ? 'Sí' : 'Pendiente',
       'Estado en la agencia': ({pendiente:'', esperando:'Esperando', modificada:'Modificado', nomod:'No modificado'})[almResultado(r)],
-      'Kg Nereid ahora': r.nereidActual?.kg ?? '', 'Kg tasados Nereid ahora': r.nereidActual?.kgt ?? '', 'm³ Nereid ahora': r.nereidActual?.m3 ?? '',
+      'Kg ahora': r.datosActuales?.kg ?? '', 'Kg tasados ahora': r.datosActuales?.kgt ?? '', 'm³ ahora': r.datosActuales?.m3 ?? '',
       'Fecha pasada': r.pasadoTs ? new Date(r.pasadoTs).toLocaleString('es-ES') : '',
       'Turno': almTurno(r.ts).replace(/^\S+ /,''),
       'Bultos medidos': almCantLineas(almLineasDe(r)) || '',
@@ -3913,8 +3997,9 @@ async function initApp() {
       MODULO_CODIGOS.ropa = data.ropa || MODULO_CODIGOS.ropa;
       MODULO_CODIGOS.seguros = data.seguros || MODULO_CODIGOS.seguros;
       MODULO_CODIGOS.almacen = data.almacen || MODULO_CODIGOS.almacen;
-      // Si no tenía el código de almacén, lo guardamos
-      if (!data.almacen) await setDoc(doc(db,'configuracion','moduloCodigos'), MODULO_CODIGOS);
+      MODULO_CODIGOS.formacion = data.formacion || MODULO_CODIGOS.formacion;
+      // Si faltaba algún código nuevo, se guarda
+      if (!data.almacen || !data.formacion) await setDoc(doc(db,'configuracion','moduloCodigos'), MODULO_CODIGOS);
     } else {
       await setDoc(doc(db, 'configuracion', 'moduloCodigos'), MODULO_CODIGOS);
     }
@@ -4030,6 +4115,7 @@ async function initApp() {
   document.getElementById('home-btn-seguros').addEventListener('click', ()=>switchModule('seguros'));
   document.getElementById('home-btn-almacen').addEventListener('click', ()=>switchModule('almacen'));
   document.getElementById('home-btn-gestion').addEventListener('click', ()=>switchModule('gestion'));
+  document.getElementById('home-btn-formacion').addEventListener('click', ()=>switchModule('formacion'));
   document.getElementById('btn-cambiar-modulo').addEventListener('click', volverASeleccionModulo);
   document.getElementById('rtab-btn-entregar').addEventListener('click', ()=>switchRopaTab('entregar'));
   document.getElementById('rtab-btn-historial').addEventListener('click', ()=>switchRopaTab('historial'));
@@ -4099,13 +4185,7 @@ async function initApp() {
   document.getElementById('hist-mant-cond-filter-cod').addEventListener('change', (e)=>{ histMantCondFiltroCod=e.target.value; renderHistMantCond(); });
 
   // Créditos de formación (módulo ADR/CAP)
-  document.getElementById('btn-ver-creditos-formacion').addEventListener('click', ()=>{
-    document.querySelectorAll('#module-adrcap .tab-pane').forEach(p=>p.classList.remove('active'));
-    document.getElementById('ftab-creditos-formacion').classList.add('active');
-    populateCreditosSelects();
-    renderCreditosResumen();
-    renderCursosFormacionList();
-  });
+
   document.getElementById('btn-volver-creditos').addEventListener('click', ()=>{
     document.querySelectorAll('#module-adrcap .tab-pane').forEach(p=>p.classList.remove('active'));
     document.getElementById('ftab-mant-conductores').classList.add('active');
@@ -6425,8 +6505,9 @@ function switchModule(mod) {
   document.getElementById('module-seguros').style.display = mod==='seguros' ? 'block' : 'none';
   document.getElementById('module-almacen').style.display = mod==='almacen' ? 'block' : 'none';
   document.getElementById('module-gestion').style.display = mod==='gestion' ? 'block' : 'none';
+  document.getElementById('module-formacion').style.display = mod==='formacion' ? 'block' : 'none';
   document.getElementById('btn-cambiar-modulo').style.display = 'inline-block';
-  const titulos = {gasoil:'⛽ Gasoil', fleet:'🚛 Flota', ropa:'👔 Ropa', adrcap:'🪪 ADR/CAP', seguros:'🛡️ Seguros', almacen:'📦 Almacén', gestion:'⚙️ Configuración'};
+  const titulos = {gasoil:'⛽ Gasoil', fleet:'🚛 Flota', ropa:'👔 Ropa', adrcap:'🪪 ADR/CAP', seguros:'🛡️ Seguros', almacen:'📦 Almacén', gestion:'⚙️ Configuración', formacion:'🎓 Formación'};
   document.getElementById('admin-topbar-title').textContent = titulos[mod]||'';
   if (mod==='gasoil') { renderAdminStats(); renderAdminRecords(); renderDeposito(); }
   if (mod==='fleet') { populateHistMatriculas(); renderHistorial(); renderMantenimiento(); updateFleetBadge(); populateHistMantMatriculas(); renderHistorialMant(); flRenderResumen(); }
@@ -6464,6 +6545,7 @@ function switchModule(mod) {
     updateSegurosBadge();
   }
   if (mod==='gestion') { switchGestionTab('conductores'); modAbrirListas(); }
+  if (mod==='formacion') { populateCreditosSelects(); renderCreditosResumen(); renderCursosFormacionList(); }
 }
 
 function volverASeleccionModulo() {
@@ -6487,7 +6569,7 @@ function volverASeleccionModulo() {
 }
 
 function pedirCodigoModulo(mod) {
-  const nombres = {gasoil:'⛽ Gasoil', fleet:'🚛 Flota', ropa:'👔 Ropa', adrcap:'🪪 ADR/CAP', seguros:'🛡️ Seguros'};
+  const nombres = {gasoil:'⛽ Gasoil', fleet:'🚛 Flota', ropa:'👔 Ropa', adrcap:'🪪 ADR/CAP', seguros:'🛡️ Seguros', formacion:'🎓 Formación'};
   const modal = document.createElement('div');
   modal.id = 'codigo-modulo-modal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:999;display:flex;align-items:center;justify-content:center;padding:1rem;';
@@ -7074,6 +7156,12 @@ function nombreConductorPorCodigo(cod) {
   return d ? d.name : cod;
 }
 
+window.verConductorAdr = (cod) => {
+  const sel = document.getElementById('mantcond-filter-cod');
+  if (sel) { sel.value = cod; sel.dispatchEvent(new Event('change')); }
+  document.getElementById('mantcond-list')?.scrollIntoView({behavior:'smooth', block:'start'});
+};
+
 function renderMantenimientoConductores() {
   const list=document.getElementById('mantcond-list');
   if (!list) return;
@@ -7090,17 +7178,16 @@ function renderMantenimientoConductores() {
       if (dias<=DIAS_AVISO_CONDUCTOR) {
         const color=dias<0?'var(--danger)':dias<=5?'#ff6b00':'var(--warning)';
         const txt=dias<0?`Vencida hace ${Math.abs(dias)} días`:`Vence en ${dias} días`;
-        alertasItemsCond.push({ dias, html:`<div style="background:#3a1e1e;border:1px solid ${color};border-radius:var(--radius-sm);padding:0.75rem 1rem;margin-bottom:0.5rem;font-size:13px;">⚠️ <strong>${nombreConductorPorCodigo(m.id)}</strong> — ${rev}: <span style="color:${color};font-weight:700;">${txt}</span> (${fecha.toLocaleDateString('es-ES')})</div>` });
+        const est = avisoEstado(dias);
+        alertasItemsCond.push({ dias, etiqueta:est.etiqueta, color:est.color,
+          titulo:`${nombreConductorPorCodigo(m.id)} · <span class="aviso-tipo">${rev}</span>`,
+          sub:`${est.txt} · ${fecha.toLocaleDateString('es-ES')}`,
+          accion:`verConductorAdr('${m.id}')` });
       }
     });
   });
-  alertasItemsCond.sort((a,b)=>a.dias-b.dias);
-  let alertasHtml = '';
-  if (alertasItemsCond.length) {
-    alertasHtml = `<div id="mantcond-alertas-ocultas" style="display:none;">${alertasItemsCond.map(it=>it.html).join('')}</div>
-      <button class="btn-sm" data-texto="⚠️ Ver ${alertasItemsCond.length} aviso${alertasItemsCond.length>1?'s':''} de ADR/CAP" onclick="toggleSeccionAnios('mantcond-alertas-ocultas', this)" style="width:100%;font-size:12px;">⚠️ Ver ${alertasItemsCond.length} aviso${alertasItemsCond.length>1?'s':''} de ADR/CAP</button>`;
-  }
-  alertasEl.innerHTML=alertasHtml?`<div style="margin-bottom:1.25rem;">${alertasHtml}</div>`:'';
+  alertasEl.innerHTML = panelAvisos('avisos-adrcap', alertasItemsCond,
+    'Todo al día: ningún ADR ni CAP vence en los próximos ' + DIAS_AVISO_CONDUCTOR + ' días');
 
   if (!mantCondFiltroCod) {
     list.innerHTML = '<div class="empty-state"><div class="empty-icon">👤</div>Selecciona un conductor arriba para ver su ADR y CAP</div>';
@@ -7854,6 +7941,12 @@ function abrirFichaSeguroVeh(docId) {
   if (inputAnio) setTimeout(()=>inputAnio.focus(), 400);
 }
 
+window.buscarSeguroAviso = (mat) => {
+  const b = document.getElementById('seg-veh-buscador');
+  if (b) { b.value = mat; b.dispatchEvent(new Event('input')); }
+  document.getElementById('seg-veh-list')?.scrollIntoView({behavior:'smooth', block:'start'});
+};
+
 function renderSegurosVehiculos() {
   const list = document.getElementById('seg-veh-list');
   const alertasEl = document.getElementById('seg-veh-alertas');
@@ -7861,17 +7954,20 @@ function renderSegurosVehiculos() {
   const hoy = new Date();
   // Los registros antiguos (de antes de tener "tipo") se consideran "vehiculo" por defecto.
   const activos = segurosVehiculosCache.filter(v=>v.activo!==false && coincideTipoSeguro(v));
-  let alertasHtml = '';
+  const avisos = [];
   activos.forEach(v=>{
     if (!v.fechaCaducidad) return;
     const dias = Math.ceil((new Date(v.fechaCaducidad)-hoy)/(1000*60*60*24));
     if (dias<=DIAS_AVISO_SEGUROS) {
-      const color = dias<0?'var(--danger)':dias<=5?'#ff6b00':'var(--warning)';
-      const txt = dias<0?`Vencido hace ${Math.abs(dias)} días`:dias===0?'Vence hoy':`Vence en ${dias} días`;
-      alertasHtml += `<div style="background:#3a1e1e;border:1px solid ${color};border-radius:var(--radius-sm);padding:0.75rem 1rem;margin-bottom:0.5rem;font-size:13px;">⚠️ <strong>${v.matricula}</strong>: <span style="color:${color};font-weight:700;">${txt}</span> (${new Date(v.fechaCaducidad).toLocaleDateString('es-ES')})</div>`;
+      const est = avisoEstado(dias);
+      avisos.push({dias, etiqueta:est.etiqueta, color:est.color,
+        titulo:`${v.matricula}${v.compania?` · <span class="aviso-tipo">${v.compania}</span>`:''}`,
+        sub:`${est.txt} · ${new Date(v.fechaCaducidad).toLocaleDateString('es-ES')}`,
+        accion:`buscarSeguroAviso('${(v.matricula||'').replace(/'/g,"")}')`});
     }
   });
-  alertasEl.innerHTML = alertasHtml ? `<div style="margin-bottom:1.25rem;">${alertasHtml}</div>` : '';
+  alertasEl.innerHTML = panelAvisos('avisos-seguros', avisos,
+    'Todos los seguros al día');
   document.getElementById('seg-veh-baja-count').textContent = segurosVehiculosCache.filter(v=>v.activo===false && coincideTipoSeguro(v)).length;
 
   if (!activos.length) { list.innerHTML = `<div class="empty-state"><div class="empty-icon">🛡️</div>No hay seguros de ${etiquetasGrupoSeguro().nombre} activos registrados</div>`; return; }
@@ -11290,6 +11386,8 @@ function _marcarRopaDescargado(id) {
     localStorage.setItem('ropaDescargados', JSON.stringify(data));
     const btn = document.getElementById('btn-dl-ropa-'+id);
     if (btn) { btn.textContent='✓ Descargado'; btn.style.background='var(--success)'; btn.style.color='#fff'; }
+    // que la lista se refresque al momento, sin recargar la página
+    if (typeof renderRopaHistorial === 'function') renderRopaHistorial();
   } catch(e) {}
 }
 
