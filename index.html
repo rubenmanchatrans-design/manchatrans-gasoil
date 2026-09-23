@@ -2217,7 +2217,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v50 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v51 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2638,7 +2638,7 @@ function almActivarCasilla(forzar = false) {
   if (!almPantallaAlmacen()) return;
   // Con un toque del usuario se crea una casilla NUEVA y se activa en ese mismo toque:
   // es lo único que hace que la pistola se vuelva a enganchar (igual que al entrar en la app).
-  if (forzar) { almBarraScan(true); almEngancharConTeclado(); return; }
+  // (forzar ya no recrea la casilla ni abre el teclado: en la Bluebird no ayudaba y sacaba el teclado de letras)
   const inp = document.getElementById('alm-inp-codigo');
   if (!inp) return;
   if (document.activeElement !== inp) {
@@ -2693,6 +2693,22 @@ function almMantenerFoco(ev) {
 }
 // Al tocar una zona vacía de la pantalla, la casilla recupera el cursor.
 // Es seguro: la casilla no tiene teclado, así que no se mueve nada.
+// En almacén, tocar la pantalla no quita el cursor a la casilla de la pistola.
+// Se anula solo el "mover el cursor" del toque; los botones siguen funcionando igual
+// (el clic llega), y las casillas de escribir (alturas, peso, nº a mano) se pueden tocar.
+function almNoSoltarCasilla(ev) {
+  const scr = document.getElementById('screen-almacen');
+  if (!scr || !scr.classList.contains('active')) return;
+  const inp = document.getElementById('alm-inp-codigo');
+  if (!inp || document.activeElement !== inp) return;         // solo si la pistola está conectada
+  const t = ev.target;
+  if (t && t.closest && t.closest('input:not(#alm-inp-codigo),textarea,select,[contenteditable="true"]')) return;
+  if (t && t.closest && t.closest('#alm-modal,.alm-foto-grande,#alm-ar')) return;   // ventanas: normal
+  ev.preventDefault();
+}
+document.addEventListener('mousedown', almNoSoltarCasilla, true);
+document.addEventListener('pointerdown', almNoSoltarCasilla, true);
+
 // Se comprueba justo DESPUÉS del toque (Android quita el cursor al terminar el toque,
 // no al empezarlo). Sigue contando como toque del usuario, así que la casilla nueva engancha.
 document.addEventListener('click', ev => {
