@@ -2159,7 +2159,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v39 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v40 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2177,7 +2177,7 @@ const almNum = (v, d=1) => (Number(v)||0).toLocaleString('es-ES',{minimumFractio
 function almReset() {
   almEstado = {codigo:'',agencia:'',medida:'',tipo:'',largo:0,ancho:0,alto:0,peso:0,volumen:0,
                exp:'',alb:'',idExp:null,kgDecl:0,kgtDecl:0,m3Decl:0,via:'',leida:false,pob:'',bultos:0,tipoDecl:'',
-               previas:[],remedir:false,vista:'',noEncontrado:false,textoManual:'',resultados:undefined,lineas:[]};
+               previas:[],remedir:false,vista:'',noEncontrado:false,textoManual:'',resultados:undefined,lineas:[],clientePropio:''};
 }
 
 // ── Tabla del sistema ──
@@ -2685,7 +2685,25 @@ async function almProcesarCodigoInterno(cod) {
   }
   almEstado.vista = 'manual';
   almEstado.noEncontrado = true;
+  // Clientes con etiqueta propia (p. ej. PEPCO, código ESS…): se ofrecen sus palets pendientes
+  const cliente = almClienteEtiquetaPropia(cod);
+  if (cliente) {
+    almEstado.clientePropio = cliente;
+    almEstado.resultados = almPendientesCliente(cliente);
+  }
   almRenderPaso(2);
+}
+
+// Etiquetas propias de algunos clientes, que no conoce nadie más
+const ALM_ETIQUETAS_PROPIAS = [ {cliente:'PEPCO', patron:/^ESS\d{6,}$/i} ];
+function almClienteEtiquetaPropia(cod) {
+  const c = almNormCod(cod);
+  return (ALM_ETIQUETAS_PROPIAS.find(x => x.patron.test(c)) || {}).cliente || '';
+}
+// Sus expediciones de entrada de los últimos días que aún no tienen medida
+function almPendientesCliente(cliente) {
+  const medidas = new Set(almCache.map(r => r.expedicion));
+  return almIdx.entradas.filter(f => f.cli === cliente && !medidas.has(f.ref || f.alb)).slice(0, 12);
 }
 
 // ── Códigos aprendidos ──
@@ -2725,10 +2743,10 @@ function almRenderPaso2() {
   } else {
     el.innerHTML = almHtmlManual();
     const inp = document.getElementById('alm-man-exp');
-    if (inp) {
-      inp.focus();
-      inp.addEventListener('keydown', e => { if (e.key==='Enter') almBuscarManual(); });
-    }
+    if (inp) inp.addEventListener('keydown', e => { if (e.key==='Enter') almBuscarManual(); });
+    // Si se llega aquí por un código no encontrado, la pistola sigue lista para leer otra
+    // etiqueta (y no sale el teclado tapando la lista). Para escribir, se toca la casilla.
+    if (almEstado.noEncontrado) almActivarCasilla();
   }
 }
 
@@ -2790,8 +2808,12 @@ function almHtmlManual() {
   const e = almEstado;
   const res = e.resultados;           // undefined = aún no se ha buscado
   let bloque = '';
-  if (res && res.length > 1 && res.length <= 8) {
-    bloque = `<div style="font-size:13px;color:var(--text-muted);margin:0.75rem 0 0.4rem">Hay ${res.length} expediciones con ese número. Elige la tuya:</div>` +
+  if (res && e.clientePropio && res.length === 0) {
+    bloque = `<div style="color:var(--text-muted);font-size:13px;margin-top:0.75rem">No hay palets de ${almEsc(e.clientePropio)} pendientes de medir. Escribe la expedición de la etiqueta pequeña.</div>`;
+  } else if (res && ((e.clientePropio && res.length >= 1 && res.length <= 12) || (res.length > 1 && res.length <= 8))) {
+    bloque = `<div style="font-size:13px;color:var(--text-muted);margin:0.75rem 0 0.4rem">${e.clientePropio
+        ? `Palets de <strong style="color:var(--text)">${almEsc(e.clientePropio)}</strong> pendientes de medir. Toca el que tienes delante (su nº está en la etiqueta pequeña):`
+        : `Hay ${res.length} expediciones con ese número. Elige la tuya:`}</div>` +
       res.map(f => `
       <div onclick="almElegir('${almEsc(f.id)}')" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0.6rem 0.75rem;border:1px solid var(--card-border);border-radius:8px;margin-bottom:0.4rem;cursor:pointer">
         <div style="min-width:0">
@@ -2812,7 +2834,9 @@ function almHtmlManual() {
   return `
     <div class="refuel-card">
       <div class="section-title">Nº de expedición a mano</div>
-      ${e.noEncontrado ? `<div style="background:rgba(255,179,71,0.12);color:var(--warning);border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:0.75rem">No se ha encontrado el código <strong style="font-family:monospace;word-break:break-all">${almEsc(e.codigo)}</strong>.<br>💡 Si el palet tiene <strong>otra etiqueta</strong>, prueba a escanearla. Si no, escribe la expedición que pone en la etiqueta.</div>` : ''}
+      ${e.noEncontrado ? `<div style="background:rgba(255,179,71,0.12);color:var(--warning);border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:0.75rem">${e.clientePropio
+        ? `Etiqueta de <strong>${almEsc(e.clientePropio)}</strong> (<span style="font-family:monospace">${almEsc(e.codigo)}</span>). Este número solo lo conoce el cliente: elige el palet abajo o escribe la expedición.`
+        : `No se ha encontrado el código <strong style="font-family:monospace;word-break:break-all">${almEsc(e.codigo)}</strong>.<br>💡 Si el palet tiene <strong>otra etiqueta</strong>, prueba a escanearla. Si no, escribe la expedición que pone en la etiqueta.`}</div>` : ''}
       <div style="display:flex;gap:0.5rem">
         <input class="form-input" type="text" inputmode="numeric" id="alm-man-exp" value="${almEsc(e.textoManual||'')}" placeholder="Nº de expedición" autocomplete="off" style="font-family:monospace;font-size:18px;letter-spacing:1px;flex:1;min-width:0">
         <button type="button" class="btn btn-ghost" id="alm-btn-abc" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="almTecladoLetras()" style="width:auto;flex-shrink:0;padding:0.6rem 0.8rem;font-size:14px" title="Teclado con letras">ABC</button>
