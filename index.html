@@ -2151,7 +2151,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v31 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v32 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2401,7 +2401,6 @@ function almBarraScan() {
         <input class="form-input" type="text" inputmode="${almModoTeclado()==='si' ? 'numeric' : 'none'}" id="alm-inp-codigo" placeholder="Escanea aquí..." autocomplete="off" style="font-size:18px;letter-spacing:2px;flex:1;min-width:0">
         <button type="button" class="btn btn-ghost" onclick="event.stopPropagation();almTeclado()" style="width:auto;flex-shrink:0;padding:0.6rem 0.9rem;font-size:20px" aria-label="Sacar el teclado">⌨️</button>
       </div>
-      <button class="btn btn-primary" id="alm-btn-preparar" style="margin-top:0.6rem;display:none" onclick="event.stopPropagation();almActivarCasilla()">🔫 Preparar lectura</button>
     </div>`;
   const inp = document.getElementById('alm-inp-codigo');
   // Fin de lectura: con Enter si la pistola lo manda, o sola cuando deja de escribir
@@ -2468,24 +2467,33 @@ function almCodigoNuevo(inp) {
   return nuevo.trim();
 }
 
-function almActivarCasilla() {
-  const poner = () => {
-    const inp = document.getElementById('alm-inp-codigo');
-    if (!inp || !almPantallaAlmacen()) return;
-    if (document.activeElement !== inp) {
-      try { inp.focus({preventScroll:true}); } catch(e) { inp.focus(); }
-    }
-    almPintarListo();
-  };
-  poner();                                                // dentro del toque del usuario
-  [60, 250, 600].forEach(ms => setTimeout(poner, ms));    // y se reintenta por si acaso
+// Reglas para no pelear con el usuario:
+//  · solo se recupera la casilla si NO hay otra cosa activa (otra casilla, un botón, una ventana)
+//  · nunca en los 2 segundos siguientes a que el usuario toque la pantalla
+let almUltimoToque = 0;
+document.addEventListener('pointerdown', () => { almUltimoToque = Date.now(); }, true);
+function almPuedoRecuperar() {
+  if (!almPantallaAlmacen()) return false;
+  if (document.querySelector('body > div[id$="-modal"]')) return false;       // cualquier ventana abierta
+  const act = document.activeElement;
+  const libre = !act || act === document.body || act.id === 'alm-inp-codigo';
+  return libre;
 }
-// Vigilancia continua: si la casilla se suelta, se vuelve a activar sola
+function almActivarCasilla() {
+  const inp = document.getElementById('alm-inp-codigo');
+  if (!inp || !almPantallaAlmacen()) return;
+  if (document.activeElement !== inp) {
+    try { inp.focus({preventScroll:true}); } catch(e) { inp.focus(); }
+  }
+  almPintarListo();
+}
+// Vigilancia suave: si la casilla se ha soltado y nadie está usando la pantalla, se recupera
 setInterval(() => {
-  if (!almPantallaAlmacen()) return;
+  if (Date.now() - almUltimoToque < 2000) return;
+  if (!almPuedoRecuperar()) return;
   const inp = document.getElementById('alm-inp-codigo');
   if (inp && document.activeElement !== inp) { try { inp.focus({preventScroll:true}); } catch(e) {} almPintarListo(); }
-}, 1200);
+}, 1500);
 
 function almPintarListo() {
   const zona = document.getElementById('alm-zona-scan');
@@ -2498,8 +2506,6 @@ function almPintarListo() {
   const listo = document.activeElement === inp;
   zona.classList.toggle('lista', listo);
   aviso.innerHTML = listo ? '🟢 Listo para leer: dispara con la pistola' : '👆 Toca aquí para poder leer';
-  const prep = document.getElementById('alm-btn-preparar');
-  if (prep) prep.style.display = listo ? 'none' : 'block';
 }
 function almMantenerFoco(ev) {
   if (!almPantallaAlmacen()) return;
@@ -2507,7 +2513,7 @@ function almMantenerFoco(ev) {
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON' || t.closest('button'))) return;
   almActivarCasilla();
 }
-document.addEventListener('pointerup', almMantenerFoco);
+// (ya no se recupera la casilla con cualquier toque: eso provocaba saltos)
 
 // La casilla de escanear no saca el teclado (inputmode="none"): la pistola
 // escribe igual. El botón ⌨️ lo saca, numérico, solo cuando se quiere teclear.
@@ -2520,7 +2526,7 @@ function almTeclado() {
 }
 
 // ── Ajustes del aparato (se guardan en la propia pistola o móvil) ──
-function almModoTeclado() { try { return localStorage.getItem('nfTeclado') || 'si'; } catch(e) { return 'si'; } }
+function almModoTeclado() { try { return localStorage.getItem('nfTeclado') || 'no'; } catch(e) { return 'no'; } }
 function almGuardarAjuste(clave, valor) {
   try { localStorage.setItem(clave, valor); } catch(e) {}
   almAjustes();
@@ -2540,10 +2546,10 @@ function almAjustes() {
   const info = `Pantalla ${screen.width}×${screen.height} · ${tipo} · ángulo ${ang} · ref ${window.anguloRef()} · giro ${giro} · teclado ${tec} · toques ${navigator.maxTouchPoints||0} · ${ALM_VERSION}`;
   almAbrirModal('⚙️ Ajustes de la pistola', `
     <div class="alm-etq">Teclado al escanear</div>
-    <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">Hay pistolas que escriben la lectura a través del teclado y necesitan tenerlo abierto: es el caso de la Bluebird. El teclado solo sale mientras se escanea y desaparece al medir. Si tu aparato lee sin teclado, ponlo en <strong>Sin teclado</strong>.</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">La pistola lee sin teclado. Déjalo en <strong>Sin teclado</strong> salvo que en algún aparato no entre la lectura.</div>
     <div class="alm-ags" style="grid-template-columns:1fr 1fr">
-      ${opc('nfTeclado','si',tec,'⌨️ Con teclado')}
       ${opc('nfTeclado','no',tec,'🚫 Sin teclado')}
+      ${opc('nfTeclado','si',tec,'⌨️ Con teclado')}
     </div>
 
     <div class="alm-etq" style="margin-top:1.25rem">Posición de la pantalla</div>
@@ -3702,6 +3708,8 @@ function almCerrarModal() {
   if (almAlCerrar) { const f = almAlCerrar; almAlCerrar = null; try { f(); } catch(e) { console.warn(e); } }
   document.getElementById('alm-modal')?.remove();
   document.removeEventListener('keydown', almEscModal);
+  // al cerrar una ventana en almacén, la casilla de lectura vuelve a quedar lista
+  if (typeof almPuedoRecuperar === 'function' && almPuedoRecuperar()) almActivarCasilla();
 }
 function almEscModal(ev) { if (ev.key === 'Escape') almCerrarModal(); }
 
