@@ -2147,7 +2147,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v26 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v27 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2341,7 +2341,8 @@ function entrarAlmacen(desdeAdmin = false) {
   };
   almReset();
   almEscucharExp();
-  setTimeout(() => { almRenderPaso(1); almCargarRegistros(); }, 50);
+  almRenderPaso(1);          // sin esperas: Android solo deja abrir el teclado dentro del toque
+  almCargarRegistros();
 }
 
 
@@ -2391,7 +2392,8 @@ function almRenderPaso1() {
           <button type="button" class="btn btn-ghost" id="alm-btn-teclado" onclick="event.stopPropagation();almTeclado()" style="width:auto;flex-shrink:0;padding:0.6rem 0.9rem;font-size:20px" aria-label="Sacar el teclado">⌨️</button>
         </div>
       </div>
-      <button class="btn btn-primary" style="margin-top:0.75rem" onclick="almUsarCodigo()">Buscar →</button>
+      <button class="btn btn-primary" id="alm-btn-preparar" style="margin-top:0.75rem;font-size:17px;padding:1rem;display:none" onclick="almActivarCasilla()">🔫 Preparar lectura</button>
+      <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almUsarCodigo()">Buscar →</button>
       <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almAbrirManual()">✍️ Meter nº de expedición a mano</button>
       <div id="alm-estado-exp" style="margin-top:0.75rem;font-size:12px;color:var(--text-muted);text-align:center">${almTextoEstadoExp()}</div>
       <button type="button" class="alm-accion" style="width:100%;margin-top:0.75rem" onclick="almAjustes()">⚙️ Ajustes de la pistola</button>
@@ -2422,6 +2424,8 @@ function almPintarListo() {
   if (!zona || !aviso || !inp) return;
   const listo = document.activeElement === inp;
   zona.classList.toggle('lista', listo);
+  const prep = document.getElementById('alm-btn-preparar');
+  if (prep) prep.style.display = listo ? 'none' : 'block';
   aviso.innerHTML = listo
     ? '🟢 Listo para leer: dispara con la pistola'
     : '👆 Toca aquí para poder leer';
