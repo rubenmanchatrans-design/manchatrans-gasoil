@@ -602,6 +602,18 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .alm-decl { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.3rem 0.6rem; margin-top: 0.4rem; font-size: 14px; }
 .alm-decl span { color: var(--text-muted); }
 .alm-decl strong { background: var(--navy-light); padding: 2px 10px; border-radius: 10px; }
+
+.alm-btn-foto { max-width: 320px; margin: 0 auto; font-size: 16px; padding: 0.9rem; border: 2px dashed var(--accent) !important; color: var(--accent) !important; }
+.alm-fotos-mini { display: flex; gap: 0.4rem; justify-content: center; flex-wrap: wrap; }
+.alm-foto-mini { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; border: 1px solid var(--card-border); }
+.alm-fotos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 0.5rem; }
+.alm-foto-caja { position: relative; }
+.alm-foto-caja img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 12px; cursor: pointer; border: 1px solid var(--card-border); }
+.alm-foto-borrar { position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; border-radius: 50%; border: none; background: rgba(0,0,0,0.65); color: #fff; cursor: pointer; }
+.alm-foto-grande { position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,0.92); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1rem; gap: 1rem; }
+.alm-foto-grande img { max-width: 100%; max-height: 80vh; border-radius: 12px; }
+.alm-foto-acc { display: flex; gap: 0.6rem; }
+.alm-foto-acc .btn { width: auto; padding: 0.7rem 1.2rem; text-decoration: none; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2191,7 +2203,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v45 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v46 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -3384,6 +3396,7 @@ async function almGuardar() {
   };
   try {
     const ref = await addDoc(collection(db,'almacenExpediciones'), registro);
+    almEstado.ultimoId = ref.id;
     if (e.noEncontrado && (e.via === 'mano' || e.via === 'manual')) almGuardarAlias(registro);
     almCache.unshift({id:ref.id,...registro});
   } catch(err) {
@@ -3397,7 +3410,10 @@ async function almGuardar() {
     <div style="font-size:48px;margin-bottom:1rem">✅</div>
     <div style="font-size:18px;font-weight:700;color:var(--success);margin-bottom:0.5rem">Guardado</div>
     <div style="font-size:13px;color:var(--text-muted);margin-bottom:1.5rem">${almEsc(registro.expedicion)} → ${almEsc(registro.agencia)}${lineas.length?' · '+almNombreBultos(lineas, registro.bultosMedidos):''}${registro.volumen>0?' · '+almNum(registro.volumen,3)+' m³':''}${registro.peso>0?' · '+almNum(registro.peso,1)+' kg':''}</div>
-    <button class="btn btn-primary" style="max-width:280px;margin:0 auto" onclick="almNueva()">📷 Escanear otra</button>
+    <button class="btn btn-ghost alm-btn-foto" onclick="almHacerFoto('${almEstado.ultimoId}','${almEsc(registro.expedicion)}')">📸 Hacer foto de la mercancía</button>
+    <div id="alm-fotos-estado" style="font-size:13px;color:var(--success);margin:0.5rem 0"></div>
+    <div id="alm-fotos-mini" class="alm-fotos-mini"></div>
+    <button class="btn btn-primary" style="max-width:280px;margin:1rem auto 0" onclick="almNueva()">🔫 Escanear otra</button>
   </div>`;
   almRenderStepper(5);
 }
@@ -3619,6 +3635,7 @@ function renderAlmacenAdmin() {
               <span style="background:var(--navy-light);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">${almEsc(r.agencia)}</span>
               ${r.volumen>0?`<span onclick="almCopiar('${almNum(r.volumen,3)}','Volumen total')" title="Toca para copiar el volumen" style="cursor:pointer">${chip('📋 '+almNum(r.volumen,3)+' m³'+(r.m3Declarados>0?' / '+almNum(r.m3Declarados,3):''), dM3&&dM3.aviso?'#e74c3c':'#3b82f6')}</span>`:''}
               ${r.peso>0?chip(r.peso.toFixed(1)+' kg'+(r.kgDeclarados>0?' / '+almNum(r.kgDeclarados,0):''), dKg&&dKg.aviso?'#e74c3c':'#a855f7'):''}
+              ${r.fotos>0?chip('📸 '+r.fotos, '#22c55e'):''}
               <button class="alm-accion alm-accion-ver" onclick="almVer('${r.id}')">👁 Ver</button>
               <button class="alm-accion" onclick="almEditar('${r.id}')">✏️ Editar</button>
               <button class="alm-accion alm-accion-borrar" onclick="almBorrarExpedicion('${r.id}')" aria-label="Borrar">🗑</button>
@@ -3835,6 +3852,132 @@ function avisoEstado(dias) {
   return {etiqueta:'PRÓXIMA', color:'var(--warning)', txt:`Vence en ${dias} días`};
 }
 
+
+// ════════════════════════════════════════════════════════════════════════════
+// FOTOS DE LA MERCANCÍA
+// Algunas agencias piden foto para dar la medida por buena. Se hacen desde la
+// pistola al guardar y se ven (y descargan) en 👁 Ver. Cada foto es un documento
+// de `almacenFotos` (registroId, expedicion, ts, img) y se reduce antes de subir.
+// ════════════════════════════════════════════════════════════════════════════
+function almComprimirFoto(file, max = 1280, calidad = 0.6) {
+  return new Promise((ok, mal) => {
+    const lector = new FileReader();
+    lector.onerror = () => mal(new Error('No se ha podido leer la foto'));
+    lector.onload = () => {
+      const img = new Image();
+      img.onerror = () => mal(new Error('La foto no es válida'));
+      img.onload = () => {
+        const esc = Math.min(1, max / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * esc); c.height = Math.round(img.height * esc);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        let q = calidad, url = c.toDataURL('image/jpeg', q);
+        while (url.length > 700000 && q > 0.3) { q -= 0.1; url = c.toDataURL('image/jpeg', q); }
+        ok(url);
+      };
+      img.src = lector.result;
+    };
+    lector.readAsDataURL(file);
+  });
+}
+
+// Abre la cámara y sube las fotos a la medida indicada
+function almHacerFoto(registroId, expedicion) {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*'; inp.capture = 'environment'; inp.multiple = true;
+  inp.style.display = 'none';
+  inp.onchange = async () => {
+    const archivos = [...(inp.files || [])];
+    inp.remove();
+    if (!archivos.length) return;
+    const estado = document.getElementById('alm-fotos-estado');
+    if (estado) estado.textContent = `⏳ Subiendo ${archivos.length} foto${archivos.length===1?'':'s'}…`;
+    let subidas = 0;
+    for (const f of archivos) {
+      try {
+        const img = await almComprimirFoto(f);
+        await addDoc(collection(db,'almacenFotos'), {registroId, expedicion, ts: Date.now(), img});
+        subidas++;
+      } catch(e) { console.warn('Foto:', e); }
+    }
+    const r = almCache.find(x => x.id === registroId);
+    const total = (r?.fotos || 0) + subidas;
+    try { await updateDoc(doc(db,'almacenExpediciones',registroId), {fotos: total}); } catch(e) {}
+    if (r) r.fotos = total;
+    if (estado) estado.innerHTML = subidas
+      ? `✅ ${total} foto${total===1?'':'s'} guardada${total===1?'':'s'} en esta expedición`
+      : '<span style="color:var(--danger)">No se ha podido subir la foto. Revisa la cobertura y vuelve a intentarlo.</span>';
+    almPintarFotosOk(registroId);
+    if (document.querySelector('.alm-sheet[data-id]')?.dataset.id === registroId) almVer(registroId);
+    if (typeof renderAlmacenAdmin === 'function') renderAlmacenAdmin();
+  };
+  document.body.appendChild(inp);
+  inp.click();
+}
+
+async function almCargarFotos(registroId) {
+  try {
+    const snap = await almConLimite(getDocs(query(collection(db,'almacenFotos'), where('registroId','==',registroId))), 8000, {docs:[]});
+    return snap.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b) => a.ts - b.ts);
+  } catch(e) { console.warn('Fotos:', e); return []; }
+}
+// Miniaturas en la pantalla de "Guardado"
+async function almPintarFotosOk(registroId) {
+  const cont = document.getElementById('alm-fotos-mini');
+  if (!cont) return;
+  const fotos = await almCargarFotos(registroId);
+  cont.innerHTML = fotos.map(f => `<img src="${f.img}" alt="Foto" class="alm-foto-mini">`).join('');
+}
+// Ver una foto en grande
+function almVerFoto(url, nombre) {
+  const v = document.createElement('div');
+  v.className = 'alm-foto-grande';
+  v.onclick = () => v.remove();
+  v.innerHTML = `<img src="${url}" alt="Foto">
+    <div class="alm-foto-acc">
+      <a class="btn btn-primary" href="${url}" download="${almEsc(nombre)}.jpg" onclick="event.stopPropagation()">⬇ Descargar</a>
+      <button class="btn btn-ghost" onclick="this.closest('.alm-foto-grande').remove()">Cerrar</button>
+    </div>`;
+  document.body.appendChild(v);
+}
+async function almBorrarFoto(fotoId, registroId) {
+  if (!confirm('¿Borrar esta foto?')) return;
+  try {
+    await deleteDoc(doc(db,'almacenFotos',fotoId));
+    const r = almCache.find(x => x.id === registroId);
+    const total = Math.max(0, (r?.fotos || 1) - 1);
+    await updateDoc(doc(db,'almacenExpediciones',registroId), {fotos: total});
+    if (r) r.fotos = total;
+    almVer(registroId);
+    renderAlmacenAdmin();
+  } catch(e) { alert('No se ha podido borrar: ' + e.message); }
+}
+// Bloque de fotos dentro de 👁 Ver
+async function almPintarFotosVer(r) {
+  const cont = document.getElementById('alm-ver-fotos');
+  if (!cont) return;
+  const fotos = await almCargarFotos(r.id);
+  if (!document.getElementById('alm-ver-fotos')) return;
+  window.__almFotosVer = fotos;
+  cont.innerHTML = fotos.length ? `
+    <div class="alm-fotos-grid">
+      ${fotos.map((f,i) => `
+        <div class="alm-foto-caja">
+          <img src="${f.img}" alt="Foto ${i+1}" onclick="almVerFoto(window.__almFotosVer[${i}].img, '${almEsc(r.expedicion)}_${i+1}')">
+          <button class="alm-foto-borrar" onclick="almBorrarFoto('${f.id}','${r.id}')" aria-label="Borrar foto">✕</button>
+        </div>`).join('')}
+    </div>
+    <button class="alm-accion" style="width:100%;margin-top:0.5rem" onclick="almDescargarFotos()">⬇ Descargar todas (${fotos.length})</button>`
+    : `<div style="font-size:13px;color:var(--text-muted)">Sin fotos.</div>`;
+}
+function almDescargarFotos() {
+  (window.__almFotosVer || []).forEach((f,i) => {
+    const a = document.createElement('a');
+    a.href = f.img; a.download = `${(f.expedicion||'foto')}_${i+1}.jpg`;
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+}
+
 // ── Ver y editar una medida (ventana emergente, vista admin) ──
 let almEdId = null;
 let almEdBultos = [];          // en la edición, un elemento por bulto: {tipo, largo, ancho, alto}
@@ -3953,7 +4096,14 @@ function almVer(id) {
          ['Kg tasados', r.kgTasadosDeclarados>0 ? almNum(r.kgTasadosDeclarados,0)+' kg' : '—'],
          ['Lectura', !r.enSistema && r.enSistema!==undefined ? 'No aparece en el sistema' : r.sinLectura ? '⚠️ Sin lectura' : '✓ Leída'],
         ].map(([k,v]) => `<div><span>${k}</span><strong>${almEsc(v)}</strong></div>`).join('')}
-    </div>`;
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:1.25rem 0 0.6rem">
+      <div class="alm-sec-tit" style="margin:0">📸 Fotos de la mercancía</div>
+      <button type="button" class="alm-copiar" onclick="almHacerFoto('${r.id}','${almEsc(r.expedicion)}')">＋ Añadir foto</button>
+    </div>
+    <div id="alm-fotos-estado" style="font-size:13px;color:var(--success);margin-bottom:0.4rem"></div>
+    <div id="alm-ver-fotos"><div style="font-size:13px;color:var(--text-muted)">${r.fotos ? '⏳ Cargando fotos…' : 'Sin fotos.'}</div></div>`;
 
   almAbrirModal('Ver medida', cuerpo, `
     ${almPasada(r)
@@ -3961,6 +4111,7 @@ function almVer(id) {
       : `<button class="btn btn-primary" onclick="almMarcarPasada('${r.id}', true)" style="background:var(--success);border-color:var(--success)">✓ Marcar pasada</button>`}
     <button class="btn btn-ghost" onclick="almEditar('${r.id}')">✏️ Editar</button>
     <button class="btn btn-ghost" onclick="almCerrarModal()">Cerrar</button>`, r.id);
+  if (r.fotos) almPintarFotosVer(r);
 }
 
 // ── EDITAR ──
@@ -4109,6 +4260,7 @@ async function almBorrarExpedicion(id) {
   if (!confirm('¿Eliminar esta medida?')) return;
   try {
     await deleteDoc(doc(db,'almacenExpediciones',id));
+    (await almCargarFotos(id)).forEach(f => deleteDoc(doc(db,'almacenFotos',f.id)).catch(()=>{}));
     almCache = almCache.filter(r=>r.id!==id);
     renderAlmacenAdmin();
   } catch(e) { alert('Error: '+e.message); }
@@ -4132,6 +4284,7 @@ async function almExportarExcel() {
       'Kg ahora': r.datosActuales?.kg ?? '', 'Kg tasados ahora': r.datosActuales?.kgt ?? '', 'm³ ahora': r.datosActuales?.m3 ?? '',
       'Fecha pasada': r.pasadoTs ? new Date(r.pasadoTs).toLocaleString('es-ES') : '',
       'Turno': almTurno(r.ts).replace(/^\S+ /,''),
+      'Fotos': r.fotos || '',
       'Bultos medidos': almCantLineas(almLineasDe(r)) || '',
       'Detalle bultos': almTextoLineas(almLineasDe(r)),
     }));
@@ -4149,7 +4302,7 @@ Object.assign(window, {
   almSelAgencia, almRenderPaso, almSelMedida,
   almCalcPeso, almIrConfirmar, almGuardar, almNueva,
   renderAlmacenAdmin, renderAlmacenResumen, almBorrarExpedicion, almExportarExcel,
-  almVer, almCopiar, almVerEstado, almMarcarAgencia, almMarcarPasada, almMarcarTodasPasadas, almEditar, almCerrarModal, almGuardarEdicion, almEdSelAg, almEdLeer, almEdTipo,
+  almVer, almCopiar, almHacerFoto, almVerFoto, almBorrarFoto, almDescargarFotos, almVerEstado, almMarcarAgencia, almMarcarPasada, almMarcarTodasPasadas, almEditar, almCerrarModal, almGuardarEdicion, almEdSelAg, almEdLeer, almEdTipo,
   almEdAnadir, almEdQuitar, almLinTipo, almLinInput, almLinCant, almLinCantSet, almLinModo, almAltKey, almAnadirLinea, almQuitarLinea,
 });
 
