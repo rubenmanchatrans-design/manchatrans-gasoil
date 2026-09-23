@@ -2221,7 +2221,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v54 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v55 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2770,6 +2770,11 @@ function almAjustes() {
     <button type="button" class="alm-accion" style="width:100%;margin-top:0.5rem" onclick="girarAlReves()">🔄 Al girar se ve al revés: corregir</button>
     <div style="font-size:12px;color:var(--text-muted);margin-top:0.4rem">Ahora: ${giro==='si'?'🔒 siempre derecha':giro==='auto'?'automática':'🔓 libre (gira)'} · el aparato dice ${window.anguloActual()}°</div>
 
+    <div class="alm-etq" style="margin-top:1.25rem">Medir con la cámara</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">${(()=>{ try { return localStorage.getItem('nfArNo')==='1'; } catch(e) { return false; } })()
+      ? 'Desactivado: en este aparato no funcionó.' : (ALM_AR ? 'Disponible en este aparato.' : 'Este aparato no lo admite.')}</div>
+    <button type="button" class="alm-accion" style="width:100%" onclick="try{localStorage.removeItem('nfArNo')}catch(e){}; location.reload()">🔄 Volver a probar la cámara de medir</button>
+
     <div class="alm-etq" style="margin-top:1.25rem">Versión</div>
     <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">Si el PC tiene una versión más nueva que esta pistola, pulsa aquí: borra la copia guardada y descarga la última.</div>
     <button type="button" class="btn btn-primary" onclick="forzarActualizacion()">🔄 Buscar actualización ahora</button>
@@ -3146,6 +3151,8 @@ function almHtmlCabExp() {
 let ALM_AR = false;
 (async () => {
   try { ALM_AR = !!(navigator.xr && await navigator.xr.isSessionSupported('immersive-ar')); } catch(e) { ALM_AR = false; }
+  // Si ya se probó en este aparato y no funcionó, no se ofrece (se puede reintentar desde Ajustes)
+  try { if (localStorage.getItem('nfArNo') === '1') ALM_AR = false; } catch(e) {}
   // si ya está pintada la pantalla de medir, se repinta para enseñar el botón
   if (ALM_AR && document.getElementById('alm-paso3')?.style.display === 'block') almRenderPaso(3);
 })();
@@ -3225,11 +3232,15 @@ async function almMedirAR(i) {
   if (!sesion) {
     ov.remove();
     const soloBasica = informe.some(l => l.startsWith('✅'));
+    // se recuerda para no volver a ofrecer el botón en este aparato
+    try { localStorage.setItem('nfArNo', '1'); } catch(e) {}
+    ALM_AR = false;
+    if (document.getElementById('alm-paso3')?.style.display === 'block') setTimeout(() => almRenderPaso(3), 0);
     almAbrirModal('📐 La cámara de medir no está disponible', `
       <div style="font-size:14px;margin-bottom:0.75rem">${soloBasica
         ? 'Este aparato abre la cámara de realidad aumentada, pero <strong>no sabe detectar superficies</strong>, que es lo que hace falta para medir.'
         : 'Este aparato no ha podido abrir la cámara de realidad aumentada.'}</div>
-      <div style="font-size:14px;margin-bottom:0.75rem">Prueba a instalar o actualizar <strong>"Servicios de Google Play para RA"</strong> desde Play Store y vuelve a intentarlo. Si sigue igual, el aparato no es compatible y hay que medir con metro.</div>
+      <div style="font-size:14px;margin-bottom:0.75rem">En este aparato se medirá con metro y el botón dejará de salir. Si algún día instaláis <strong>"Servicios de Google Play para RA"</strong> y queréis volver a probar, está en ⚙️ Ajustes de la pistola.</div>
       <div style="font-family:monospace;font-size:12px;background:var(--navy-light);padding:0.75rem;border-radius:10px;white-space:pre-wrap;word-break:break-word">${almEsc(informe.join('\n'))}</div>
       <button type="button" class="alm-accion" style="width:100%;margin-top:0.75rem" onclick="almCopiar(this.previousElementSibling.textContent,'Informe')">📋 Copiar el informe</button>`,
       `<button class="btn btn-primary" onclick="almCerrarModal()">Cerrar</button>`);
