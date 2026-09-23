@@ -2155,7 +2155,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v34 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v35 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -5157,6 +5157,11 @@ function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('screen-chat').style.display='none';
   document.getElementById('screen-'+name).classList.add('active');
+  // Al volver a la pantalla de entrada, nunca queda escrito el código del anterior
+  if (name === 'login') {
+    ['login-code','admin-code'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    document.querySelectorAll('#screen-login .error-msg').forEach(e => { e.textContent = ''; });
+  }
 }
 
 // ══════════════════════════════
