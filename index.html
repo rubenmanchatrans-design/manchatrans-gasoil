@@ -2159,7 +2159,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v38 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v39 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2292,13 +2292,17 @@ function almBuscar(codigo) {
 // Número tecleado a mano: exacto en referencia o albarán; si no, que lo
 // contenga (mínimo 5 cifras). Devuelve las entradas que coinciden.
 function almBuscarTexto(texto) {
-  const t = almNormCod(texto);
-  if (!t) return [];
+  const t0 = almNormCod(texto);
+  if (!t0) return [];
+  const t = t0.replace(/^0+(?=\d{5})/, '');          // "00123617144" -> "123617144"
+  const sinCeros = v => almNormCod(v).replace(/^0+(?=\d{5})/, '');
   const exactas = almIdx.entradas.filter(f =>
-    almNormCod(f.ref) === t || almNormCod(f.ref2) === t || String(f.alb) === t);
+    [f.ref, f.ref2].some(r => r && sinCeros(r) === t) || String(f.alb) === t);
   if (exactas.length || t.length < 5) return exactas;
-  return almIdx.entradas.filter(f =>
-    almNormCod(f.ref).includes(t) || almNormCod(f.ref2).includes(t));
+  return almIdx.entradas.filter(f => [f.ref, f.ref2].some(r => {
+    const rn = sinCeros(r);
+    return rn && (rn.includes(t) || (rn.length >= 6 && t.includes(rn)));   // en los dos sentidos
+  }));
 }
 
 function almAplicarFila(f, via) {
@@ -2334,8 +2338,27 @@ async function almMostrarFicha(f, via) {
 // ── LOGIN almacén ──
 // desdeAdmin = true cuando se abre con el botón "Escanear" del administrador:
 // entonces el botón de arriba vuelve al panel en lugar de cerrar sesión.
+// El botón Atrás de Android, estando en almacén, no sale de la app:
+// vuelve a la pantalla de escanear y reconecta la casilla de la pistola
+let almAtrasPreparado = false;
+function almPrepararAtras() {
+  try { history.pushState({alm: Date.now()}, ''); } catch(e) {}
+  if (almAtrasPreparado) return;
+  almAtrasPreparado = true;
+  window.addEventListener('popstate', () => {
+    const scr = document.getElementById('screen-almacen');
+    if (!scr || !scr.classList.contains('active')) return;
+    try { history.pushState({alm: Date.now()}, ''); } catch(e) {}
+    if (document.getElementById('alm-modal')) { almCerrarModal(); return; }
+    const p1 = document.getElementById('alm-paso1');
+    if (p1 && p1.style.display === 'none') almNueva();
+    else almActivarCasilla();
+  });
+}
+
 function entrarAlmacen(desdeAdmin = false) {
   showScreen('almacen');
+  almPrepararAtras();
   const btn = document.getElementById('btn-logout-almacen');
   btn.textContent = desdeAdmin ? '← Volver' : 'Salir';
   btn.onclick = () => {
@@ -2522,9 +2545,10 @@ function almPuedoRecuperar() {
 function almActivarCasilla() {
   const inp = document.getElementById('alm-inp-codigo');
   if (!inp || !almPantallaAlmacen()) return;
-  if (document.activeElement !== inp) {
-    try { inp.focus({preventScroll:true}); } catch(e) { inp.focus(); }
-  }
+  // Se suelta y se vuelve a coger siempre: el botón Atrás de Android puede dejarla
+  // "activa" pero desconectada del escáner, y así se reconecta de verdad
+  if (document.activeElement === inp) inp.blur();
+  try { inp.focus({preventScroll:true}); } catch(e) { inp.focus(); }
   almPintarListo();
 }
 // (sin vigilancia periódica: en algunas pistolas cada reactivación intenta sacar el teclado.
