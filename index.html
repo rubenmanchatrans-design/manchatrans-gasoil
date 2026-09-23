@@ -2147,7 +2147,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v25 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v26 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2424,7 +2424,7 @@ function almPintarListo() {
   zona.classList.toggle('lista', listo);
   aviso.innerHTML = listo
     ? '🟢 Listo para leer: dispara con la pistola'
-    : '👆 Toca aquí y dispara con la pistola';
+    : '👆 Toca aquí para poder leer';
 }
 function almMantenerFoco(ev) {
   if (!almPantallaEscanerVisible()) return;
@@ -2445,7 +2445,7 @@ function almTeclado() {
 }
 
 // ── Ajustes del aparato (se guardan en la propia pistola o móvil) ──
-function almModoTeclado() { try { return localStorage.getItem('nfTeclado') || 'no'; } catch(e) { return 'no'; } }
+function almModoTeclado() { try { return localStorage.getItem('nfTeclado') || 'si'; } catch(e) { return 'si'; } }
 function almGuardarAjuste(clave, valor) {
   try { localStorage.setItem(clave, valor); } catch(e) {}
   almAjustes();
@@ -2465,10 +2465,10 @@ function almAjustes() {
   const info = `Pantalla ${screen.width}×${screen.height} · ${tipo} · ángulo ${ang} · ref ${window.anguloRef()} · giro ${giro} · teclado ${tec} · toques ${navigator.maxTouchPoints||0} · ${ALM_VERSION}`;
   almAbrirModal('⚙️ Ajustes de la pistola', `
     <div class="alm-etq">Teclado al escanear</div>
-    <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">Sin teclado, la casilla se activa tocando la pantalla y la pistola escribe igual. Si en tu aparato no funciona, ponlo con teclado.</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">Hay pistolas que escriben la lectura a través del teclado y necesitan tenerlo abierto: es el caso de la Bluebird. El teclado solo sale mientras se escanea y desaparece al medir. Si tu aparato lee sin teclado, ponlo en <strong>Sin teclado</strong>.</div>
     <div class="alm-ags" style="grid-template-columns:1fr 1fr">
-      ${opc('nfTeclado','no',tec,'🚫 Sin teclado')}
       ${opc('nfTeclado','si',tec,'⌨️ Con teclado')}
+      ${opc('nfTeclado','no',tec,'🚫 Sin teclado')}
     </div>
 
     <div class="alm-etq" style="margin-top:1.25rem">Posición de la pantalla</div>
@@ -2528,6 +2528,7 @@ document.addEventListener('keydown', almTeclaGlobal, true);
 
 async function almUsarCodigo() {
   const cod = (document.getElementById('alm-inp-codigo')?.value||'').trim();
+  document.getElementById('alm-inp-codigo')?.blur();     // así el teclado desaparece al medir
   if (!cod) { alert('Escanea o escribe un código'); return; }
   if (!almExpListo) {
     alert('Todavía se están cargando las expediciones. Espera unos segundos y vuelve a escanear.');
