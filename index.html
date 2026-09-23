@@ -71,9 +71,25 @@
   if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener('change', mantenerVertical);
   window.addEventListener('resize', mantenerVertical);
   mantenerVertical();
+  // Fuerza la actualización: borra la copia guardada y vuelve a descargar la app
+  window.forzarActualizacion = async () => {
+    try {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      }
+      if (window.caches) {
+        const nombres = await caches.keys();
+        await Promise.all(nombres.map(n => caches.delete(n)));
+      }
+    } catch(e) { console.warn(e); }
+    location.replace(location.pathname + '?v=' + Date.now());
+  };
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/manchatrans-gasoil/sw.js').then(reg => {
       reg.update();
+      // si ya hay una versión nueva esperando, se activa sin preguntar
+      if (reg.waiting) { try { reg.waiting.postMessage({type:'SKIP_WAITING'}); } catch(e) {} }
       if (reg.waiting) mostrarAvisoActualizacion(reg);
 
       reg.addEventListener('updatefound', () => {
@@ -2131,7 +2147,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v24 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v25 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2464,6 +2480,10 @@ function almAjustes() {
     </div>
     <button type="button" class="alm-accion" style="width:100%;margin-top:0.5rem" onclick="girarAlReves()">🔄 Al girar se ve al revés: corregir</button>
     <div style="font-size:12px;color:var(--text-muted);margin-top:0.4rem">Ahora: ${giro==='si'?`fijada en ${window.anguloRef()}°`:giro==='auto'?'automática':'libre'} · el aparato dice ${window.anguloActual()}°</div>
+
+    <div class="alm-etq" style="margin-top:1.25rem">Versión</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">Si el PC tiene una versión más nueva que esta pistola, pulsa aquí: borra la copia guardada y descarga la última.</div>
+    <button type="button" class="btn btn-primary" onclick="forzarActualizacion()">🔄 Buscar actualización ahora</button>
 
     <div class="alm-etq" style="margin-top:1.25rem">Datos del aparato</div>
     <div style="font-size:12px;color:var(--text-muted);font-family:monospace;word-break:break-all">${info}</div>
