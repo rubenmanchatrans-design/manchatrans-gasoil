@@ -628,6 +628,10 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 #alm-ar-valor { font-size: 30px; font-weight: 800; margin-bottom: 0.6rem; text-shadow: 0 2px 6px #000; }
 .alm-ar-botones { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
 .alm-ar-botones .btn { width: auto; min-width: 110px; }
+
+.alm-toast-foto { position: fixed; left: 50%; top: 18px; transform: translateX(-50%); z-index: 6000; max-width: 92%; padding: 0.85rem 1.2rem; border-radius: 14px; font-size: 16px; font-weight: 800; text-align: center; box-shadow: 0 8px 28px rgba(0,0,0,0.5); color: #fff; background: #2563eb; }
+.alm-toast-foto.bien { background: #16a34a; }
+.alm-toast-foto.mal { background: var(--danger); }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2217,7 +2221,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v53 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v54 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -4116,6 +4120,22 @@ function almComprimirFoto(file, max = 1280, calidad = 0.6) {
 }
 
 // Abre la cámara y sube las fotos a la medida indicada
+// Hay varios sitios con aviso de fotos (cabecera al medir, "Guardado", "Ya se ha cogido"):
+// se escribe en los que están a la vista y además sale un aviso flotante grande
+function almFotosVisibles(sel) {
+  return [...document.querySelectorAll(sel)].filter(el => el.offsetParent !== null);
+}
+function almAvisoFotos(html, tipo) {
+  almFotosVisibles('[id="alm-fotos-estado"]').forEach(el => { el.innerHTML = html; });
+  document.getElementById('alm-toast-foto')?.remove();
+  const t = document.createElement('div');
+  t.id = 'alm-toast-foto';
+  t.className = 'alm-toast-foto ' + (tipo || '');
+  t.innerHTML = html;
+  document.body.appendChild(t);
+  if (tipo !== 'subiendo') setTimeout(() => t.remove(), 3500);
+}
+
 // Foto sin medir: la cámara se abre ya (tiene que ser en el mismo toque) y la ficha
 // de la expedición (tipo "solo foto") se crea cuando llegan las fotos
 function almFotoSinMedir() {
@@ -4147,11 +4167,10 @@ function almHacerFoto(registroId, expedicion, crearRegistro = null) {
     const archivos = [...(inp.files || [])];
     inp.remove();
     if (!archivos.length) return;
-    const estado = document.getElementById('alm-fotos-estado');
-    if (estado) estado.textContent = `⏳ Subiendo ${archivos.length} foto${archivos.length===1?'':'s'}…`;
+    almAvisoFotos(`⏳ Subiendo ${archivos.length} foto${archivos.length===1?'':'s'}…`, 'subiendo');
     if (!registroId && crearRegistro) {
       try { registroId = await crearRegistro(); }
-      catch(e) { if (estado) estado.innerHTML = '<span style="color:var(--danger)">No se ha podido guardar. Revisa la cobertura.</span>'; return; }
+      catch(e) { almAvisoFotos('❌ No se ha podido guardar la foto. Revisa la cobertura y vuelve a intentarlo.', 'mal'); return; }
     }
     let subidas = 0;
     for (const f of archivos) {
@@ -4165,9 +4184,9 @@ function almHacerFoto(registroId, expedicion, crearRegistro = null) {
     const total = (r?.fotos || 0) + subidas;
     try { await updateDoc(doc(db,'almacenExpediciones',registroId), {fotos: total}); } catch(e) {}
     if (r) r.fotos = total;
-    if (estado) estado.innerHTML = subidas
-      ? `✅ ${total} foto${total===1?'':'s'} guardada${total===1?'':'s'} en esta expedición`
-      : '<span style="color:var(--danger)">No se ha podido subir la foto. Revisa la cobertura y vuelve a intentarlo.</span>';
+    almAvisoFotos(subidas
+      ? `✅ Foto${subidas===1?'':'s'} subida${subidas===1?'':'s'} correctamente · ${total} en esta expedición`
+      : '❌ No se ha podido subir la foto. Revisa la cobertura y vuelve a intentarlo.', subidas ? 'bien' : 'mal');
     almPintarFotosOk(registroId);
     almAlVolver();
     if (document.querySelector('.alm-sheet[data-id]')?.dataset.id === registroId) almVer(registroId);
@@ -4185,10 +4204,10 @@ async function almCargarFotos(registroId) {
 }
 // Miniaturas en la pantalla de "Guardado"
 async function almPintarFotosOk(registroId) {
-  const cont = document.getElementById('alm-fotos-mini');
-  if (!cont) return;
+  const conts = almFotosVisibles('[id="alm-fotos-mini"]');
+  if (!conts.length) return;
   const fotos = await almCargarFotos(registroId);
-  cont.innerHTML = fotos.map(f => `<img src="${f.img}" alt="Foto" class="alm-foto-mini">`).join('');
+  conts.forEach(c => { c.innerHTML = fotos.map(f => `<img src="${f.img}" alt="Foto" class="alm-foto-mini">`).join(''); });
 }
 // Ver una foto en grande
 function almVerFoto(url, nombre) {
