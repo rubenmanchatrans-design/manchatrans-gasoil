@@ -2217,7 +2217,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v51 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v52 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2391,7 +2391,7 @@ async function almMostrarFicha(f, via) {
   // Si Firebase tarda, se usa lo que ya hay cargado en el aparato
   almEstado.previas = await almConLimite(almMedidasPrevias(exp), 3000, almCache.filter(r => r.expedicion === exp));
   almEstado.vista = 'ficha';
-  if (almEstado.previas.length && !almEstado.remedir) { almRenderPaso(2); return; }
+  if (almEstado.previas.some(r => r.medida !== 'foto') && !almEstado.remedir) { almRenderPaso(2); return; }
   almRenderPaso(3);
 }
 
@@ -2709,6 +2709,13 @@ function almNoSoltarCasilla(ev) {
 document.addEventListener('mousedown', almNoSoltarCasilla, true);
 document.addEventListener('pointerdown', almNoSoltarCasilla, true);
 
+function almAlVolver() {
+  if (document.hidden) return;
+  setTimeout(() => { if (almAceptaLecturas() && !(document.activeElement && ['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName) && document.activeElement.id !== 'alm-inp-codigo')) almActivarCasilla(); }, 300);
+}
+document.addEventListener('visibilitychange', almAlVolver);
+window.addEventListener('focus', almAlVolver);
+
 // Se comprueba justo DESPUÉS del toque (Android quita el cursor al terminar el toque,
 // no al empezarlo). Sigue contando como toque del usuario, así que la casilla nueva engancha.
 document.addEventListener('click', ev => {
@@ -2912,8 +2919,9 @@ function almHtmlFicha() {
       </div>`;
 
   // Ya medida: aviso en grande y, como opción secundaria, medir otra vez
-  if (previas.length && !e.remedir) {
-    const p = previas[0];
+  const conMedida = previas.filter(r => r.medida !== 'foto');
+  if (conMedida.length && !e.remedir) {
+    const p = conMedida[0];
     const que = [p.peso>0?'el peso':'', p.volumen>0?'el volumen':''].filter(Boolean).join(' y ') || 'la medida';
     return `
     <div class="refuel-card">
@@ -2925,7 +2933,10 @@ function almHtmlFicha() {
           ${previas.map(r=>{ const ls=almLineasDe(r); return `${almEsc(r.fechaStr)} ${almEsc(r.horaStr)}${ls.length?' · '+almNombreBultos(ls, almCantLineas(ls)):''}${r.peso>0?' · '+almNum(r.peso,1)+' kg':''}${r.volumen>0?' · '+almNum(r.volumen,3)+' m³':''}`; }).join('<br>')}
         </div>
       </div>
-      <button class="btn btn-primary" onclick="almNueva()">📷 Escanear otra</button>
+      <button class="btn btn-primary" onclick="almNueva()">🔫 Escanear otra</button>
+      <button class="btn btn-ghost alm-btn-foto" style="margin-top:0.5rem;max-width:none" onclick="almHacerFoto('${p.id}','${almEsc(e.exp)}')">📸 Añadir foto a esta medida</button>
+      <div id="alm-fotos-estado" style="font-size:13px;color:var(--success);margin-top:0.4rem;text-align:center"></div>
+      <div id="alm-fotos-mini" class="alm-fotos-mini"></div>
       <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almRemedir()">Medir otra vez${e.bultos>1?' (otro bulto)':''}</button>
     </div>`;
   }
@@ -3114,6 +3125,9 @@ function almHtmlCabExp() {
         <strong>${e.m3Decl>0 ? almNum(e.m3Decl,3)+' m³' : 'sin volumen'}</strong>
       </div>` : ''}
       ${e.remedir ? `<div style="font-size:12px;color:#3b82f6;margin-top:0.35rem">Ya tenía medida: esta se guardará como otra más</div>` : ''}
+      <button type="button" class="alm-accion" style="margin-top:0.6rem" onclick="almFotoSinMedir()">📸 Hacer foto sin medir</button>
+      <div id="alm-fotos-estado" style="font-size:13px;color:var(--success);margin-top:0.4rem"></div>
+      <div id="alm-fotos-mini" class="alm-fotos-mini"></div>
       <button type="button" onclick="almAbrirManual()" style="background:none;border:none;color:var(--text-muted);text-decoration:underline;font-size:12px;margin-top:0.4rem;cursor:pointer">¿No es esta? Cambiar</button>
     </div>`;
 }
@@ -3189,7 +3203,11 @@ async function almMedirAR(i) {
       requiredFeatures: ['hit-test', 'local'], optionalFeatures: ['dom-overlay'], domOverlay: {root: ov}});
   } catch(e) {
     ov.remove();
-    mostrarMensajeFlotante?.('No se ha podido abrir la cámara de medir: ' + (e.message || e));
+    almAbrirModal('📐 No se ha podido abrir la cámara de medir', `
+      <div style="font-size:14px;margin-bottom:0.75rem">Mándale este mensaje a quien lleva la app:</div>
+      <div style="font-family:monospace;font-size:13px;background:var(--navy-light);padding:0.75rem;border-radius:10px;word-break:break-word">${almEsc((e && e.name ? e.name + ': ' : '') + (e && e.message ? e.message : String(e)))}</div>
+      <button type="button" class="alm-accion" style="width:100%;margin-top:0.75rem" onclick="almCopiar(this.previousElementSibling.textContent,'Error')">📋 Copiar el mensaje</button>`,
+      `<button class="btn btn-primary" onclick="almCerrarModal()">Cerrar</button>`);
     return;
   }
   sesion.addEventListener('end', () => { ov.remove(); });
@@ -3564,6 +3582,7 @@ function almRenderPaso4() {
 }
 
 async function almGuardar() {
+  almActivarCasilla();          // en el mismo toque de "Guardar": la pistola queda lista para la siguiente
   const e = almEstado;
   const ahora = new Date();
   const lineas = almLineasExpandidas(e.lineas);
@@ -3607,6 +3626,7 @@ async function almGuardar() {
     <button class="btn btn-primary" style="max-width:280px;margin:1rem auto 0" onclick="almNueva()">🔫 Escanear otra</button>
   </div>`;
   almRenderStepper(5);
+  almActivarCasilla();
 }
 
 function almNueva(desdeBoton = true) {
@@ -3827,6 +3847,7 @@ function renderAlmacenAdmin() {
               ${r.volumen>0?`<span onclick="almCopiar('${almNum(r.volumen,3)}','Volumen total')" title="Toca para copiar el volumen" style="cursor:pointer">${chip('📋 '+almNum(r.volumen,3)+' m³'+(r.m3Declarados>0?' / '+almNum(r.m3Declarados,3):''), dM3&&dM3.aviso?'#e74c3c':'#3b82f6')}</span>`:''}
               ${r.peso>0?chip(r.peso.toFixed(1)+' kg'+(r.kgDeclarados>0?' / '+almNum(r.kgDeclarados,0):''), dKg&&dKg.aviso?'#e74c3c':'#a855f7'):''}
               ${r.fotos>0?chip('📸 '+r.fotos, '#22c55e'):''}
+              ${r.medida==='foto'?chip('Solo fotos, sin medir', '#94a3b8'):''}
               <button class="alm-accion alm-accion-ver" onclick="almVer('${r.id}')">👁 Ver</button>
               <button class="alm-accion" onclick="almEditar('${r.id}')">✏️ Editar</button>
               <button class="alm-accion alm-accion-borrar" onclick="almBorrarExpedicion('${r.id}')" aria-label="Borrar">🗑</button>
@@ -4073,7 +4094,30 @@ function almComprimirFoto(file, max = 1280, calidad = 0.6) {
 }
 
 // Abre la cámara y sube las fotos a la medida indicada
-function almHacerFoto(registroId, expedicion) {
+// Foto sin medir: la cámara se abre ya (tiene que ser en el mismo toque) y la ficha
+// de la expedición (tipo "solo foto") se crea cuando llegan las fotos
+function almFotoSinMedir() {
+  const e = almEstado;
+  if (!e.exp) return;
+  almHacerFoto(null, e.exp, async () => {
+    const ahora = new Date();
+    const registro = {
+      codigo: e.codigo || e.exp, expedicion: e.exp, agencia: e.agencia,
+      albaran: e.alb||'', idExp: e.idExp||null, poblacion: e.pob||'', bultos: e.bultos||0,
+      identificacion: e.via || 'mano', sinLectura: !e.leida, enSistema: !!e.idExp,
+      kgDeclarados: e.kgDecl||0, kgTasadosDeclarados: e.kgtDecl||0, m3Declarados: e.m3Decl||0,
+      diaAlta: e.diaAlta||'', medida: 'foto', volumen: 0, peso: 0, lineas: [], bultosMedidos: 0,
+      ts: ahora.getTime(), fechaStr: ahora.toLocaleDateString('es-ES'),
+      horaStr: ahora.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}),
+    };
+    const ref = await addDoc(collection(db,'almacenExpediciones'), registro);
+    almCache.unshift({id: ref.id, ...registro});
+    almEstado.ultimoId = ref.id;
+    return ref.id;
+  });
+}
+
+function almHacerFoto(registroId, expedicion, crearRegistro = null) {
   const inp = document.createElement('input');
   inp.type = 'file'; inp.accept = 'image/*'; inp.capture = 'environment'; inp.multiple = true;
   inp.style.display = 'none';
@@ -4083,6 +4127,10 @@ function almHacerFoto(registroId, expedicion) {
     if (!archivos.length) return;
     const estado = document.getElementById('alm-fotos-estado');
     if (estado) estado.textContent = `⏳ Subiendo ${archivos.length} foto${archivos.length===1?'':'s'}…`;
+    if (!registroId && crearRegistro) {
+      try { registroId = await crearRegistro(); }
+      catch(e) { if (estado) estado.innerHTML = '<span style="color:var(--danger)">No se ha podido guardar. Revisa la cobertura.</span>'; return; }
+    }
     let subidas = 0;
     for (const f of archivos) {
       try {
@@ -4099,6 +4147,7 @@ function almHacerFoto(registroId, expedicion) {
       ? `✅ ${total} foto${total===1?'':'s'} guardada${total===1?'':'s'} en esta expedición`
       : '<span style="color:var(--danger)">No se ha podido subir la foto. Revisa la cobertura y vuelve a intentarlo.</span>';
     almPintarFotosOk(registroId);
+    almAlVolver();
     if (document.querySelector('.alm-sheet[data-id]')?.dataset.id === registroId) almVer(registroId);
     if (typeof renderAlmacenAdmin === 'function') renderAlmacenAdmin();
   };
@@ -4493,7 +4542,7 @@ Object.assign(window, {
   almSelAgencia, almRenderPaso, almSelMedida,
   almCalcPeso, almIrConfirmar, almGuardar, almNueva,
   renderAlmacenAdmin, renderAlmacenResumen, almBorrarExpedicion, almExportarExcel,
-  almVer, almCopiar, almMedirAR, almHacerFoto, almVerFoto, almBorrarFoto, almDescargarFotos, almVerEstado, almMarcarAgencia, almMarcarPasada, almMarcarTodasPasadas, almEditar, almCerrarModal, almGuardarEdicion, almEdSelAg, almEdLeer, almEdTipo,
+  almVer, almCopiar, almMedirAR, almHacerFoto, almFotoSinMedir, almVerFoto, almBorrarFoto, almDescargarFotos, almVerEstado, almMarcarAgencia, almMarcarPasada, almMarcarTodasPasadas, almEditar, almCerrarModal, almGuardarEdicion, almEdSelAg, almEdLeer, almEdTipo,
   almEdAnadir, almEdQuitar, almLinTipo, almLinInput, almLinCant, almLinCantSet, almLinModo, almAltKey, almAnadirLinea, almQuitarLinea,
 });
 
