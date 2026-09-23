@@ -598,6 +598,10 @@ body > div[id$="-modal"]:not(#alm-modal) .form-input { font-size: 16px; border-r
 
 .alm-aviso-suelta { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 900; background: var(--danger); color: #fff; border: none; border-radius: 30px; padding: 0.85rem 1.4rem; font-size: 16px; font-weight: 800; box-shadow: 0 8px 24px rgba(0,0,0,0.45); cursor: pointer; white-space: nowrap; }
 html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
+
+.alm-decl { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.3rem 0.6rem; margin-top: 0.4rem; font-size: 14px; }
+.alm-decl span { color: var(--text-muted); }
+.alm-decl strong { background: var(--navy-light); padding: 2px 10px; border-radius: 10px; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2187,8 +2191,8 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v44 · 23/09';   // se ve en la pantalla de escanear
-const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
+const ALM_VERSION = 'Almacén v45 · 23/09';   // se ve en la pantalla de escanear
+const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
 let almEstado = {};
@@ -2357,7 +2361,9 @@ async function almMedidasPrevias(exp) {
 // Encontrada la expedición: directo a medir. Solo se para si ya estaba medida.
 async function almMostrarFicha(f, via) {
   almAplicarFila(f, via);
-  almEstado.previas = await almMedidasPrevias(almEstado.exp);
+  const exp = almEstado.exp;
+  // Si Firebase tarda, se usa lo que ya hay cargado en el aparato
+  almEstado.previas = await almConLimite(almMedidasPrevias(exp), 3000, almCache.filter(r => r.expedicion === exp));
   almEstado.vista = 'ficha';
   if (almEstado.previas.length && !almEstado.remedir) { almRenderPaso(2); return; }
   almRenderPaso(3);
@@ -2724,8 +2730,16 @@ document.addEventListener('keydown', almTeclaGlobal, true);
 // Compatibilidad: botones antiguos que llamaban a almUsarCodigo
 function almUsarCodigo() { almLecturaTerminada(); }
 
+// Una consulta a Firebase nunca puede dejar la lectura esperando: máximo 3 segundos
+function almConLimite(promesa, ms, porDefecto) {
+  return Promise.race([promesa, new Promise(r => setTimeout(() => r(porDefecto), ms))]);
+}
+let almProcesandoDesde = 0;
 async function almProcesarCodigo(cod) {
+  // Si una búsqueda anterior se quedó colgada más de 6 s, se da por perdida
+  if (almProcesando && Date.now() - almProcesandoDesde > 6000) almProcesando = false;
   if (almProcesando) return;                   // aún se está buscando la anterior
+  almProcesandoDesde = Date.now();
   if (!almExpListo) {
     mostrarMensajeFlotante?.('⏳ Cargando expediciones… vuelve a escanear en unos segundos');
     return;
@@ -2741,7 +2755,7 @@ async function almProcesarCodigoInterno(cod) {
   const r = almBuscar(cod);
   if (r) { await almMostrarFicha(r.fila, r.via); return; }
   // ¿Este código ya se asoció a mano a una expedición otra vez?
-  const al = await almLeerAlias(cod);
+  const al = await almConLimite(almLeerAlias(cod), 3000, null);
   if (al) {
     const f = al.idExp != null ? almIdx.id.get(String(al.idExp)) : null;
     if (f) { await almMostrarFicha(f, 'alias'); return; }
@@ -3024,6 +3038,11 @@ function almHtmlCabExp() {
       <div style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px">Expedición</div>
       <div style="font-family:monospace;font-size:30px;font-weight:800;color:var(--accent);word-break:break-all;line-height:1.15;margin:0.2rem 0">${almEsc(e.exp)}</div>
       <div style="font-size:13px;color:var(--text-muted)">${almEsc(e.agencia)}${e.bultos>0?` · ${e.bultos} bulto${e.bultos==1?'':'s'}`:''}</div>
+      ${e.idExp ? `<div class="alm-decl">
+        <span>Declarado por la agencia:</span>
+        <strong>${e.kgDecl>0 ? almNum(e.kgDecl,0)+' kg' : 'sin kilos'}</strong>
+        <strong>${e.m3Decl>0 ? almNum(e.m3Decl,3)+' m³' : 'sin volumen'}</strong>
+      </div>` : ''}
       ${e.remedir ? `<div style="font-size:12px;color:#3b82f6;margin-top:0.35rem">Ya tenía medida: esta se guardará como otra más</div>` : ''}
       <button type="button" onclick="almAbrirManual()" style="background:none;border:none;color:var(--text-muted);text-decoration:underline;font-size:12px;margin-top:0.4rem;cursor:pointer">¿No es esta? Cambiar</button>
     </div>`;
