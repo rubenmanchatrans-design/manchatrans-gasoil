@@ -2151,7 +2151,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v30 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v31 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2404,7 +2404,16 @@ function almBarraScan() {
       <button class="btn btn-primary" id="alm-btn-preparar" style="margin-top:0.6rem;display:none" onclick="event.stopPropagation();almActivarCasilla()">🔫 Preparar lectura</button>
     </div>`;
   const inp = document.getElementById('alm-inp-codigo');
-  inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); almUsarCodigo(); } });
+  // Fin de lectura: con Enter si la pistola lo manda, o sola cuando deja de escribir
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.keyCode === 13) { e.preventDefault(); almLecturaTerminada(); }
+  });
+  let almTimerInput = null;
+  inp.addEventListener('input', () => {
+    clearTimeout(almTimerInput);
+    almTimerInput = setTimeout(almLecturaTerminada, 350);
+    inp.scrollLeft = inp.scrollWidth;        // que se vea el último número leído
+  });
   inp.addEventListener('focus', almPintarListo);
   inp.addEventListener('blur', almPintarListo);
   almActivarCasilla();
@@ -2436,6 +2445,18 @@ function almPantallaEscanerVisible() {
   return almPantallaAlmacen() && p1 && p1.style.display !== 'none';
 }
 
+// La pistola ha terminado de escribir un código
+function almLecturaTerminada() {
+  const inp = document.getElementById('alm-inp-codigo');
+  if (!inp) return;
+  if (!almPantallaEscanerVisible()) {          // midiendo: las lecturas se ignoran
+    almLeidoHasta = (inp.value || '').length;
+    return;
+  }
+  const pendiente = (inp.value || '').slice(almLeidoHasta).trim();
+  if (pendiente.length >= 4) almUsarCodigo(true);
+}
+
 // Devuelve lo escrito desde la última lectura y apunta por dónde va
 let almLeidoHasta = 0;
 function almCodigoNuevo(inp) {
@@ -2443,9 +2464,7 @@ function almCodigoNuevo(inp) {
   const total = inp.value || '';
   const nuevo = total.length >= almLeidoHasta ? total.slice(almLeidoHasta) : total;
   almLeidoHasta = total.length;
-  if (total.length > 400) {              // de vez en cuando se limpia, con la casilla suelta un instante
-    inp.value = ''; almLeidoHasta = 0;
-  }
+  if (total.length > 3000) { inp.value = ''; almLeidoHasta = 0; }   // limpieza muy de vez en cuando
   return nuevo.trim();
 }
 
@@ -2577,11 +2596,12 @@ function almLecturaGlobal() {
 }
 document.addEventListener('keydown', almTeclaGlobal, true);
 
-async function almUsarCodigo() {
+async function almUsarCodigo(automatico = false) {
   const inpCod = document.getElementById('alm-inp-codigo');
   // Se lee solo lo nuevo: la casilla no se toca (vaciarla desde el programa
   // también rompe la conexión con el escáner en algunas pistolas)
   const cod = almCodigoNuevo(inpCod);
+  if (!cod && automatico) return;              // ya se había procesado (Enter y pausa a la vez)
   if (!cod) { alert('Escanea o escribe un código'); return; }
   if (!almExpListo) {
     alert('Todavía se están cargando las expediciones. Espera unos segundos y vuelve a escanear.');
