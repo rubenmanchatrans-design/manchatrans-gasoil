@@ -2217,7 +2217,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v52 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v53 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -3198,18 +3198,40 @@ async function almMedirAR(i) {
     ? Math.abs(b.y - a.y)
     : Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
   const terminar = () => { try { fuente?.cancel(); } catch(e) {} try { sesion?.end(); } catch(e) {} ov.remove(); };
-  try {
-    sesion = await navigator.xr.requestSession('immersive-ar', {
-      requiredFeatures: ['hit-test', 'local'], optionalFeatures: ['dom-overlay'], domOverlay: {root: ov}});
-  } catch(e) {
+  // Se prueban varias configuraciones, de la completa a la más sencilla, y se apunta qué pasa
+  const pruebas = [
+    ['completa (superficies + pantalla encima)', {requiredFeatures:['hit-test','local'], optionalFeatures:['dom-overlay'], domOverlay:{root: ov}}],
+    ['superficies sin pantalla encima',          {requiredFeatures:['hit-test']}],
+    ['básica (sin detectar superficies)',        {optionalFeatures:['dom-overlay'], domOverlay:{root: ov}}],
+  ];
+  const informe = [];
+  for (const [nombre, cfg] of pruebas) {
+    try {
+      const s = await navigator.xr.requestSession('immersive-ar', cfg);
+      const tieneHit = cfg.requiredFeatures?.includes('hit-test');
+      informe.push(`✅ ${nombre}`);
+      if (tieneHit) { sesion = s; break; }
+      // la básica abre, pero sin detectar superficies no se puede medir
+      try { await s.end(); } catch(e) {}
+      break;
+    } catch(e) {
+      informe.push(`❌ ${nombre}: ${(e && e.name ? e.name + ' — ' : '') + (e && e.message || e)}`);
+    }
+  }
+  if (!sesion) {
     ov.remove();
-    almAbrirModal('📐 No se ha podido abrir la cámara de medir', `
-      <div style="font-size:14px;margin-bottom:0.75rem">Mándale este mensaje a quien lleva la app:</div>
-      <div style="font-family:monospace;font-size:13px;background:var(--navy-light);padding:0.75rem;border-radius:10px;word-break:break-word">${almEsc((e && e.name ? e.name + ': ' : '') + (e && e.message ? e.message : String(e)))}</div>
-      <button type="button" class="alm-accion" style="width:100%;margin-top:0.75rem" onclick="almCopiar(this.previousElementSibling.textContent,'Error')">📋 Copiar el mensaje</button>`,
+    const soloBasica = informe.some(l => l.startsWith('✅'));
+    almAbrirModal('📐 La cámara de medir no está disponible', `
+      <div style="font-size:14px;margin-bottom:0.75rem">${soloBasica
+        ? 'Este aparato abre la cámara de realidad aumentada, pero <strong>no sabe detectar superficies</strong>, que es lo que hace falta para medir.'
+        : 'Este aparato no ha podido abrir la cámara de realidad aumentada.'}</div>
+      <div style="font-size:14px;margin-bottom:0.75rem">Prueba a instalar o actualizar <strong>"Servicios de Google Play para RA"</strong> desde Play Store y vuelve a intentarlo. Si sigue igual, el aparato no es compatible y hay que medir con metro.</div>
+      <div style="font-family:monospace;font-size:12px;background:var(--navy-light);padding:0.75rem;border-radius:10px;white-space:pre-wrap;word-break:break-word">${almEsc(informe.join('\n'))}</div>
+      <button type="button" class="alm-accion" style="width:100%;margin-top:0.75rem" onclick="almCopiar(this.previousElementSibling.textContent,'Informe')">📋 Copiar el informe</button>`,
       `<button class="btn btn-primary" onclick="almCerrarModal()">Cerrar</button>`);
     return;
   }
+  // (se ha abierto la configuración completa o la de superficies)
   sesion.addEventListener('end', () => { ov.remove(); });
   let gl;
   try {
