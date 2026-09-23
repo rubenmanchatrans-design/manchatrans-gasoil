@@ -2115,7 +2115,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v20 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v21 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -8442,23 +8442,30 @@ async function guardarSeguroPoliza() {
   btn.disabled = false; btn.textContent = textoOriginal;
 }
 
+window.abrirPolizaAviso = (safeId) => {
+  if (!segVehFichasAbiertas.has('pol-'+safeId)) toggleSeguroPol(safeId);
+  document.getElementById('seg-pol-arrow-'+safeId)?.closest('div')?.scrollIntoView({behavior:'smooth', block:'center'});
+};
+
 function renderSegurosPolizas() {
   const list = document.getElementById('seg-pol-list');
   const alertasEl = document.getElementById('seg-pol-alertas');
   if (!list) return;
   const hoy = new Date();
   const activas = segurosPolizasCache.filter(p=>p.activo!==false);
-  let alertasHtml = '';
+  const avisos = [];
   activas.forEach(p=>{
     if (!p.fechaCaducidad) return;
     const dias = Math.ceil((new Date(p.fechaCaducidad)-hoy)/(1000*60*60*24));
     if (dias<=DIAS_AVISO_SEGUROS) {
-      const color = dias<0?'var(--danger)':dias<=5?'#ff6b00':'var(--warning)';
-      const txt = dias<0?`Vencida hace ${Math.abs(dias)} días`:dias===0?'Vence hoy':`Vence en ${dias} días`;
-      alertasHtml += `<div style="background:#3a1e1e;border:1px solid ${color};border-radius:var(--radius-sm);padding:0.75rem 1rem;margin-bottom:0.5rem;font-size:13px;">⚠️ <strong>${p.tipoPoliza||'Póliza'}</strong>: <span style="color:${color};font-weight:700;">${txt}</span> (${new Date(p.fechaCaducidad).toLocaleDateString('es-ES')})</div>`;
+      const est = avisoEstado(dias);
+      avisos.push({dias, etiqueta:est.etiqueta, color:est.color,
+        titulo:`${p.tipoPoliza||'Póliza'}${p.compania?` · <span class="aviso-tipo">${p.compania}</span>`:''}${p.modelo?` · <span class="aviso-tipo">${p.modelo}</span>`:''}`,
+        sub:`${est.txt} · ${new Date(p.fechaCaducidad).toLocaleDateString('es-ES')}`,
+        accion:`abrirPolizaAviso('${p.id.replace(/[^a-zA-Z0-9]/g,'_')}')`});
     }
   });
-  alertasEl.innerHTML = alertasHtml ? `<div style="margin-bottom:1.25rem;">${alertasHtml}</div>` : '';
+  alertasEl.innerHTML = panelAvisos('avisos-polizas', avisos, 'Todas las pólizas al día');
   document.getElementById('seg-pol-baja-count').textContent = segurosPolizasCache.filter(p=>p.activo===false).length;
 
   if (!activas.length) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">📄</div>No hay pólizas activas registradas</div>'; return; }
