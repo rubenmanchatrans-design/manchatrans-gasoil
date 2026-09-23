@@ -601,6 +601,8 @@ html.giro-fijo #screen-chat { height: 100% !important; }
     </div>
   </div>
   <div style="padding:1.25rem;max-width:600px;margin:0 auto">
+    <!-- Casilla de lectura: siempre presente, para que la pistola no pierda el sitio donde escribe -->
+    <div id="alm-barra-scan"></div>
     <!-- Stepper -->
     <div id="alm-stepper" style="display:flex;align-items:center;gap:6px;margin-bottom:1rem;flex-wrap:wrap"></div>
     <!-- Pasos -->
@@ -2147,7 +2149,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v28 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v29 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2341,6 +2343,9 @@ function entrarAlmacen(desdeAdmin = false) {
   };
   almReset();
   almEscucharExp();
+  const barra = document.getElementById('alm-barra-scan');
+  if (barra) barra.dataset.montada = '';    // se vuelve a montar al entrar
+  almBarraScan();
   almRenderPaso(1);          // sin esperas: Android solo deja abrir el teclado dentro del toque
   almCargarRegistros();
 }
@@ -2373,77 +2378,95 @@ function almRenderPaso(paso) {
   const target = document.getElementById('alm-paso'+paso);
   if (target) target.style.display='block';
   almRenderStepper(paso);
+  almPintarListo();
   if (paso===1) almRenderPaso1();
   else if (paso===2) almRenderPaso2();
   else if (paso===3) almRenderPaso3();
   else if (paso===4) almRenderPaso4();
 }
 
+// La casilla de lectura se dibuja UNA sola vez al entrar y no se borra ni se
+// oculta en ningún paso: si desaparece, la pistola pierde el sitio donde escribe.
+function almBarraScan() {
+  const barra = document.getElementById('alm-barra-scan');
+  if (!barra) return;
+  if (barra.dataset.montada === '1') { almActivarCasilla(); return; }
+  barra.dataset.montada = '1';
+  barra.innerHTML = `
+    <div id="alm-zona-scan" class="alm-scan" onclick="almActivarCasilla()" style="margin-bottom:1rem">
+      <div id="alm-scan-aviso" class="alm-scan-aviso">👆 Toca aquí para poder leer</div>
+      <div style="display:flex;gap:0.5rem;margin-top:0.6rem">
+        <input class="form-input" type="text" inputmode="${almModoTeclado()==='si' ? 'numeric' : 'none'}" id="alm-inp-codigo" placeholder="Escanea aquí..." autocomplete="off" style="font-size:18px;letter-spacing:2px;flex:1;min-width:0">
+        <button type="button" class="btn btn-ghost" onclick="event.stopPropagation();almTeclado()" style="width:auto;flex-shrink:0;padding:0.6rem 0.9rem;font-size:20px" aria-label="Sacar el teclado">⌨️</button>
+      </div>
+      <button class="btn btn-primary" id="alm-btn-preparar" style="margin-top:0.6rem;display:none" onclick="event.stopPropagation();almActivarCasilla()">🔫 Preparar lectura</button>
+    </div>`;
+  const inp = document.getElementById('alm-inp-codigo');
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); almUsarCodigo(); } });
+  inp.addEventListener('focus', almPintarListo);
+  inp.addEventListener('blur', almPintarListo);
+  almActivarCasilla();
+}
+
 function almRenderPaso1() {
   const el = document.getElementById('alm-paso1');
-  const modo = almModoTeclado();
   el.innerHTML = `
     <div class="refuel-card">
       <div class="section-title">Escanear etiqueta</div>
-      <div id="alm-zona-scan" class="alm-scan" onclick="almActivarCasilla()">
-        <div id="alm-scan-aviso" class="alm-scan-aviso">👆 Toca aquí y dispara con la pistola</div>
-        <div style="display:flex;gap:0.5rem;margin-top:0.6rem">
-          <input class="form-input" type="text" inputmode="${modo==='si' ? 'numeric' : 'none'}" id="alm-inp-codigo" placeholder="Escanea aquí..." autocomplete="off" style="font-size:18px;letter-spacing:2px;flex:1;min-width:0">
-          <button type="button" class="btn btn-ghost" id="alm-btn-teclado" onclick="event.stopPropagation();almTeclado()" style="width:auto;flex-shrink:0;padding:0.6rem 0.9rem;font-size:20px" aria-label="Sacar el teclado">⌨️</button>
-        </div>
-      </div>
-      <button class="btn btn-primary" id="alm-btn-preparar" style="margin-top:0.75rem;font-size:17px;padding:1rem;display:none" onclick="almActivarCasilla()">🔫 Preparar lectura</button>
-      <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almUsarCodigo()">Buscar →</button>
+      <div style="font-size:14px;color:var(--text-muted);margin-bottom:0.75rem">Pasa la pistola por el código de barras del palet: la expedición saldrá sola.</div>
+      <button class="btn btn-ghost" onclick="almUsarCodigo()">Buscar el código escrito →</button>
       <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almAbrirManual()">✍️ Meter nº de expedición a mano</button>
       <div id="alm-estado-exp" style="margin-top:0.75rem;font-size:12px;color:var(--text-muted);text-align:center">${almTextoEstadoExp()}</div>
       <button type="button" class="alm-accion" style="width:100%;margin-top:0.75rem" onclick="almAjustes()">⚙️ Ajustes de la pistola</button>
       <div style="margin-top:0.5rem;font-size:11px;color:var(--text-muted);text-align:center;opacity:0.7">${ALM_VERSION}</div>
     </div>`;
-  const inp = document.getElementById('alm-inp-codigo');
-  if (!inp) return;
-  inp.addEventListener('keydown', e => { if (e.key==='Enter') almUsarCodigo(); });
-  inp.addEventListener('focus', almPintarListo);
-  inp.addEventListener('blur', almPintarListo);
-  almActivarCasilla();          // Android solo lo permite tras un toque; si no, el aviso lo pide
-  almPintarListo();
+  almActivarCasilla();
 }
 
-// La casilla tiene que estar activa para que la pistola escriba en ella.
-// Android solo deja activarla después de un toque, así que se reintenta en
-// cada toque de pantalla mientras se está escaneando.
+// ¿Estamos en la pantalla de almacén? La casilla se mantiene activa en todos los pasos
+function almPantallaAlmacen() {
+  const scr = document.getElementById('screen-almacen');
+  return !!(scr && scr.classList.contains('active') && !document.getElementById('alm-modal'));
+}
+// ¿Estamos en el paso de escanear? Es cuando una lectura sirve para algo
+function almPantallaEscanerVisible() {
+  const p1 = document.getElementById('alm-paso1');
+  return almPantallaAlmacen() && p1 && p1.style.display !== 'none';
+}
+
 function almActivarCasilla() {
   const poner = () => {
     const inp = document.getElementById('alm-inp-codigo');
-    if (!inp || !almPantallaEscanerVisible()) return;
+    if (!inp || !almPantallaAlmacen()) return;
     if (document.activeElement !== inp) {
       try { inp.focus({preventScroll:true}); } catch(e) { inp.focus(); }
     }
     almPintarListo();
   };
-  poner();                                   // dentro del toque del usuario
-  [60, 250, 600].forEach(ms => setTimeout(poner, ms));   // y se reintenta por si acaso
+  poner();                                                // dentro del toque del usuario
+  [60, 250, 600].forEach(ms => setTimeout(poner, ms));    // y se reintenta por si acaso
 }
-// Mientras se está escaneando, se vigila que la casilla siga activa
+// Vigilancia continua: si la casilla se suelta, se vuelve a activar sola
 setInterval(() => {
-  if (!almPantallaEscanerVisible()) return;
+  if (!almPantallaAlmacen()) return;
   const inp = document.getElementById('alm-inp-codigo');
   if (inp && document.activeElement !== inp) { try { inp.focus({preventScroll:true}); } catch(e) {} almPintarListo(); }
-}, 1500);
+}, 1200);
+
 function almPintarListo() {
   const zona = document.getElementById('alm-zona-scan');
   const aviso = document.getElementById('alm-scan-aviso');
   const inp = document.getElementById('alm-inp-codigo');
   if (!zona || !aviso || !inp) return;
+  zona.style.display = almPantallaEscanerVisible() ? 'block' : 'none';   // solo se ve al escanear
   const listo = document.activeElement === inp;
   zona.classList.toggle('lista', listo);
+  aviso.innerHTML = listo ? '🟢 Listo para leer: dispara con la pistola' : '👆 Toca aquí para poder leer';
   const prep = document.getElementById('alm-btn-preparar');
   if (prep) prep.style.display = listo ? 'none' : 'block';
-  aviso.innerHTML = listo
-    ? '🟢 Listo para leer: dispara con la pistola'
-    : '👆 Toca aquí para poder leer';
 }
 function almMantenerFoco(ev) {
-  if (!almPantallaEscanerVisible()) return;
+  if (!almPantallaAlmacen()) return;
   const t = ev.target;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON' || t.closest('button'))) return;
   almActivarCasilla();
@@ -2511,11 +2534,6 @@ function almAjustes() {
 // Si la pistola manda las teclas aunque no haya ninguna casilla activa, se
 // recogen aquí: así no hace falta que salga el teclado para leer.
 let almBufScan = '', almTimerScan = null;
-function almPantallaEscanerVisible() {
-  const scr = document.getElementById('screen-almacen');
-  const p1 = document.getElementById('alm-paso1');
-  return scr && scr.classList.contains('active') && p1 && p1.style.display !== 'none' && !document.getElementById('alm-modal');
-}
 function almTeclaGlobal(ev) {
   if (!almPantallaEscanerVisible()) return;
   const t = ev.target;
@@ -2543,8 +2561,9 @@ function almLecturaGlobal() {
 document.addEventListener('keydown', almTeclaGlobal, true);
 
 async function almUsarCodigo() {
-  const cod = (document.getElementById('alm-inp-codigo')?.value||'').trim();
-  document.getElementById('alm-inp-codigo')?.blur();     // así el teclado desaparece al medir
+  const inpCod = document.getElementById('alm-inp-codigo');
+  const cod = (inpCod?.value || '').trim();
+  if (inpCod) inpCod.value = '';        // se vacía, pero NO se suelta: la pistola sigue escribiendo aquí
   if (!cod) { alert('Escanea o escribe un código'); return; }
   if (!almExpListo) {
     alert('Todavía se están cargando las expediciones. Espera unos segundos y vuelve a escanear.');
@@ -3176,7 +3195,7 @@ function almNueva() {
   almReset();
   document.getElementById('alm-paso-ok').style.display='none';
   almRenderPaso(1);
-  almActivarCasilla();       // el toque del botón sirve para volver a activar la casilla
+  almActivarCasilla();
 }
 
 // ── Vista admin del almacén ──
