@@ -539,6 +539,11 @@ body > div[id$="-modal"]:not(#alm-modal) .form-input { font-size: 16px; border-r
 .aviso-sub { font-size: 13px; font-weight: 600; margin-top: 1px; }
 .aviso-ir { color: var(--text-muted); font-size: 20px; }
 .avisos-ok { background: rgba(46,204,113,0.10); border: 1px solid rgba(46,204,113,0.35); color: var(--success); border-radius: 14px; padding: 0.8rem 1rem; font-size: 14px; font-weight: 600; margin-bottom: 1rem; }
+
+.alm-scan { border: 2px dashed var(--card-border); border-radius: 14px; padding: 0.8rem; cursor: pointer; }
+.alm-scan.lista { border-style: solid; border-color: var(--success); background: rgba(46,204,113,0.07); }
+.alm-scan-aviso { text-align: center; font-size: 14px; font-weight: 700; color: var(--text-muted); }
+.alm-scan.lista .alm-scan-aviso { color: var(--success); }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2126,7 +2131,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v23 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v24 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2216,7 +2221,7 @@ function almIndexar() {
   idx.entradas.reverse();                                     // más recientes primero
   almIdx = idx;
   almExpListo = true;
-  const est = document.getElementById('alm-el sistema-estado');
+  const est = document.getElementById('alm-estado-exp');
   if (est) est.innerHTML = almTextoEstadoExp();
 }
 function almTextoEstadoExp() {
@@ -2359,29 +2364,59 @@ function almRenderPaso(paso) {
 
 function almRenderPaso1() {
   const el = document.getElementById('alm-paso1');
+  const modo = almModoTeclado();
   el.innerHTML = `
     <div class="refuel-card">
       <div class="section-title">Escanear etiqueta</div>
-      <div class="form-group">
-        <label class="form-label">Pasa la pistola por el código de barras</label>
-        <div style="display:flex;gap:0.5rem">
-          <input class="form-input" type="text" inputmode="${almModoTeclado()==='no' ? 'none' : 'numeric'}" id="alm-inp-codigo" placeholder="Escanea aquí..." autocomplete="off" style="font-size:18px;letter-spacing:2px;flex:1;min-width:0">
-          <button type="button" class="btn btn-ghost" id="alm-btn-teclado" onclick="almTeclado()" style="width:auto;flex-shrink:0;padding:0.6rem 0.9rem;font-size:20px" aria-label="Sacar el teclado">⌨️</button>
+      <div id="alm-zona-scan" class="alm-scan" onclick="almActivarCasilla()">
+        <div id="alm-scan-aviso" class="alm-scan-aviso">👆 Toca aquí y dispara con la pistola</div>
+        <div style="display:flex;gap:0.5rem;margin-top:0.6rem">
+          <input class="form-input" type="text" inputmode="${modo==='si' ? 'numeric' : 'none'}" id="alm-inp-codigo" placeholder="Escanea aquí..." autocomplete="off" style="font-size:18px;letter-spacing:2px;flex:1;min-width:0">
+          <button type="button" class="btn btn-ghost" id="alm-btn-teclado" onclick="event.stopPropagation();almTeclado()" style="width:auto;flex-shrink:0;padding:0.6rem 0.9rem;font-size:20px" aria-label="Sacar el teclado">⌨️</button>
         </div>
       </div>
-      <button class="btn btn-primary" onclick="almUsarCodigo()">Buscar →</button>
+      <button class="btn btn-primary" style="margin-top:0.75rem" onclick="almUsarCodigo()">Buscar →</button>
       <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almAbrirManual()">✍️ Meter nº de expedición a mano</button>
-      <div id="alm-el sistema-estado" style="margin-top:0.75rem;font-size:12px;color:var(--text-muted);text-align:center">${almTextoEstadoExp()}</div>
+      <div id="alm-estado-exp" style="margin-top:0.75rem;font-size:12px;color:var(--text-muted);text-align:center">${almTextoEstadoExp()}</div>
       <button type="button" class="alm-accion" style="width:100%;margin-top:0.75rem" onclick="almAjustes()">⚙️ Ajustes de la pistola</button>
       <div style="margin-top:0.5rem;font-size:11px;color:var(--text-muted);text-align:center;opacity:0.7">${ALM_VERSION}</div>
     </div>`;
   const inp = document.getElementById('alm-inp-codigo');
-  if (inp) {
-    // Con "Al tocar" no se pone el cursor solo, así no salta el teclado al entrar
-    if (almModoTeclado() !== 'tocar') inp.focus();
-    inp.addEventListener('keydown', e => { if (e.key==='Enter') almUsarCodigo(); });
-  }
+  if (!inp) return;
+  inp.addEventListener('keydown', e => { if (e.key==='Enter') almUsarCodigo(); });
+  inp.addEventListener('focus', almPintarListo);
+  inp.addEventListener('blur', almPintarListo);
+  almActivarCasilla();          // Android solo lo permite tras un toque; si no, el aviso lo pide
+  almPintarListo();
 }
+
+// La casilla tiene que estar activa para que la pistola escriba en ella.
+// Android solo deja activarla después de un toque, así que se reintenta en
+// cada toque de pantalla mientras se está escaneando.
+function almActivarCasilla() {
+  const inp = document.getElementById('alm-inp-codigo');
+  if (!inp) return;
+  try { inp.focus({preventScroll:true}); } catch(e) { inp.focus(); }
+  setTimeout(almPintarListo, 50);
+}
+function almPintarListo() {
+  const zona = document.getElementById('alm-zona-scan');
+  const aviso = document.getElementById('alm-scan-aviso');
+  const inp = document.getElementById('alm-inp-codigo');
+  if (!zona || !aviso || !inp) return;
+  const listo = document.activeElement === inp;
+  zona.classList.toggle('lista', listo);
+  aviso.innerHTML = listo
+    ? '🟢 Listo para leer: dispara con la pistola'
+    : '👆 Toca aquí y dispara con la pistola';
+}
+function almMantenerFoco(ev) {
+  if (!almPantallaEscanerVisible()) return;
+  const t = ev.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON' || t.closest('button'))) return;
+  almActivarCasilla();
+}
+document.addEventListener('pointerup', almMantenerFoco);
 
 // La casilla de escanear no saca el teclado (inputmode="none"): la pistola
 // escribe igual. El botón ⌨️ lo saca, numérico, solo cuando se quiere teclear.
@@ -2394,7 +2429,7 @@ function almTeclado() {
 }
 
 // ── Ajustes del aparato (se guardan en la propia pistola o móvil) ──
-function almModoTeclado() { try { return localStorage.getItem('nfTeclado') || 'tocar'; } catch(e) { return 'tocar'; } }
+function almModoTeclado() { try { return localStorage.getItem('nfTeclado') || 'no'; } catch(e) { return 'no'; } }
 function almGuardarAjuste(clave, valor) {
   try { localStorage.setItem(clave, valor); } catch(e) {}
   almAjustes();
@@ -2414,11 +2449,10 @@ function almAjustes() {
   const info = `Pantalla ${screen.width}×${screen.height} · ${tipo} · ángulo ${ang} · ref ${window.anguloRef()} · giro ${giro} · teclado ${tec} · toques ${navigator.maxTouchPoints||0} · ${ALM_VERSION}`;
   almAbrirModal('⚙️ Ajustes de la pistola', `
     <div class="alm-etq">Teclado al escanear</div>
-    <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">Algunas pistolas solo escriben si el teclado está abierto. Con <strong>Al tocar</strong>, el teclado sale solo cuando tocas la casilla.</div>
-    <div class="alm-ags" style="grid-template-columns:repeat(3,1fr)">
-      ${opc('nfTeclado','tocar',tec,'👆 Al tocar')}
-      ${opc('nfTeclado','si',tec,'⌨️ Siempre')}
-      ${opc('nfTeclado','no',tec,'🚫 Nunca')}
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">Sin teclado, la casilla se activa tocando la pantalla y la pistola escribe igual. Si en tu aparato no funciona, ponlo con teclado.</div>
+    <div class="alm-ags" style="grid-template-columns:1fr 1fr">
+      ${opc('nfTeclado','no',tec,'🚫 Sin teclado')}
+      ${opc('nfTeclado','si',tec,'⌨️ Con teclado')}
     </div>
 
     <div class="alm-etq" style="margin-top:1.25rem">Posición de la pantalla</div>
@@ -3841,7 +3875,7 @@ async function almExportarExcel() {
 // Este bloque vive dentro de <script type="module">: las funciones que se
 // llaman desde onclick="" tienen que colgarse de window para existir.
 Object.assign(window, {
-  almUsarCodigo, almTeclado, almTecladoLetras, almAjustes, almGuardarAjuste, almAbrirManual, almModoTeclado, almBuscarManual, almElegir, almRemedir,
+  almUsarCodigo, almTeclado, almTecladoLetras, almAjustes, almActivarCasilla, almGuardarAjuste, almAbrirManual, almModoTeclado, almBuscarManual, almElegir, almRemedir,
   almSelAgencia, almRenderPaso, almSelMedida,
   almCalcPeso, almIrConfirmar, almGuardar, almNueva,
   renderAlmacenAdmin, renderAlmacenResumen, almBorrarExpedicion, almExportarExcel,
