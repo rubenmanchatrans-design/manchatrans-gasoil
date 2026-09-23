@@ -2221,7 +2221,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v55 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v56 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -3642,10 +3642,21 @@ async function almGuardar() {
     horaStr: ahora.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}),
   };
   try {
-    const ref = await addDoc(collection(db,'almacenExpediciones'), registro);
-    almEstado.ultimoId = ref.id;
+    const fichaFoto = almFichaDe(registro.expedicion, true);
+    if (fichaFoto) {
+      // la medida se guarda en la ficha que ya tenía las fotos
+      const conFotos = {...registro, fotos: fichaFoto.fotos || 0};
+      await updateDoc(doc(db,'almacenExpediciones',fichaFoto.id), conFotos);
+      Object.assign(fichaFoto, conFotos);
+      almEstado.ultimoId = fichaFoto.id;
+      almCache = almCache.filter(r => r.id !== fichaFoto.id);
+    } else {
+      const ref = await addDoc(collection(db,'almacenExpediciones'), registro);
+      almEstado.ultimoId = ref.id;
+    }
+    const ref = {id: almEstado.ultimoId};
     if (e.noEncontrado && (e.via === 'mano' || e.via === 'manual')) almGuardarAlias(registro);
-    almCache.unshift({id:ref.id,...registro});
+    almCache.unshift({id:ref.id, ...registro, ...(fichaFoto ? {fotos: fichaFoto.fotos || 0} : {})});
   } catch(err) {
     alert('No se ha podido guardar: ' + err.message + '\nComprueba la conexión y vuelve a intentarlo.');
     return;
@@ -3812,6 +3823,38 @@ async function almMarcarTodasPasadas() {
   } catch(e) { alert('Alguna no se ha podido guardar: '+e.message); }
 }
 
+// Junta las fichas repetidas de una misma expedición que solo tienen fotos:
+// sus fotos pasan a la ficha buena (la medida, o la primera de solo fotos) y se borran las demás
+let almUnificado = false;
+async function almUnificarFotos() {
+  if (almUnificado) return;
+  almUnificado = true;
+  const grupos = {};
+  almCache.forEach(r => { (grupos[r.expedicion] ||= []).push(r); });
+  for (const lista of Object.values(grupos)) {
+    const soloFoto = lista.filter(r => r.medida === 'foto');
+    if (!soloFoto.length || lista.length < 2) continue;
+    const medidas = lista.filter(r => r.medida !== 'foto').sort((a,b)=>(b.ts||0)-(a.ts||0));
+    const destino = medidas[0] || soloFoto.sort((a,b)=>(a.ts||0)-(b.ts||0))[0];
+    let suma = destino.fotos || 0;
+    for (const r of soloFoto) {
+      if (r.id === destino.id) continue;
+      try {
+        const fotos = await almCargarFotos(r.id);
+        for (const f of fotos) await updateDoc(doc(db,'almacenFotos',f.id), {registroId: destino.id});
+        suma += fotos.length;
+        await deleteDoc(doc(db,'almacenExpediciones',r.id));
+      } catch(e) { console.warn('Unificar fotos:', e); }
+    }
+    // el contador se recalcula contando las fotos reales de la ficha (por si antes estaba mal)
+    try {
+      const reales = (await almCargarFotos(destino.id)).filter(f => f.registroId === destino.id).length;
+      const total = reales || suma;
+      await updateDoc(doc(db,'almacenExpediciones',destino.id), {fotos: total}); destino.fotos = total;
+    } catch(e) {}
+  }
+}
+
 // En la oficina la lista se actualiza sola mientras el almacén va midiendo
 let almRegUnsub = null;
 function almEscucharRegistros() {
@@ -3820,6 +3863,7 @@ function almEscucharRegistros() {
     almCache = snap.docs.map(d=>({id:d.id,...d.data()}));
     renderAlmacenAdmin();
     if (typeof homeResumen === 'function') homeResumen();
+    almUnificarFotos();
     if (document.getElementById('alm-admin-resumen')?.style.display==='block') renderAlmacenResumen();
   }, err => { console.warn('Registros almacén:', err); almCargarRegistros().then(()=>renderAlmacenAdmin()); });
 }
@@ -4147,12 +4191,25 @@ function almAvisoFotos(html, tipo) {
   if (tipo !== 'subiendo') setTimeout(() => t.remove(), 3500);
 }
 
+// Ficha ya existente de una expedición (la más reciente). soloFoto = solo las de "solo fotos"
+function almFichaDe(exp, soloFoto = false) {
+  const vistas = new Map();
+  [...(almEstado.previas || []), ...almCache].forEach(r => { if (r && r.id) vistas.set(r.id, r); });
+  return [...vistas.values()]
+    .filter(r => r.expedicion === exp && (!soloFoto || r.medida === 'foto'))
+    .sort((a,b) => (b.ts||0) - (a.ts||0))[0] || null;
+}
+
 // Foto sin medir: la cámara se abre ya (tiene que ser en el mismo toque) y la ficha
 // de la expedición (tipo "solo foto") se crea cuando llegan las fotos
 function almFotoSinMedir() {
   const e = almEstado;
   if (!e.exp) return;
+  const existente = almFichaDe(e.exp);                 // si ya hay ficha, las fotos van a ella
+  if (existente) { almHacerFoto(existente.id, e.exp); return; }
   almHacerFoto(null, e.exp, async () => {
+    const ya = almFichaDe(e.exp);                        // por si se creó mientras tanto
+    if (ya) return ya.id;
     const ahora = new Date();
     const registro = {
       codigo: e.codigo || e.exp, expedicion: e.exp, agencia: e.agencia,
@@ -4210,7 +4267,7 @@ function almHacerFoto(registroId, expedicion, crearRegistro = null) {
 async function almCargarFotos(registroId) {
   try {
     const snap = await almConLimite(getDocs(query(collection(db,'almacenFotos'), where('registroId','==',registroId))), 8000, {docs:[]});
-    return snap.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b) => a.ts - b.ts);
+    return snap.docs.map(d => ({id:d.id, ...d.data()})).filter(f => f.registroId === registroId).sort((a,b) => a.ts - b.ts);
   } catch(e) { console.warn('Fotos:', e); return []; }
 }
 // Miniaturas en la pantalla de "Guardado"
