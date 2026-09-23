@@ -14,7 +14,15 @@
   // deja bloquearla con la app instalada (y el manifest.json con
   // "orientation": "portrait"); se intenta al abrir y al primer toque.
   function bloquearGiro() {
-    try { const p = screen.orientation && screen.orientation.lock && screen.orientation.lock('portrait'); if (p && p.catch) p.catch(()=>{}); } catch(e) {}
+    try {
+      const o = screen.orientation;
+      if (o && o.lock) {
+        // 'portrait-primary' = vertical normal. Con 'portrait' Android permite también
+        // la vertical al revés (180°), que es justo lo que hace la pistola al darle la vuelta.
+        const p = o.lock('portrait-primary');
+        if (p && p.catch) p.catch(() => { try { const q = o.lock('portrait'); if (q && q.catch) q.catch(()=>{}); } catch(e) {} });
+      }
+    } catch(e) {}
   }
   bloquearGiro();
   document.addEventListener('pointerdown', bloquearGiro, {once:true});
@@ -78,6 +86,13 @@
     if (typeof window.almAjustes === 'function') window.almAjustes();
   };
   window.addEventListener('orientationchange', () => setTimeout(mantenerVertical, 50));
+  // El giro de 180° no cambia el tamaño de la pantalla y en muchas pistolas no avisa:
+  // se comprueba el ángulo cada medio segundo (solo lee un número, no toca nada)
+  let ultimoAngulo = null;
+  setInterval(() => {
+    const a = window.anguloActual();
+    if (a !== ultimoAngulo) { ultimoAngulo = a; mantenerVertical(); bloquearGiro(); }
+  }, 500);
   if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener('change', mantenerVertical);
   window.addEventListener('resize', mantenerVertical);
   mantenerVertical();
@@ -2169,7 +2184,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v41 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v42 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
