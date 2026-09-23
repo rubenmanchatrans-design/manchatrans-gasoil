@@ -2147,7 +2147,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v27 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v28 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2412,11 +2412,23 @@ function almRenderPaso1() {
 // Android solo deja activarla después de un toque, así que se reintenta en
 // cada toque de pantalla mientras se está escaneando.
 function almActivarCasilla() {
-  const inp = document.getElementById('alm-inp-codigo');
-  if (!inp) return;
-  try { inp.focus({preventScroll:true}); } catch(e) { inp.focus(); }
-  setTimeout(almPintarListo, 50);
+  const poner = () => {
+    const inp = document.getElementById('alm-inp-codigo');
+    if (!inp || !almPantallaEscanerVisible()) return;
+    if (document.activeElement !== inp) {
+      try { inp.focus({preventScroll:true}); } catch(e) { inp.focus(); }
+    }
+    almPintarListo();
+  };
+  poner();                                   // dentro del toque del usuario
+  [60, 250, 600].forEach(ms => setTimeout(poner, ms));   // y se reintenta por si acaso
 }
+// Mientras se está escaneando, se vigila que la casilla siga activa
+setInterval(() => {
+  if (!almPantallaEscanerVisible()) return;
+  const inp = document.getElementById('alm-inp-codigo');
+  if (inp && document.activeElement !== inp) { try { inp.focus({preventScroll:true}); } catch(e) {} almPintarListo(); }
+}, 1500);
 function almPintarListo() {
   const zona = document.getElementById('alm-zona-scan');
   const aviso = document.getElementById('alm-scan-aviso');
@@ -3164,6 +3176,7 @@ function almNueva() {
   almReset();
   document.getElementById('alm-paso-ok').style.display='none';
   almRenderPaso(1);
+  almActivarCasilla();       // el toque del botón sirve para volver a activar la casilla
 }
 
 // ── Vista admin del almacén ──
