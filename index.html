@@ -566,6 +566,10 @@ body > div[id$="-modal"]:not(#alm-modal) .form-input { font-size: 16px; border-r
 .alm-inp-oculta { color: transparent !important; caret-color: transparent !important; -webkit-text-fill-color: transparent !important; }
 .alm-scan-ver { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 1rem; font-size: 18px; letter-spacing: 2px; pointer-events: none; overflow: hidden; white-space: nowrap; color: var(--text); font-family: monospace; }
 .alm-scan-ver:empty::before { content: 'Esperando lectura…'; color: var(--text-muted); letter-spacing: 0.5px; font-family: inherit; font-size: 16px; }
+
+.alm-btn-teclado { width: 58px !important; min-height: 50px; flex-shrink: 0; padding: 0 !important; font-size: 24px; display: flex; align-items: center; justify-content: center; touch-action: manipulation; }
+.alm-btn-teclado.on { border-color: var(--accent) !important; background: rgba(245,166,35,0.15) !important; }
+#alm-btn-abc { touch-action: manipulation; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2155,7 +2159,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v35 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v36 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2406,7 +2410,7 @@ function almBarraScan() {
           <input class="form-input alm-inp-oculta" type="text" inputmode="${almModoTeclado()==='si' ? 'numeric' : 'none'}" id="alm-inp-codigo" autocomplete="off" style="font-size:18px;letter-spacing:2px;width:100%">
           <div id="alm-scan-ver" class="alm-scan-ver"></div>
         </div>
-        <button type="button" class="btn btn-ghost" onclick="event.stopPropagation();almTeclado()" style="width:auto;flex-shrink:0;padding:0.6rem 0.9rem;font-size:20px" aria-label="Sacar el teclado">⌨️</button>
+        <button type="button" id="alm-btn-teclado" class="btn btn-ghost alm-btn-teclado" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="event.stopPropagation();almTeclado()" aria-label="Sacar el teclado">⌨️</button>
       </div>
     </div>`;
   const inp = document.getElementById('alm-inp-codigo');
@@ -2532,9 +2536,15 @@ function almMantenerFoco(ev) {
 function almTeclado() {
   const inp = document.getElementById('alm-inp-codigo');
   if (!inp) return;
+  const abrir = inp.getAttribute('inputmode') === 'none';
+  inp.setAttribute('inputmode', abrir ? 'numeric' : 'none');
+  // Se suelta y se vuelve a coger en el mismo instante del toque: así Android
+  // abre (o cierra) el teclado a la primera
   inp.blur();
-  inp.setAttribute('inputmode', inp.getAttribute('inputmode') === 'none' ? 'numeric' : 'none');
-  setTimeout(() => inp.focus(), 50);
+  try { inp.focus({preventScroll:true}); } catch(e) { inp.focus(); }
+  const b = document.getElementById('alm-btn-teclado');
+  if (b) b.classList.toggle('on', abrir);
+  almPintarListo();
 }
 
 // ── Ajustes del aparato (se guardan en la propia pistola o móvil) ──
@@ -2767,7 +2777,7 @@ function almHtmlManual() {
       ${e.noEncontrado ? `<div style="background:rgba(255,179,71,0.12);color:var(--warning);border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:0.75rem">No se ha encontrado el código <strong style="font-family:monospace;word-break:break-all">${almEsc(e.codigo)}</strong>.<br>💡 Si el palet tiene <strong>otra etiqueta</strong>, prueba a escanearla. Si no, escribe la expedición que pone en la etiqueta.</div>` : ''}
       <div style="display:flex;gap:0.5rem">
         <input class="form-input" type="text" inputmode="numeric" id="alm-man-exp" value="${almEsc(e.textoManual||'')}" placeholder="Nº de expedición" autocomplete="off" style="font-family:monospace;font-size:18px;letter-spacing:1px;flex:1;min-width:0">
-        <button type="button" class="btn btn-ghost" id="alm-btn-abc" onclick="almTecladoLetras()" style="width:auto;flex-shrink:0;padding:0.6rem 0.8rem;font-size:14px" title="Teclado con letras">ABC</button>
+        <button type="button" class="btn btn-ghost" id="alm-btn-abc" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="almTecladoLetras()" style="width:auto;flex-shrink:0;padding:0.6rem 0.8rem;font-size:14px" title="Teclado con letras">ABC</button>
       </div>
       <button class="btn btn-primary" style="margin-top:0.75rem" onclick="almBuscarManual()">Buscar →</button>
       ${bloque}
@@ -2780,10 +2790,10 @@ function almTecladoLetras() {
   const inp = document.getElementById('alm-man-exp'), btn = document.getElementById('alm-btn-abc');
   if (!inp) return;
   const letras = inp.getAttribute('inputmode') !== 'text';
-  inp.blur();
   inp.setAttribute('inputmode', letras ? 'text' : 'numeric');
   if (btn) btn.textContent = letras ? '123' : 'ABC';
-  setTimeout(() => inp.focus(), 50);
+  inp.blur();
+  inp.focus();
 }
 
 async function almBuscarManual() {
