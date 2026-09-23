@@ -2187,7 +2187,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v43 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v44 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2449,6 +2449,13 @@ function almRenderPaso(paso) {
 
 // La casilla de lectura se dibuja UNA sola vez al entrar y no se borra ni se
 // oculta en ningún paso: si desaparece, la pistola pierde el sitio donde escribe.
+// Chrome permite conectar el teclado a una casilla SIN enseñarlo (API VirtualKeyboard).
+// Así la pistola, que escribe a través del teclado de Android, siempre tiene conexión.
+const ALM_TECLADO_OCULTO = !!(navigator.virtualKeyboard && typeof navigator.virtualKeyboard.hide === 'function');
+function almOcultarTeclado() {
+  try { if (ALM_TECLADO_OCULTO) navigator.virtualKeyboard.hide(); } catch(e) {}
+}
+
 function almBarraScan() {
   const barra = document.getElementById('alm-barra-scan');
   if (!barra) return;
@@ -2459,7 +2466,7 @@ function almBarraScan() {
       <div id="alm-scan-aviso" class="alm-scan-aviso">👆 Toca aquí para poder leer</div>
       <div style="display:flex;gap:0.5rem;margin-top:0.6rem">
         <div style="position:relative;flex:1;min-width:0">
-          <input class="form-input alm-inp-oculta" type="text" inputmode="none" id="alm-inp-codigo" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="font-size:18px;letter-spacing:2px;width:100%;pointer-events:none">
+          <input class="form-input alm-inp-oculta" type="text" ${ALM_TECLADO_OCULTO ? 'inputmode="numeric" virtualkeyboardpolicy="manual"' : 'inputmode="none"'} id="alm-inp-codigo" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="font-size:18px;letter-spacing:2px;width:100%;pointer-events:none">
           <div id="alm-scan-ver" class="alm-scan-ver"></div>
         </div>
         <button type="button" id="alm-btn-teclado" class="btn btn-ghost alm-btn-teclado" onclick="event.stopPropagation();almAbrirManual()" aria-label="Escribir la expedición a mano">⌨️</button>
@@ -2483,7 +2490,7 @@ function almBarraScan() {
     almTimerInput = setTimeout(almLecturaTerminada, 350);
     almVerLectura();
   });
-  inp.addEventListener('focus', () => { almCursorAlFinal(); almPintarListo(); });
+  inp.addEventListener('focus', () => { almOcultarTeclado(); almCursorAlFinal(); almPintarListo(); });
   inp.addEventListener('blur', almPintarListo);
   almActivarCasilla();
 }
@@ -2581,6 +2588,7 @@ function almActivarCasilla(forzar = false) {
   if (document.activeElement !== inp) {
     try { inp.focus({preventScroll:true}); } catch(e) { inp.focus(); }
   }
+  almOcultarTeclado();
   almPintarListo();
 }
 // (sin vigilancia periódica: en algunas pistolas cada reactivación intenta sacar el teclado.
@@ -2662,7 +2670,8 @@ function almAjustes() {
     `<button type="button" class="alm-ag ${valor===actual?'on':''}" onclick="almGuardarAjuste('${clave}','${valor}')">${txt}</button>`;
   const tipo = (screen.orientation && screen.orientation.type) || '—';
   const ang = (screen.orientation && screen.orientation.angle) ?? (typeof window.orientation==='number' ? window.orientation : '—');
-  const info = `Pantalla ${screen.width}×${screen.height} · ${tipo} · ángulo ${ang} · ref ${window.anguloRef()} · giro ${giro} · teclado ${tec} · toques ${navigator.maxTouchPoints||0} · ${ALM_VERSION}`;
+  const chrome = (navigator.userAgent.match(/Chrome\/(\d+)/) || [])[1] || '?';
+  const info = `Pantalla ${screen.width}×${screen.height} · ${tipo} · ángulo ${ang} · ref ${window.anguloRef()} · giro ${giro} · teclado oculto ${ALM_TECLADO_OCULTO?'sí':'no'} · Chrome ${chrome} · ${window.matchMedia('(display-mode: standalone)').matches?'app instalada':'navegador'} · toques ${navigator.maxTouchPoints||0} · ${ALM_VERSION}`;
   almAbrirModal('⚙️ Ajustes de la pistola', `
     <div class="alm-etq">Posición de la pantalla</div>
     <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">Con esto la pantalla se queda siempre derecha, aunque des la vuelta a la pistola para leer.</div>
