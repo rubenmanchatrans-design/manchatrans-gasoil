@@ -2155,7 +2155,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v33 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v34 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2504,13 +2504,8 @@ function almActivarCasilla() {
   }
   almPintarListo();
 }
-// Vigilancia suave: si la casilla se ha soltado y nadie está usando la pantalla, se recupera
-setInterval(() => {
-  if (Date.now() - almUltimoToque < 2000) return;
-  if (!almPuedoRecuperar()) return;
-  const inp = document.getElementById('alm-inp-codigo');
-  if (inp && document.activeElement !== inp) { try { inp.focus({preventScroll:true}); } catch(e) {} almPintarListo(); }
-}, 1500);
+// (sin vigilancia periódica: en algunas pistolas cada reactivación intenta sacar el teclado.
+//  La casilla se activa solo al entrar, al volver a escanear, al cerrar una ventana o al tocar el recuadro)
 
 function almPintarListo() {
   const zona = document.getElementById('alm-zona-scan');
