@@ -595,6 +595,9 @@ body > div[id$="-modal"]:not(#alm-modal) .form-input { font-size: 16px; border-r
 .alm-btn-teclado { width: 58px !important; min-height: 50px; flex-shrink: 0; padding: 0 !important; font-size: 24px; display: flex; align-items: center; justify-content: center; touch-action: manipulation; }
 .alm-btn-teclado.on { border-color: var(--accent) !important; background: rgba(245,166,35,0.15) !important; }
 #alm-btn-abc { touch-action: manipulation; }
+
+.alm-aviso-suelta { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 900; background: var(--danger); color: #fff; border: none; border-radius: 30px; padding: 0.85rem 1.4rem; font-size: 16px; font-weight: 800; box-shadow: 0 8px 24px rgba(0,0,0,0.45); cursor: pointer; white-space: nowrap; }
+html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2184,7 +2187,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v42 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v43 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2376,8 +2379,8 @@ function almPrepararAtras() {
     try { history.pushState({alm: Date.now()}, ''); } catch(e) {}
     if (document.getElementById('alm-modal')) { almCerrarModal(); return; }
     const p1 = document.getElementById('alm-paso1');
-    if (p1 && p1.style.display === 'none') almNueva();
-    else almActivarCasilla();
+    if (p1 && p1.style.display === 'none') almNueva(false);   // Atrás no cuenta como toque
+    else almActivarCasilla(false);
   });
 }
 
@@ -2437,6 +2440,7 @@ function almRenderPaso(paso) {
   if (target) target.style.display='block';
   almRenderStepper(paso);
   almPintarListo();
+  setTimeout(almPintarAvisoSuelta, 50);
   if (paso===1) almRenderPaso1();
   else if (paso===2) almRenderPaso2();
   else if (paso===3) almRenderPaso3();
@@ -2451,7 +2455,7 @@ function almBarraScan() {
   if (barra.dataset.montada === '1') { almActivarCasilla(); return; }
   barra.dataset.montada = '1';
   barra.innerHTML = `
-    <div id="alm-zona-scan" class="alm-scan" onclick="almActivarCasilla()" style="margin-bottom:1rem">
+    <div id="alm-zona-scan" class="alm-scan" onclick="almActivarCasilla(true)" style="margin-bottom:1rem">
       <div id="alm-scan-aviso" class="alm-scan-aviso">👆 Toca aquí para poder leer</div>
       <div style="display:flex;gap:0.5rem;margin-top:0.6rem">
         <div style="position:relative;flex:1;min-width:0">
@@ -2567,19 +2571,23 @@ function almPuedoRecuperar() {
   const libre = !act || act === document.body || act.id === 'alm-inp-codigo';
   return libre;
 }
-function almActivarCasilla() {
+// forzar = true solo cuando viene de un toque del usuario (botón, recuadro, aviso).
+// Entonces se suelta y se vuelve a coger para reconectarla del todo. Si la app lo
+// hiciera por su cuenta, Android no le deja volver a cogerla y se queda suelta.
+function almActivarCasilla(forzar = false) {
   const inp = document.getElementById('alm-inp-codigo');
   if (!inp || !almPantallaAlmacen()) return;
-  // Se suelta y se vuelve a coger siempre: el botón Atrás de Android puede dejarla
-  // "activa" pero desconectada del escáner, y así se reconecta de verdad
-  if (document.activeElement === inp) inp.blur();
-  try { inp.focus({preventScroll:true}); } catch(e) { inp.focus(); }
+  if (forzar && document.activeElement === inp) inp.blur();
+  if (document.activeElement !== inp) {
+    try { inp.focus({preventScroll:true}); } catch(e) { inp.focus(); }
+  }
   almPintarListo();
 }
 // (sin vigilancia periódica: en algunas pistolas cada reactivación intenta sacar el teclado.
 //  La casilla se activa solo al entrar, al volver a escanear, al cerrar una ventana o al tocar el recuadro)
 
 function almPintarListo() {
+  almPintarAvisoSuelta();
   const zona = document.getElementById('alm-zona-scan');
   const aviso = document.getElementById('alm-scan-aviso');
   const inp = document.getElementById('alm-inp-codigo');
@@ -2591,6 +2599,28 @@ function almPintarListo() {
   zona.classList.toggle('lista', listo);
   aviso.innerHTML = listo ? '🟢 Listo para leer: dispara con la pistola' : '👆 Toca aquí para poder leer';
 }
+// Si la casilla está suelta y se puede leer, sale abajo un aviso para tocar.
+// Es un aviso flotante: no mueve nada de la pantalla.
+function almPintarAvisoSuelta() {
+  let av = document.getElementById('alm-aviso-suelta');
+  const inp = document.getElementById('alm-inp-codigo');
+  const suelta = inp && almAceptaLecturas() && document.activeElement !== inp
+                 && !(document.activeElement && ['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName));
+  if (!suelta) { if (av) av.style.display = 'none'; return; }
+  if (!av) {
+    av = document.createElement('button');
+    av.id = 'alm-aviso-suelta';
+    av.type = 'button';
+    av.className = 'alm-aviso-suelta';
+    av.textContent = '👆 Toca aquí para volver a leer';
+    av.onclick = () => almActivarCasilla(true);
+    document.body.appendChild(av);
+  }
+  av.style.display = 'block';
+}
+document.addEventListener('focusin', () => setTimeout(almPintarAvisoSuelta, 0));
+document.addEventListener('focusout', () => setTimeout(almPintarAvisoSuelta, 0));
+
 function almMantenerFoco(ev) {
   if (!almPantallaAlmacen()) return;
   const t = ev.target;
@@ -2605,7 +2635,7 @@ document.addEventListener('pointerup', ev => {
   if (act && act !== document.body) return;                   // ya hay algo activo: no se toca
   const t = ev.target;
   if (t && t.closest && t.closest('input,textarea,select,button,a,label')) return;
-  almActivarCasilla();
+  almActivarCasilla(true);
 });
 
 // La casilla de escanear no saca el teclado (inputmode="none"): la pistola
@@ -3344,11 +3374,11 @@ async function almGuardar() {
   almRenderStepper(5);
 }
 
-function almNueva() {
+function almNueva(desdeBoton = true) {
   almReset();
   document.getElementById('alm-paso-ok').style.display='none';
   almRenderPaso(1);
-  almActivarCasilla();
+  almActivarCasilla(desdeBoton);   // si viene de un botón, se reconecta del todo
 }
 
 // ── Vista admin del almacén ──
