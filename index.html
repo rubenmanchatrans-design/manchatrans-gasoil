@@ -2159,7 +2159,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v36 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v37 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2407,10 +2407,10 @@ function almBarraScan() {
       <div id="alm-scan-aviso" class="alm-scan-aviso">👆 Toca aquí para poder leer</div>
       <div style="display:flex;gap:0.5rem;margin-top:0.6rem">
         <div style="position:relative;flex:1;min-width:0">
-          <input class="form-input alm-inp-oculta" type="text" inputmode="${almModoTeclado()==='si' ? 'numeric' : 'none'}" id="alm-inp-codigo" autocomplete="off" style="font-size:18px;letter-spacing:2px;width:100%">
+          <input class="form-input alm-inp-oculta" type="text" inputmode="none" id="alm-inp-codigo" autocomplete="off" style="font-size:18px;letter-spacing:2px;width:100%">
           <div id="alm-scan-ver" class="alm-scan-ver"></div>
         </div>
-        <button type="button" id="alm-btn-teclado" class="btn btn-ghost alm-btn-teclado" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="event.stopPropagation();almTeclado()" aria-label="Sacar el teclado">⌨️</button>
+        <button type="button" id="alm-btn-teclado" class="btn btn-ghost alm-btn-teclado" onclick="event.stopPropagation();almAbrirManual()" aria-label="Escribir la expedición a mano">⌨️</button>
       </div>
     </div>`;
   const inp = document.getElementById('alm-inp-codigo');
@@ -2533,22 +2533,12 @@ function almMantenerFoco(ev) {
 
 // La casilla de escanear no saca el teclado (inputmode="none"): la pistola
 // escribe igual. El botón ⌨️ lo saca, numérico, solo cuando se quiere teclear.
-function almTeclado() {
-  const inp = document.getElementById('alm-inp-codigo');
-  if (!inp) return;
-  const abrir = inp.getAttribute('inputmode') === 'none';
-  inp.setAttribute('inputmode', abrir ? 'numeric' : 'none');
-  // Se suelta y se vuelve a coger en el mismo instante del toque: así Android
-  // abre (o cierra) el teclado a la primera
-  inp.blur();
-  try { inp.focus({preventScroll:true}); } catch(e) { inp.focus(); }
-  const b = document.getElementById('alm-btn-teclado');
-  if (b) b.classList.toggle('on', abrir);
-  almPintarListo();
-}
+// El teclado nunca se abre sobre la casilla de la pistola: para escribir se va a la pantalla "a mano"
+function almTeclado() { almAbrirManual(); }
 
 // ── Ajustes del aparato (se guardan en la propia pistola o móvil) ──
-function almModoTeclado() { try { return localStorage.getItem('nfTeclado') || 'no'; } catch(e) { return 'no'; } }
+function almModoTeclado() { return 'no'; }
+try { localStorage.removeItem('nfTeclado'); } catch(e) {}   // se borra el ajuste de las pruebas antiguas
 function almGuardarAjuste(clave, valor) {
   try { localStorage.setItem(clave, valor); } catch(e) {}
   almAjustes();
@@ -2567,14 +2557,7 @@ function almAjustes() {
   const ang = (screen.orientation && screen.orientation.angle) ?? (typeof window.orientation==='number' ? window.orientation : '—');
   const info = `Pantalla ${screen.width}×${screen.height} · ${tipo} · ángulo ${ang} · ref ${window.anguloRef()} · giro ${giro} · teclado ${tec} · toques ${navigator.maxTouchPoints||0} · ${ALM_VERSION}`;
   almAbrirModal('⚙️ Ajustes de la pistola', `
-    <div class="alm-etq">Teclado al escanear</div>
-    <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">La pistola lee sin teclado. Déjalo en <strong>Sin teclado</strong> salvo que en algún aparato no entre la lectura.</div>
-    <div class="alm-ags" style="grid-template-columns:1fr 1fr">
-      ${opc('nfTeclado','no',tec,'🚫 Sin teclado')}
-      ${opc('nfTeclado','si',tec,'⌨️ Con teclado')}
-    </div>
-
-    <div class="alm-etq" style="margin-top:1.25rem">Posición de la pantalla</div>
+    <div class="alm-etq">Posición de la pantalla</div>
     <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">Coge la pistola como la vayas a usar y pulsa el botón: la app se queda siempre así aunque gires el aparato.</div>
     <button type="button" class="btn btn-primary" style="margin-bottom:0.5rem" onclick="fijarPosicion()">📌 Fijar esta posición</button>
     <div class="alm-ags" style="grid-template-columns:1fr 1fr">
@@ -2677,6 +2660,7 @@ function almAbrirManual() {
   almReset();
   almEstado.vista = 'manual';
   almRenderPaso(2);
+  document.getElementById('alm-man-exp')?.focus();    // dentro del toque: el teclado sale a la primera
 }
 
 // ── Paso 2: ficha de la expedición o número a mano ──
