@@ -28,18 +28,35 @@
     const a = (screen.orientation && screen.orientation.angle) || 0;
     return a === 270 ? -90 : a;
   }
-  function mantenerVertical() {
+  // modo: 'auto' (solo en móviles y pistolas), 'si' (siempre) o 'no' (nunca).
+  // Se puede cambiar desde Almacén → ⚙️ Ajustes de la pistola.
+  window.modoGiro = () => { try { return localStorage.getItem('nfGiro') || 'auto'; } catch(e) { return 'auto'; } };
+  window.apaisada = () => {
+    const tipo = (screen.orientation && screen.orientation.type) || '';
+    if (tipo) return tipo.startsWith('landscape');
+    if (typeof window.orientation === 'number') return Math.abs(window.orientation) === 90;
+    return window.innerWidth > window.innerHeight;
+  };
+  window.mantenerVertical = function mantenerVertical() {
     const h = document.documentElement;
     h.classList.remove('giro-fijo', 'giro-izq', 'giro-der');
-    const tactil = window.matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints || 0) > 0;
-    const pequena = Math.min(screen.width, screen.height) < 900;
-    if (!tactil || !pequena) return;
+    const modo = window.modoGiro();
+    if (modo === 'no') return;
+    if (modo === 'auto') {
+      const tactil = window.matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints || 0) > 0;
+      const pequena = Math.min(screen.width, screen.height) < 1200;
+      if (!tactil || !pequena) return;
+    }
+    if (!window.apaisada()) return;
     const a = anguloPantalla();
-    const tipo = (screen.orientation && screen.orientation.type) || '';
-    const apaisada = tipo ? tipo.startsWith('landscape') : Math.abs(a) === 90;
-    if (!apaisada) return;
-    h.classList.add('giro-fijo', a === -90 ? 'giro-der' : 'giro-izq');
-  }
+    let izq = !(a === -90 || a === 270);
+    try { if (localStorage.getItem('nfGiroInvertido') === '1') izq = !izq; } catch(e) {}
+    h.classList.add('giro-fijo', izq ? 'giro-izq' : 'giro-der');
+  };
+  window.girarAlReves = () => {                 // por si se ve boca abajo
+    try { localStorage.setItem('nfGiroInvertido', localStorage.getItem('nfGiroInvertido') === '1' ? '0' : '1'); } catch(e) {}
+    location.reload();
+  };
   window.addEventListener('orientationchange', () => setTimeout(mantenerVertical, 50));
   if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener('change', mantenerVertical);
   window.addEventListener('resize', mantenerVertical);
@@ -2098,7 +2115,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v19 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v20 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2327,14 +2344,15 @@ function almRenderPaso1() {
       <div class="form-group">
         <label class="form-label">Pasa la pistola por el código de barras</label>
         <div style="display:flex;gap:0.5rem">
-          <input class="form-input" type="text" inputmode="none" id="alm-inp-codigo" placeholder="Escanea aquí..." autocomplete="off" style="font-size:18px;letter-spacing:2px;flex:1;min-width:0">
+          <input class="form-input" type="text" inputmode="${almModoTeclado()==='no' ? 'none' : 'numeric'}" id="alm-inp-codigo" placeholder="Escanea aquí..." autocomplete="off" style="font-size:18px;letter-spacing:2px;flex:1;min-width:0">
           <button type="button" class="btn btn-ghost" id="alm-btn-teclado" onclick="almTeclado()" style="width:auto;flex-shrink:0;padding:0.6rem 0.9rem;font-size:20px" aria-label="Sacar el teclado">⌨️</button>
         </div>
       </div>
       <button class="btn btn-primary" onclick="almUsarCodigo()">Buscar →</button>
       <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almAbrirManual()">✍️ Meter nº de expedición a mano</button>
       <div id="alm-el sistema-estado" style="margin-top:0.75rem;font-size:12px;color:var(--text-muted);text-align:center">${almTextoEstadoExp()}</div>
-      <div style="margin-top:0.25rem;font-size:11px;color:var(--text-muted);text-align:center;opacity:0.7">${ALM_VERSION}</div>
+      <button type="button" class="alm-accion" style="width:100%;margin-top:0.75rem" onclick="almAjustes()">⚙️ Ajustes de la pistola</button>
+      <div style="margin-top:0.5rem;font-size:11px;color:var(--text-muted);text-align:center;opacity:0.7">${ALM_VERSION}</div>
     </div>`;
   const inp = document.getElementById('alm-inp-codigo');
   if (inp) {
@@ -2351,6 +2369,48 @@ function almTeclado() {
   inp.blur();
   inp.setAttribute('inputmode', inp.getAttribute('inputmode') === 'none' ? 'numeric' : 'none');
   setTimeout(() => inp.focus(), 50);
+}
+
+// ── Ajustes del aparato (se guardan en la propia pistola o móvil) ──
+function almModoTeclado() { try { return localStorage.getItem('nfTeclado') || 'si'; } catch(e) { return 'si'; } }
+function almGuardarAjuste(clave, valor) {
+  try { localStorage.setItem(clave, valor); } catch(e) {}
+  almAjustes();
+  if (clave === 'nfGiro') window.mantenerVertical?.();
+  if (clave === 'nfTeclado') {
+    const inp = document.getElementById('alm-inp-codigo');
+    if (inp) { inp.setAttribute('inputmode', valor === 'no' ? 'none' : 'numeric'); }
+  }
+}
+function almAjustes() {
+  const tec = almModoTeclado();
+  const giro = window.modoGiro ? window.modoGiro() : 'auto';
+  const opc = (clave, valor, actual, txt) =>
+    `<button type="button" class="alm-ag ${valor===actual?'on':''}" onclick="almGuardarAjuste('${clave}','${valor}')">${txt}</button>`;
+  const tipo = (screen.orientation && screen.orientation.type) || '—';
+  const ang = (screen.orientation && screen.orientation.angle) ?? (typeof window.orientation==='number' ? window.orientation : '—');
+  const info = `Pantalla ${screen.width}×${screen.height} · ${tipo} · ángulo ${ang} · toques ${navigator.maxTouchPoints||0} · ${ALM_VERSION}`;
+  almAbrirModal('⚙️ Ajustes de la pistola', `
+    <div class="alm-etq">Teclado al escanear</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">Muchas pistolas solo escriben si el teclado numérico está abierto. Si al escanear se queda en blanco, déjalo en <strong>Sí</strong>.</div>
+    <div class="alm-ags" style="grid-template-columns:1fr 1fr">
+      ${opc('nfTeclado','si',tec,'⌨️ Sí, con teclado')}
+      ${opc('nfTeclado','no',tec,'🚫 Sin teclado')}
+    </div>
+
+    <div class="alm-etq" style="margin-top:1.25rem">Pantalla siempre en vertical</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">Si al girar el aparato la pantalla se pone de lado, ponlo en <strong>Sí</strong>.</div>
+    <div class="alm-ags" style="grid-template-columns:repeat(3,1fr)">
+      ${opc('nfGiro','si',giro,'🔒 Sí')}
+      ${opc('nfGiro','auto',giro,'Automático')}
+      ${opc('nfGiro','no',giro,'Libre')}
+    </div>
+    <button type="button" class="alm-accion" style="width:100%;margin-top:0.6rem" onclick="girarAlReves()">🔄 Se ve boca abajo: darle la vuelta</button>
+
+    <div class="alm-etq" style="margin-top:1.25rem">Datos del aparato</div>
+    <div style="font-size:12px;color:var(--text-muted);font-family:monospace;word-break:break-all">${info}</div>
+    <button type="button" class="alm-accion" style="width:100%;margin-top:0.5rem" onclick="almCopiar('${info}','Datos del aparato')">📋 Copiar estos datos</button>`, `
+    <button class="btn btn-primary" onclick="almCerrarModal()">Listo</button>`);
 }
 
 // ── Lectura con la pistola sin depender de la casilla ──
@@ -3757,7 +3817,7 @@ async function almExportarExcel() {
 // Este bloque vive dentro de <script type="module">: las funciones que se
 // llaman desde onclick="" tienen que colgarse de window para existir.
 Object.assign(window, {
-  almUsarCodigo, almTeclado, almTecladoLetras, almAbrirManual, almBuscarManual, almElegir, almRemedir,
+  almUsarCodigo, almTeclado, almTecladoLetras, almAjustes, almGuardarAjuste, almAbrirManual, almBuscarManual, almElegir, almRemedir,
   almSelAgencia, almRenderPaso, almSelMedida,
   almCalcPeso, almIrConfirmar, almGuardar, almNueva,
   renderAlmacenAdmin, renderAlmacenResumen, almBorrarExpedicion, almExportarExcel,
