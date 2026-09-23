@@ -614,6 +614,20 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .alm-foto-grande img { max-width: 100%; max-height: 80vh; border-radius: 12px; }
 .alm-foto-acc { display: flex; gap: 0.6rem; }
 .alm-foto-acc .btn { width: auto; padding: 0.7rem 1.2rem; text-decoration: none; }
+
+.alm-btn-ar { margin-top: 0.75rem; border: 2px dashed var(--accent) !important; color: var(--accent) !important; font-weight: 700; }
+#alm-ar { position: fixed; inset: 0; z-index: 5000; color: #fff; font-family: inherit; pointer-events: none; }
+#alm-ar button { pointer-events: auto; }
+.alm-ar-mira { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border: 3px solid #ff5a4f; border-radius: 50%; box-shadow: 0 0 0 2px rgba(0,0,0,0.5); }
+.alm-ar-mira::after { content: ''; position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: #ff5a4f; }
+#alm-ar.lista .alm-ar-mira, #alm-ar.lista .alm-ar-mira::after { border-color: #2ecc71; background-clip: padding-box; }
+#alm-ar.lista .alm-ar-mira::after { background: #2ecc71; }
+.alm-ar-arriba { position: absolute; top: 0; left: 0; right: 0; padding: 1rem; background: linear-gradient(rgba(0,0,0,0.75), transparent); text-align: center; font-size: 16px; font-weight: 700; text-shadow: 0 1px 3px #000; }
+#alm-ar-paso { font-size: 14px; font-weight: 600; margin-top: 0.4rem; }
+.alm-ar-abajo { position: absolute; bottom: 0; left: 0; right: 0; padding: 1rem; background: linear-gradient(transparent, rgba(0,0,0,0.8)); text-align: center; }
+#alm-ar-valor { font-size: 30px; font-weight: 800; margin-bottom: 0.6rem; text-shadow: 0 2px 6px #000; }
+.alm-ar-botones { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
+.alm-ar-botones .btn { width: auto; min-width: 110px; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2203,7 +2217,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v49 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v50 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2717,7 +2731,7 @@ function almAjustes() {
   const tipo = (screen.orientation && screen.orientation.type) || '—';
   const ang = (screen.orientation && screen.orientation.angle) ?? (typeof window.orientation==='number' ? window.orientation : '—');
   const chrome = (navigator.userAgent.match(/Chrome\/(\d+)/) || [])[1] || '?';
-  const info = `Pantalla ${screen.width}×${screen.height} · ${tipo} · ángulo ${ang} · ref ${window.anguloRef()} · giro ${giro} · teclado oculto ${ALM_TECLADO_OCULTO?'sí':'no'} · Chrome ${chrome} · ${window.matchMedia('(display-mode: standalone)').matches?'app instalada':'navegador'} · toques ${navigator.maxTouchPoints||0} · ${ALM_VERSION}`;
+  const info = `Pantalla ${screen.width}×${screen.height} · ${tipo} · ángulo ${ang} · ref ${window.anguloRef()} · giro ${giro} · teclado oculto ${ALM_TECLADO_OCULTO?'sí':'no'} · medir con cámara ${ALM_AR?'sí':'no'} · Chrome ${chrome} · ${window.matchMedia('(display-mode: standalone)').matches?'app instalada':'navegador'} · toques ${navigator.maxTouchPoints||0} · ${ALM_VERSION}`;
   almAbrirModal('⚙️ Ajustes de la pistola', `
     <div class="alm-etq">Posición de la pantalla</div>
     <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">Con esto la pantalla se queda siempre derecha, aunque des la vuelta a la pistola para leer.</div>
@@ -3088,6 +3102,138 @@ function almHtmlCabExp() {
     </div>`;
 }
 
+
+// ════════════════════════════════════════════════════════════════════════════
+// MEDIR CON LA CÁMARA (realidad aumentada, WebXR + ARCore)
+// Solo aparece si el aparato lo admite. Se marcan dos puntos con la mirilla:
+//   · altura: base (suelo) y lo más alto de la carga -> diferencia vertical
+//   · largo/ancho: dos esquinas -> distancia entre ellas
+// ════════════════════════════════════════════════════════════════════════════
+let ALM_AR = false;
+(async () => {
+  try { ALM_AR = !!(navigator.xr && await navigator.xr.isSessionSupported('immersive-ar')); } catch(e) { ALM_AR = false; }
+  // si ya está pintada la pantalla de medir, se repinta para enseñar el botón
+  if (ALM_AR && document.getElementById('alm-paso3')?.style.display === 'block') almRenderPaso(3);
+})();
+
+// Qué casilla se rellena: la primera vacía del grupo (altura) o la secuencia largo→ancho→alto
+function almSiguienteCampoAR(i) {
+  const l = almEstado.lineas[i];
+  if (!l) return null;
+  const vacio = id => { const el = document.getElementById(id); return el && !(parseFloat(String(el.value).replace(',','.')) > 0) ? el : null; };
+  if (almEsIndiv(l)) {
+    for (let j = 0; j < l.cant; j++) {
+      if (!almEsFijo(l)) { const a = vacio(`alm-l${i}-lg${j}`) && `alm-l${i}-lg${j}`; if (a) return {id:a, modo:'dist', que:`largo del bulto ${j+1}`};
+                           const b = vacio(`alm-l${i}-an${j}`) && `alm-l${i}-an${j}`; if (b) return {id:b, modo:'dist', que:`ancho del bulto ${j+1}`}; }
+      if (vacio(`alm-l${i}-h${j}`)) return {id:`alm-l${i}-h${j}`, modo:'alto', que: almEsFijo(l) ? `altura del palet ${j+1}` : `alto del bulto ${j+1}`};
+    }
+    return {id:`alm-l${i}-h0`, modo:'alto', que:'altura del palet 1'};
+  }
+  if (!almEsFijo(l)) {
+    if (vacio(`alm-l${i}-largo`)) return {id:`alm-l${i}-largo`, modo:'dist', que:'largo'};
+    if (vacio(`alm-l${i}-ancho`)) return {id:`alm-l${i}-ancho`, modo:'dist', que:'ancho'};
+  }
+  return {id:`alm-l${i}-alto`, modo:'alto', que:'altura'};
+}
+
+async function almMedirAR(i) {
+  const campo = almSiguienteCampoAR(i);
+  if (!campo || !navigator.xr) return;
+  const ov = document.createElement('div');
+  ov.id = 'alm-ar';
+  ov.innerHTML = `
+    <div class="alm-ar-mira"></div>
+    <div class="alm-ar-arriba">
+      <div id="alm-ar-que">📐 Midiendo: ${campo.que}</div>
+      <div id="alm-ar-paso">Mueve despacio la pistola hasta que la mirilla se ponga verde…</div>
+    </div>
+    <div class="alm-ar-abajo">
+      <div id="alm-ar-valor"></div>
+      <div class="alm-ar-botones">
+        <button type="button" id="alm-ar-marcar" class="btn btn-primary" disabled>Marcar</button>
+        <button type="button" id="alm-ar-usar" class="btn btn-primary" style="display:none">✓ Usar</button>
+        <button type="button" id="alm-ar-repetir" class="btn btn-ghost" style="display:none">↺ Repetir</button>
+        <button type="button" id="alm-ar-cancelar" class="btn btn-ghost">✕ Cancelar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+  const $ = id => document.getElementById(id);
+  let sesion = null, fuente = null, espacio = null, punto = null, p1 = null, resultado = null;
+  const textoPaso = () => {
+    if (resultado != null) return 'Medida hecha. ¿La usamos?';
+    if (!p1) return campo.modo === 'alto' ? '1️⃣ Apunta al SUELO junto a la base del palet y pulsa Marcar' : '1️⃣ Apunta a una esquina y pulsa Marcar';
+    return campo.modo === 'alto' ? '2️⃣ Apunta a lo MÁS ALTO de la carga y pulsa Marcar' : '2️⃣ Apunta a la otra esquina y pulsa Marcar';
+  };
+  const medir = (a, b) => campo.modo === 'alto'
+    ? Math.abs(b.y - a.y)
+    : Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
+  const terminar = () => { try { fuente?.cancel(); } catch(e) {} try { sesion?.end(); } catch(e) {} ov.remove(); };
+  try {
+    sesion = await navigator.xr.requestSession('immersive-ar', {
+      requiredFeatures: ['hit-test', 'local'], optionalFeatures: ['dom-overlay'], domOverlay: {root: ov}});
+  } catch(e) {
+    ov.remove();
+    mostrarMensajeFlotante?.('No se ha podido abrir la cámara de medir: ' + (e.message || e));
+    return;
+  }
+  sesion.addEventListener('end', () => { ov.remove(); });
+  let gl;
+  try {
+    const lienzo = document.createElement('canvas');
+    gl = lienzo.getContext('webgl', {xrCompatible: true});
+    if (!gl) throw new Error('el aparato no permite gráficos 3D');
+    await gl.makeXRCompatible?.();
+    sesion.updateRenderState({baseLayer: new XRWebGLLayer(sesion, gl)});
+    espacio = await sesion.requestReferenceSpace('local');
+    const visor = await sesion.requestReferenceSpace('viewer');
+    fuente = await sesion.requestHitTestSource({space: visor});
+  } catch(e) {
+    terminar();
+    mostrarMensajeFlotante?.('No se ha podido preparar la medición: ' + (e.message || e));
+    return;
+  }
+  $('alm-ar-paso').textContent = textoPaso();
+
+  const cuadro = (t, frame) => {
+    if (!sesion) return;
+    sesion.requestAnimationFrame(cuadro);
+    const capa = sesion.renderState.baseLayer;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, capa.framebuffer);
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    const res = frame.getHitTestResults(fuente);
+    const pose = res.length ? res[0].getPose(espacio) : null;
+    punto = pose ? pose.transform.position : null;
+    ov.classList.toggle('lista', !!punto);
+    if (resultado == null) {
+      $('alm-ar-marcar').disabled = !punto;
+      if (p1 && punto) $('alm-ar-valor').textContent = almNum(medir(p1, punto), 2) + ' m';
+    }
+  };
+  sesion.requestAnimationFrame(cuadro);
+
+  $('alm-ar-marcar').onclick = () => {
+    if (!punto) return;
+    if (!p1) { p1 = {x:punto.x, y:punto.y, z:punto.z}; $('alm-ar-paso').textContent = textoPaso(); return; }
+    resultado = Math.round(medir(p1, punto) * 100) / 100;
+    $('alm-ar-valor').textContent = `${campo.modo === 'alto' ? 'Altura' : 'Medida'}: ${almNum(resultado, 2)} m`;
+    $('alm-ar-paso').textContent = textoPaso();
+    $('alm-ar-marcar').style.display = 'none';
+    $('alm-ar-usar').style.display = ''; $('alm-ar-repetir').style.display = '';
+  };
+  $('alm-ar-repetir').onclick = () => {
+    p1 = null; resultado = null; $('alm-ar-valor').textContent = '';
+    $('alm-ar-marcar').style.display = ''; $('alm-ar-usar').style.display = 'none'; $('alm-ar-repetir').style.display = 'none';
+    $('alm-ar-paso').textContent = textoPaso();
+  };
+  $('alm-ar-usar').onclick = () => {
+    const el = document.getElementById(campo.id);
+    if (el && resultado > 0) { el.value = resultado.toFixed(2); almLinInput(i); }
+    terminar();
+    mostrarMensajeFlotante?.(`📐 ${campo.que}: ${almNum(resultado, 2)} m`);
+  };
+  $('alm-ar-cancelar').onclick = terminar;
+}
+
 // ── Paso 3: medidas ──
 function almRenderPaso3() {
   const el = document.getElementById('alm-paso3');
@@ -3202,6 +3348,7 @@ function almHtmlLinea(l, i) {
         <button class="btn ${!indiv?'btn-secondary':'btn-ghost'}" style="font-size:13px;padding:0.55rem" onclick="almLinModo(${i},false)">Todos igual</button>
       </div>` : ''}
       ${medidas}
+      ${ALM_AR && l.tipo ? `<button type="button" class="btn btn-ghost alm-btn-ar" onclick="almMedirAR(${i})">📐 Medir con la cámara</button>` : ''}
       <div id="alm-l${i}-sub" style="text-align:right;font-size:12px;color:var(--text-muted);margin-top:0.5rem"></div>
     </div>`;
 }
@@ -4330,7 +4477,7 @@ Object.assign(window, {
   almSelAgencia, almRenderPaso, almSelMedida,
   almCalcPeso, almIrConfirmar, almGuardar, almNueva,
   renderAlmacenAdmin, renderAlmacenResumen, almBorrarExpedicion, almExportarExcel,
-  almVer, almCopiar, almHacerFoto, almVerFoto, almBorrarFoto, almDescargarFotos, almVerEstado, almMarcarAgencia, almMarcarPasada, almMarcarTodasPasadas, almEditar, almCerrarModal, almGuardarEdicion, almEdSelAg, almEdLeer, almEdTipo,
+  almVer, almCopiar, almMedirAR, almHacerFoto, almVerFoto, almBorrarFoto, almDescargarFotos, almVerEstado, almMarcarAgencia, almMarcarPasada, almMarcarTodasPasadas, almEditar, almCerrarModal, almGuardarEdicion, almEdSelAg, almEdLeer, almEdTipo,
   almEdAnadir, almEdQuitar, almLinTipo, almLinInput, almLinCant, almLinCantSet, almLinModo, almAltKey, almAnadirLinea, almQuitarLinea,
 });
 
