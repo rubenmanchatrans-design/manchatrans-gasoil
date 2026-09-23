@@ -2203,7 +2203,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v46 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v47 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2474,9 +2474,10 @@ function almOcultarTeclado() {
   try { if (ALM_TECLADO_OCULTO) navigator.virtualKeyboard.hide(); } catch(e) {}
 }
 
-function almBarraScan() {
+function almBarraScan(nueva = false) {
   const barra = document.getElementById('alm-barra-scan');
   if (!barra) return;
+  if (nueva) barra.dataset.montada = '';
   if (barra.dataset.montada === '1') { almActivarCasilla(); return; }
   barra.dataset.montada = '1';
   barra.innerHTML = `
@@ -2600,9 +2601,12 @@ function almPuedoRecuperar() {
 // Entonces se suelta y se vuelve a coger para reconectarla del todo. Si la app lo
 // hiciera por su cuenta, Android no le deja volver a cogerla y se queda suelta.
 function almActivarCasilla(forzar = false) {
+  if (!almPantallaAlmacen()) return;
+  // Con un toque del usuario se crea una casilla NUEVA y se activa en ese mismo toque:
+  // es lo único que hace que la pistola se vuelva a enganchar (igual que al entrar en la app).
+  if (forzar) { almBarraScan(true); return; }
   const inp = document.getElementById('alm-inp-codigo');
-  if (!inp || !almPantallaAlmacen()) return;
-  if (forzar && document.activeElement === inp) inp.blur();
+  if (!inp) return;
   if (document.activeElement !== inp) {
     try { inp.focus({preventScroll:true}); } catch(e) { inp.focus(); }
   }
@@ -2655,13 +2659,17 @@ function almMantenerFoco(ev) {
 }
 // Al tocar una zona vacía de la pantalla, la casilla recupera el cursor.
 // Es seguro: la casilla no tiene teclado, así que no se mueve nada.
-document.addEventListener('pointerup', ev => {
-  if (!almAceptaLecturas()) return;
-  const act = document.activeElement;
-  if (act && act !== document.body) return;                   // ya hay algo activo: no se toca
+// Se comprueba justo DESPUÉS del toque (Android quita el cursor al terminar el toque,
+// no al empezarlo). Sigue contando como toque del usuario, así que la casilla nueva engancha.
+document.addEventListener('click', ev => {
   const t = ev.target;
-  if (t && t.closest && t.closest('input,textarea,select,button,a,label')) return;
-  almActivarCasilla(true);
+  if (t && t.closest && t.closest('input,textarea,select,button,a,label,.alm-foto-grande')) return;
+  setTimeout(() => {
+    if (!almAceptaLecturas()) return;
+    const act = document.activeElement;
+    if (act && act !== document.body) return;                 // ya hay algo activo: no se toca
+    almActivarCasilla(true);
+  }, 0);
 });
 
 // La casilla de escanear no saca el teclado (inputmode="none"): la pistola
