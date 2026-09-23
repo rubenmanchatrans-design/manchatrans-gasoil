@@ -560,6 +560,8 @@ body > div[id$="-modal"]:not(#alm-modal) .form-input { font-size: 16px; border-r
 .alm-scan.lista { border-style: solid; border-color: var(--success); background: rgba(46,204,113,0.07); }
 .alm-scan-aviso { text-align: center; font-size: 14px; font-weight: 700; color: var(--text-muted); }
 .alm-scan.lista .alm-scan-aviso { color: var(--success); }
+
+.alm-scan-fuera { position: absolute !important; left: -9999px !important; top: 0; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2149,7 +2151,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v29 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v30 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2434,6 +2436,19 @@ function almPantallaEscanerVisible() {
   return almPantallaAlmacen() && p1 && p1.style.display !== 'none';
 }
 
+// Devuelve lo escrito desde la última lectura y apunta por dónde va
+let almLeidoHasta = 0;
+function almCodigoNuevo(inp) {
+  if (!inp) return '';
+  const total = inp.value || '';
+  const nuevo = total.length >= almLeidoHasta ? total.slice(almLeidoHasta) : total;
+  almLeidoHasta = total.length;
+  if (total.length > 400) {              // de vez en cuando se limpia, con la casilla suelta un instante
+    inp.value = ''; almLeidoHasta = 0;
+  }
+  return nuevo.trim();
+}
+
 function almActivarCasilla() {
   const poner = () => {
     const inp = document.getElementById('alm-inp-codigo');
@@ -2458,7 +2473,9 @@ function almPintarListo() {
   const aviso = document.getElementById('alm-scan-aviso');
   const inp = document.getElementById('alm-inp-codigo');
   if (!zona || !aviso || !inp) return;
-  zona.style.display = almPantallaEscanerVisible() ? 'block' : 'none';   // solo se ve al escanear
+  // Nunca se oculta con display:none: eso la desconectaría del escáner.
+  // Cuando no toca escanear, se aparta de la vista pero sigue viva y activa.
+  zona.classList.toggle('alm-scan-fuera', !almPantallaEscanerVisible());
   const listo = document.activeElement === inp;
   zona.classList.toggle('lista', listo);
   aviso.innerHTML = listo ? '🟢 Listo para leer: dispara con la pistola' : '👆 Toca aquí para poder leer';
@@ -2562,8 +2579,9 @@ document.addEventListener('keydown', almTeclaGlobal, true);
 
 async function almUsarCodigo() {
   const inpCod = document.getElementById('alm-inp-codigo');
-  const cod = (inpCod?.value || '').trim();
-  if (inpCod) inpCod.value = '';        // se vacía, pero NO se suelta: la pistola sigue escribiendo aquí
+  // Se lee solo lo nuevo: la casilla no se toca (vaciarla desde el programa
+  // también rompe la conexión con el escáner en algunas pistolas)
+  const cod = almCodigoNuevo(inpCod);
   if (!cod) { alert('Escanea o escribe un código'); return; }
   if (!almExpListo) {
     alert('Todavía se están cargando las expediciones. Espera unos segundos y vuelve a escanear.');
