@@ -562,6 +562,10 @@ body > div[id$="-modal"]:not(#alm-modal) .form-input { font-size: 16px; border-r
 .alm-scan.lista .alm-scan-aviso { color: var(--success); }
 
 .alm-scan-fuera { position: absolute !important; left: -9999px !important; top: 0; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+
+.alm-inp-oculta { color: transparent !important; caret-color: transparent !important; -webkit-text-fill-color: transparent !important; }
+.alm-scan-ver { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 1rem; font-size: 18px; letter-spacing: 2px; pointer-events: none; overflow: hidden; white-space: nowrap; color: var(--text); font-family: monospace; }
+.alm-scan-ver:empty::before { content: 'Esperando lectura…'; color: var(--text-muted); letter-spacing: 0.5px; font-family: inherit; font-size: 16px; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2151,7 +2155,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v32 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v33 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2398,7 +2402,10 @@ function almBarraScan() {
     <div id="alm-zona-scan" class="alm-scan" onclick="almActivarCasilla()" style="margin-bottom:1rem">
       <div id="alm-scan-aviso" class="alm-scan-aviso">👆 Toca aquí para poder leer</div>
       <div style="display:flex;gap:0.5rem;margin-top:0.6rem">
-        <input class="form-input" type="text" inputmode="${almModoTeclado()==='si' ? 'numeric' : 'none'}" id="alm-inp-codigo" placeholder="Escanea aquí..." autocomplete="off" style="font-size:18px;letter-spacing:2px;flex:1;min-width:0">
+        <div style="position:relative;flex:1;min-width:0">
+          <input class="form-input alm-inp-oculta" type="text" inputmode="${almModoTeclado()==='si' ? 'numeric' : 'none'}" id="alm-inp-codigo" autocomplete="off" style="font-size:18px;letter-spacing:2px;width:100%">
+          <div id="alm-scan-ver" class="alm-scan-ver"></div>
+        </div>
         <button type="button" class="btn btn-ghost" onclick="event.stopPropagation();almTeclado()" style="width:auto;flex-shrink:0;padding:0.6rem 0.9rem;font-size:20px" aria-label="Sacar el teclado">⌨️</button>
       </div>
     </div>`;
@@ -2411,7 +2418,7 @@ function almBarraScan() {
   inp.addEventListener('input', () => {
     clearTimeout(almTimerInput);
     almTimerInput = setTimeout(almLecturaTerminada, 350);
-    inp.scrollLeft = inp.scrollWidth;        // que se vea el último número leído
+    almVerLectura();
   });
   inp.addEventListener('focus', almPintarListo);
   inp.addEventListener('blur', almPintarListo);
@@ -2450,10 +2457,19 @@ function almLecturaTerminada() {
   if (!inp) return;
   if (!almPantallaEscanerVisible()) {          // midiendo: las lecturas se ignoran
     almLeidoHasta = (inp.value || '').length;
+    almVerLectura();
     return;
   }
   const pendiente = (inp.value || '').slice(almLeidoHasta).trim();
   if (pendiente.length >= 4) almUsarCodigo(true);
+}
+
+// Lo que se ve en la casilla: solo la lectura en curso (lo anterior no se borra,
+// para no desconectar la pistola, pero tampoco se enseña)
+function almVerLectura() {
+  const inp = document.getElementById('alm-inp-codigo'), ver = document.getElementById('alm-scan-ver');
+  if (!inp || !ver) return;
+  ver.textContent = (inp.value || '').slice(almLeidoHasta).trim();
 }
 
 // Devuelve lo escrito desde la última lectura y apunta por dónde va
@@ -2464,6 +2480,7 @@ function almCodigoNuevo(inp) {
   const nuevo = total.length >= almLeidoHasta ? total.slice(almLeidoHasta) : total;
   almLeidoHasta = total.length;
   if (total.length > 3000) { inp.value = ''; almLeidoHasta = 0; }   // limpieza muy de vez en cuando
+  almVerLectura();
   return nuevo.trim();
 }
 
@@ -2608,7 +2625,7 @@ async function almUsarCodigo(automatico = false) {
   // también rompe la conexión con el escáner en algunas pistolas)
   const cod = almCodigoNuevo(inpCod);
   if (!cod && automatico) return;              // ya se había procesado (Enter y pausa a la vez)
-  if (!cod) { alert('Escanea o escribe un código'); return; }
+  if (!cod) return;                                // nada nuevo que buscar
   if (!almExpListo) {
     alert('Todavía se están cargando las expediciones. Espera unos segundos y vuelve a escanear.');
     return;
@@ -2776,7 +2793,7 @@ function almTecladoLetras() {
 
 async function almBuscarManual() {
   const t = (document.getElementById('alm-man-exp')?.value||'').trim();
-  if (!t) { alert('Escribe el número de expedición'); return; }
+  if (!t) { document.getElementById('alm-man-exp')?.focus(); return; }   // vacío (p. ej. un Enter suelto de la pistola): no se avisa
   almEstado.textoManual = t;
   const res = almBuscarTexto(t);
   if (res.length === 1) {
