@@ -2203,7 +2203,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v48 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v49 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -3512,7 +3512,7 @@ function almFiltrarAdmin(conEstado = false) {
   lista.forEach(r => cuenta[almResultado(r)]++);
   const nPend = cuenta.pendiente, nPas = lista.length - nPend;
   const nReclamar = lista.filter(r => almResultado(r)==='esperando' && almDiasDesde(r.pasadoTs) >= ALM_DIAS_RECLAMAR).length;
-  if (conEstado && almVistaEstado === 'pendientes') lista = lista.filter(r=>!almPasada(r)).sort((a,b)=>a.ts-b.ts);  // las más antiguas primero
+  if (conEstado && almVistaEstado === 'pendientes') lista = lista.filter(r=>!almPasada(r)).sort((a,b)=>b.ts-a.ts);  // las más recientes primero
   if (conEstado && almVistaEstado === 'esperando') lista = lista.filter(r=>almResultado(r)==='esperando').sort((a,b)=>(a.pasadoTs||0)-(b.pasadoTs||0));
   if (conEstado && almVistaEstado === 'modificadas') lista = lista.filter(r=>almResultado(r)==='modificada');
   if (conEstado && almVistaEstado === 'nomod') lista = lista.filter(r=>almResultado(r)==='nomod');
@@ -3641,7 +3641,7 @@ function renderAlmacenAdmin() {
     ${almVistaEstado==='esperando' && f.lista.length ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:0.6rem">Ya pasadas al sistema. Se comprueba solo si la agencia cambia los kilos o el volumen; si no se refleja, márcalo tú en 👁 Ver. En rojo, las que llevan ${ALM_DIAS_RECLAMAR} días o más sin modificar.</div>` : ''}
     ${almHtmlFiltros(f, 'renderAlmacenAdmin()')}
     ${almVistaEstado==='pendientes' && lista.length ? `<div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.6rem">
-      <div style="font-size:13px;color:var(--text-muted)">Marca la casilla <span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.4);border-radius:4px;vertical-align:-2px"></span> cuando la hayas pasado al sistema. Las más antiguas salen primero.</div>
+      <div style="font-size:13px;color:var(--text-muted)">Marca la casilla <span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.4);border-radius:4px;vertical-align:-2px"></span> cuando la hayas pasado al sistema. Las más recientes salen arriba.</div>
       ${lista.length>1 ? `<button type="button" class="alm-accion" onclick="almMarcarTodasPasadas()">✅ Marcar las ${lista.length} como pasadas</button>` : ''}
     </div>` : ''}
     <div class="refuel-card" style="padding:0">
