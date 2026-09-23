@@ -28,18 +28,19 @@
     const a = (screen.orientation && screen.orientation.angle) || 0;
     return a === 270 ? -90 : a;
   }
-  // modo: 'auto' (solo en móviles y pistolas), 'si' (siempre) o 'no' (nunca).
-  // Se puede cambiar desde Almacén → ⚙️ Ajustes de la pistola.
+  // Giro de pantalla. El usuario puede "fijar" la posición en la que quiere ver
+  // la app (Almacén → ⚙️ Ajustes): a partir de ahí, si el aparato gira, la
+  // página se gira al revés para que se siga viendo igual.
   window.modoGiro = () => { try { return localStorage.getItem('nfGiro') || 'auto'; } catch(e) { return 'auto'; } };
-  window.apaisada = () => {
-    const tipo = (screen.orientation && screen.orientation.type) || '';
-    if (tipo) return tipo.startsWith('landscape');
-    if (typeof window.orientation === 'number') return Math.abs(window.orientation) === 90;
-    return window.innerWidth > window.innerHeight;
+  window.anguloRef = () => { try { return parseInt(localStorage.getItem('nfGiroRef') || '0', 10) || 0; } catch(e) { return 0; } };
+  window.anguloActual = function anguloActual() {
+    if (screen.orientation && typeof screen.orientation.angle === 'number') return screen.orientation.angle;
+    if (typeof window.orientation === 'number') return ((window.orientation % 360) + 360) % 360;
+    return window.innerWidth > window.innerHeight ? 90 : 0;
   };
   window.mantenerVertical = function mantenerVertical() {
     const h = document.documentElement;
-    h.classList.remove('giro-fijo', 'giro-izq', 'giro-der');
+    h.classList.remove('giro-fijo', 'giro-izq', 'giro-der', 'giro-180');
     const modo = window.modoGiro();
     if (modo === 'no') return;
     if (modo === 'auto') {
@@ -47,15 +48,24 @@
       const pequena = Math.min(screen.width, screen.height) < 1200;
       if (!tactil || !pequena) return;
     }
-    if (!window.apaisada()) return;
-    const a = anguloPantalla();
-    let izq = !(a === -90 || a === 270);
-    try { if (localStorage.getItem('nfGiroInvertido') === '1') izq = !izq; } catch(e) {}
-    h.classList.add('giro-fijo', izq ? 'giro-izq' : 'giro-der');
+    let delta = ((window.anguloActual() - window.anguloRef()) % 360 + 360) % 360;
+    try { if (localStorage.getItem('nfGiroInvertido') === '1') delta = (delta + 180) % 360; } catch(e) {}
+    if (delta === 0) return;
+    if (delta === 180) h.classList.add('giro-fijo', 'giro-180');
+    else h.classList.add('giro-fijo', delta === 90 ? 'giro-izq' : 'giro-der');
   };
-  window.girarAlReves = () => {                 // por si se ve boca abajo
+  window.girarAlReves = () => {                 // si al girar se ve al revés
     try { localStorage.setItem('nfGiroInvertido', localStorage.getItem('nfGiroInvertido') === '1' ? '0' : '1'); } catch(e) {}
-    location.reload();
+    window.mantenerVertical();
+    if (typeof window.almAjustes === 'function') window.almAjustes();
+  };
+  window.fijarPosicion = () => {
+    try {
+      localStorage.setItem('nfGiroRef', String(window.anguloActual()));
+      localStorage.setItem('nfGiro', 'si');
+    } catch(e) {}
+    window.mantenerVertical();
+    if (typeof window.almAjustes === 'function') window.almAjustes();
   };
   window.addEventListener('orientationchange', () => setTimeout(mantenerVertical, 50));
   if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener('change', mantenerVertical);
@@ -534,6 +544,7 @@ html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
 html.giro-izq body { transform: translateY(100vh) rotate(-90deg); }
 html.giro-der body { transform: translateX(100vw) rotate(90deg); }
+html.giro-180 body { width: 100vw; height: 100vh; transform: translate(100vw, 100vh) rotate(180deg); }
 html.giro-fijo .screen { min-height: 100%; }
 html.giro-fijo #screen-chat { height: 100% !important; }
 </style>
@@ -2115,7 +2126,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v21 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v22 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2356,7 +2367,8 @@ function almRenderPaso1() {
     </div>`;
   const inp = document.getElementById('alm-inp-codigo');
   if (inp) {
-    inp.focus();
+    // Con "Al tocar" no se pone el cursor solo, así no salta el teclado al entrar
+    if (almModoTeclado() !== 'tocar') inp.focus();
     inp.addEventListener('keydown', e => { if (e.key==='Enter') almUsarCodigo(); });
   }
 }
@@ -2372,14 +2384,14 @@ function almTeclado() {
 }
 
 // ── Ajustes del aparato (se guardan en la propia pistola o móvil) ──
-function almModoTeclado() { try { return localStorage.getItem('nfTeclado') || 'si'; } catch(e) { return 'si'; } }
+function almModoTeclado() { try { return localStorage.getItem('nfTeclado') || 'tocar'; } catch(e) { return 'tocar'; } }
 function almGuardarAjuste(clave, valor) {
   try { localStorage.setItem(clave, valor); } catch(e) {}
   almAjustes();
   if (clave === 'nfGiro') window.mantenerVertical?.();
   if (clave === 'nfTeclado') {
     const inp = document.getElementById('alm-inp-codigo');
-    if (inp) { inp.setAttribute('inputmode', valor === 'no' ? 'none' : 'numeric'); }
+    if (inp) { inp.setAttribute('inputmode', valor === 'no' ? 'none' : 'numeric'); inp.blur(); }
   }
 }
 function almAjustes() {
@@ -2389,23 +2401,25 @@ function almAjustes() {
     `<button type="button" class="alm-ag ${valor===actual?'on':''}" onclick="almGuardarAjuste('${clave}','${valor}')">${txt}</button>`;
   const tipo = (screen.orientation && screen.orientation.type) || '—';
   const ang = (screen.orientation && screen.orientation.angle) ?? (typeof window.orientation==='number' ? window.orientation : '—');
-  const info = `Pantalla ${screen.width}×${screen.height} · ${tipo} · ángulo ${ang} · toques ${navigator.maxTouchPoints||0} · ${ALM_VERSION}`;
+  const info = `Pantalla ${screen.width}×${screen.height} · ${tipo} · ángulo ${ang} · ref ${window.anguloRef()} · giro ${giro} · teclado ${tec} · toques ${navigator.maxTouchPoints||0} · ${ALM_VERSION}`;
   almAbrirModal('⚙️ Ajustes de la pistola', `
     <div class="alm-etq">Teclado al escanear</div>
-    <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">Muchas pistolas solo escriben si el teclado numérico está abierto. Si al escanear se queda en blanco, déjalo en <strong>Sí</strong>.</div>
-    <div class="alm-ags" style="grid-template-columns:1fr 1fr">
-      ${opc('nfTeclado','si',tec,'⌨️ Sí, con teclado')}
-      ${opc('nfTeclado','no',tec,'🚫 Sin teclado')}
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">Algunas pistolas solo escriben si el teclado está abierto. Con <strong>Al tocar</strong>, el teclado sale solo cuando tocas la casilla.</div>
+    <div class="alm-ags" style="grid-template-columns:repeat(3,1fr)">
+      ${opc('nfTeclado','tocar',tec,'👆 Al tocar')}
+      ${opc('nfTeclado','si',tec,'⌨️ Siempre')}
+      ${opc('nfTeclado','no',tec,'🚫 Nunca')}
     </div>
 
-    <div class="alm-etq" style="margin-top:1.25rem">Pantalla siempre en vertical</div>
-    <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">Si al girar el aparato la pantalla se pone de lado, ponlo en <strong>Sí</strong>.</div>
-    <div class="alm-ags" style="grid-template-columns:repeat(3,1fr)">
-      ${opc('nfGiro','si',giro,'🔒 Sí')}
+    <div class="alm-etq" style="margin-top:1.25rem">Posición de la pantalla</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.5rem">Coge la pistola como la vayas a usar y pulsa el botón: la app se queda siempre así aunque gires el aparato.</div>
+    <button type="button" class="btn btn-primary" style="margin-bottom:0.5rem" onclick="fijarPosicion()">📌 Fijar esta posición</button>
+    <div class="alm-ags" style="grid-template-columns:1fr 1fr">
       ${opc('nfGiro','auto',giro,'Automático')}
-      ${opc('nfGiro','no',giro,'Libre')}
+      ${opc('nfGiro','no',giro,'🔓 Libre')}
     </div>
-    <button type="button" class="alm-accion" style="width:100%;margin-top:0.6rem" onclick="girarAlReves()">🔄 Se ve boca abajo: darle la vuelta</button>
+    <button type="button" class="alm-accion" style="width:100%;margin-top:0.5rem" onclick="girarAlReves()">🔄 Al girar se ve al revés: corregir</button>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:0.4rem">Ahora: ${giro==='si'?`fijada en ${window.anguloRef()}°`:giro==='auto'?'automática':'libre'} · el aparato dice ${window.anguloActual()}°</div>
 
     <div class="alm-etq" style="margin-top:1.25rem">Datos del aparato</div>
     <div style="font-size:12px;color:var(--text-muted);font-family:monospace;word-break:break-all">${info}</div>
@@ -3817,7 +3831,7 @@ async function almExportarExcel() {
 // Este bloque vive dentro de <script type="module">: las funciones que se
 // llaman desde onclick="" tienen que colgarse de window para existir.
 Object.assign(window, {
-  almUsarCodigo, almTeclado, almTecladoLetras, almAjustes, almGuardarAjuste, almAbrirManual, almBuscarManual, almElegir, almRemedir,
+  almUsarCodigo, almTeclado, almTecladoLetras, almAjustes, almGuardarAjuste, almAbrirManual, almModoTeclado, almBuscarManual, almElegir, almRemedir,
   almSelAgencia, almRenderPaso, almSelMedida,
   almCalcPeso, almIrConfirmar, almGuardar, almNueva,
   renderAlmacenAdmin, renderAlmacenResumen, almBorrarExpedicion, almExportarExcel,
