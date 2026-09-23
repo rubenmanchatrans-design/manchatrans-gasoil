@@ -2159,7 +2159,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v37 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v38 · 23/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 8;      // días de alta que se cargan de expedicionesDia
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2407,24 +2407,31 @@ function almBarraScan() {
       <div id="alm-scan-aviso" class="alm-scan-aviso">👆 Toca aquí para poder leer</div>
       <div style="display:flex;gap:0.5rem;margin-top:0.6rem">
         <div style="position:relative;flex:1;min-width:0">
-          <input class="form-input alm-inp-oculta" type="text" inputmode="none" id="alm-inp-codigo" autocomplete="off" style="font-size:18px;letter-spacing:2px;width:100%">
+          <input class="form-input alm-inp-oculta" type="text" inputmode="none" id="alm-inp-codigo" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="font-size:18px;letter-spacing:2px;width:100%;pointer-events:none">
           <div id="alm-scan-ver" class="alm-scan-ver"></div>
         </div>
         <button type="button" id="alm-btn-teclado" class="btn btn-ghost alm-btn-teclado" onclick="event.stopPropagation();almAbrirManual()" aria-label="Escribir la expedición a mano">⌨️</button>
       </div>
     </div>`;
   const inp = document.getElementById('alm-inp-codigo');
+  almValorPrevio = ''; almPendiente = '';
   // Fin de lectura: con Enter si la pistola lo manda, o sola cuando deja de escribir
   inp.addEventListener('keydown', e => {
     if (e.key === 'Enter' || e.keyCode === 13) { e.preventDefault(); almLecturaTerminada(); }
   });
-  let almTimerInput = null;
   inp.addEventListener('input', () => {
+    // Se coge exactamente lo que se ha añadido, esté donde esté el cursor
+    const v = inp.value || '';
+    const ins = almTextoAnadido(v, almValorPrevio);
+    almValorPrevio = v;
+    if (ins) almPendiente += ins;
+    if (v.length > 3000) { inp.value = ''; almValorPrevio = ''; }     // limpieza muy de vez en cuando
+    almCursorAlFinal();
     clearTimeout(almTimerInput);
     almTimerInput = setTimeout(almLecturaTerminada, 350);
     almVerLectura();
   });
-  inp.addEventListener('focus', almPintarListo);
+  inp.addEventListener('focus', () => { almCursorAlFinal(); almPintarListo(); });
   inp.addEventListener('blur', almPintarListo);
   almActivarCasilla();
 }
@@ -2435,8 +2442,7 @@ function almRenderPaso1() {
     <div class="refuel-card">
       <div class="section-title">Escanear etiqueta</div>
       <div style="font-size:14px;color:var(--text-muted);margin-bottom:0.75rem">Pasa la pistola por el código de barras del palet: la expedición saldrá sola.</div>
-      <button class="btn btn-ghost" onclick="almUsarCodigo()">Buscar el código escrito →</button>
-      <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="almAbrirManual()">✍️ Meter nº de expedición a mano</button>
+      <button class="btn btn-ghost" onclick="almAbrirManual()">✍️ Meter nº de expedición a mano</button>
       <div id="alm-estado-exp" style="margin-top:0.75rem;font-size:12px;color:var(--text-muted);text-align:center">${almTextoEstadoExp()}</div>
       <button type="button" class="alm-accion" style="width:100%;margin-top:0.75rem" onclick="almAjustes()">⚙️ Ajustes de la pistola</button>
       <div style="margin-top:0.5rem;font-size:11px;color:var(--text-muted);text-align:center;opacity:0.7">${ALM_VERSION}</div>
@@ -2455,37 +2461,50 @@ function almPantallaEscanerVisible() {
   return almPantallaAlmacen() && p1 && p1.style.display !== 'none';
 }
 
+// ── Lectura de la pistola ──
+// almPendiente guarda lo que ha llegado de la lectura en curso. No se usa la
+// posición en la casilla (el cursor puede estar en cualquier sitio): se compara
+// el texto de antes y el de ahora y se coge exactamente lo añadido.
+let almValorPrevio = '', almPendiente = '', almTimerInput = null, almProcesando = false;
+
+function almTextoAnadido(nuevo, viejo) {
+  if (nuevo.length <= viejo.length) return '';              // se ha borrado algo: no es una lectura
+  let i = 0;
+  while (i < viejo.length && nuevo[i] === viejo[i]) i++;
+  let j = 0;
+  while (j < viejo.length - i && nuevo[nuevo.length-1-j] === viejo[viejo.length-1-j]) j++;
+  return nuevo.slice(i, nuevo.length - j);
+}
+function almCursorAlFinal() {
+  const inp = document.getElementById('alm-inp-codigo');
+  if (!inp || document.activeElement !== inp) return;
+  const n = (inp.value || '').length;
+  try { inp.setSelectionRange(n, n); } catch(e) {}
+}
+
+// ¿En qué pantallas sirve una lectura? En todas menos mientras se mide:
+// escanear, "ya medida", "no encontrada" y "guardado"
+function almAceptaLecturas() {
+  if (!almPantallaAlmacen()) return false;
+  const vis = id => { const el = document.getElementById(id); return el && el.style.display !== 'none'; };
+  return vis('alm-paso1') || vis('alm-paso2') || vis('alm-paso-ok');
+}
+
 // La pistola ha terminado de escribir un código
 function almLecturaTerminada() {
-  const inp = document.getElementById('alm-inp-codigo');
-  if (!inp) return;
-  if (!almPantallaEscanerVisible()) {          // midiendo: las lecturas se ignoran
-    almLeidoHasta = (inp.value || '').length;
-    almVerLectura();
-    return;
-  }
-  const pendiente = (inp.value || '').slice(almLeidoHasta).trim();
-  if (pendiente.length >= 4) almUsarCodigo(true);
-}
-
-// Lo que se ve en la casilla: solo la lectura en curso (lo anterior no se borra,
-// para no desconectar la pistola, pero tampoco se enseña)
-function almVerLectura() {
-  const inp = document.getElementById('alm-inp-codigo'), ver = document.getElementById('alm-scan-ver');
-  if (!inp || !ver) return;
-  ver.textContent = (inp.value || '').slice(almLeidoHasta).trim();
-}
-
-// Devuelve lo escrito desde la última lectura y apunta por dónde va
-let almLeidoHasta = 0;
-function almCodigoNuevo(inp) {
-  if (!inp) return '';
-  const total = inp.value || '';
-  const nuevo = total.length >= almLeidoHasta ? total.slice(almLeidoHasta) : total;
-  almLeidoHasta = total.length;
-  if (total.length > 3000) { inp.value = ''; almLeidoHasta = 0; }   // limpieza muy de vez en cuando
+  clearTimeout(almTimerInput);
+  const cod = almPendiente.trim();
+  almPendiente = '';
   almVerLectura();
-  return nuevo.trim();
+  if (cod.length < 4) return;                  // ruido o un Enter suelto
+  if (!almAceptaLecturas()) return;            // midiendo: se ignora
+  almProcesarCodigo(cod);
+}
+
+// Lo que se ve en el recuadro: solo la lectura en curso
+function almVerLectura() {
+  const ver = document.getElementById('alm-scan-ver');
+  if (ver) ver.textContent = almPendiente.trim();
 }
 
 // Reglas para no pelear con el usuario:
@@ -2529,7 +2548,16 @@ function almMantenerFoco(ev) {
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON' || t.closest('button'))) return;
   almActivarCasilla();
 }
-// (ya no se recupera la casilla con cualquier toque: eso provocaba saltos)
+// Al tocar una zona vacía de la pantalla, la casilla recupera el cursor.
+// Es seguro: la casilla no tiene teclado, así que no se mueve nada.
+document.addEventListener('pointerup', ev => {
+  if (!almAceptaLecturas()) return;
+  const act = document.activeElement;
+  if (act && act !== document.body) return;                   // ya hay algo activo: no se toca
+  const t = ev.target;
+  if (t && t.closest && t.closest('input,textarea,select,button,a,label')) return;
+  almActivarCasilla();
+});
 
 // La casilla de escanear no saca el teclado (inputmode="none"): la pistola
 // escribe igual. El botón ⌨️ lo saca, numérico, solo cuando se quiere teclear.
@@ -2582,7 +2610,7 @@ function almAjustes() {
 // recogen aquí: así no hace falta que salga el teclado para leer.
 let almBufScan = '', almTimerScan = null;
 function almTeclaGlobal(ev) {
-  if (!almPantallaEscanerVisible()) return;
+  if (!almAceptaLecturas()) return;
   const t = ev.target;
   const enCasilla = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && t.id !== 'alm-inp-codigo';
   if (enCasilla || t?.id === 'alm-inp-codigo') return;      // la casilla ya lo gestiona
@@ -2601,23 +2629,25 @@ function almTeclaGlobal(ev) {
 function almLecturaGlobal() {
   clearTimeout(almTimerScan);
   const cod = almBufScan.trim(); almBufScan = '';
-  const inp = document.getElementById('alm-inp-codigo');
-  if (inp) inp.value = cod;
-  if (cod) almUsarCodigo();
+  if (cod.length >= 4) almProcesarCodigo(cod);
 }
 document.addEventListener('keydown', almTeclaGlobal, true);
 
-async function almUsarCodigo(automatico = false) {
-  const inpCod = document.getElementById('alm-inp-codigo');
-  // Se lee solo lo nuevo: la casilla no se toca (vaciarla desde el programa
-  // también rompe la conexión con el escáner en algunas pistolas)
-  const cod = almCodigoNuevo(inpCod);
-  if (!cod && automatico) return;              // ya se había procesado (Enter y pausa a la vez)
-  if (!cod) return;                                // nada nuevo que buscar
+// Compatibilidad: botones antiguos que llamaban a almUsarCodigo
+function almUsarCodigo() { almLecturaTerminada(); }
+
+async function almProcesarCodigo(cod) {
+  if (almProcesando) return;                   // aún se está buscando la anterior
   if (!almExpListo) {
-    alert('Todavía se están cargando las expediciones. Espera unos segundos y vuelve a escanear.');
+    mostrarMensajeFlotante?.('⏳ Cargando expediciones… vuelve a escanear en unos segundos');
     return;
   }
+  almProcesando = true;
+  try { await almProcesarCodigoInterno(cod); }
+  finally { almProcesando = false; }
+}
+async function almProcesarCodigoInterno(cod) {
+  document.getElementById('alm-paso-ok').style.display = 'none';
   almReset();
   almEstado.codigo = cod;
   const r = almBuscar(cod);
