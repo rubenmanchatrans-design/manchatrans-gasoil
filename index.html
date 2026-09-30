@@ -2318,7 +2318,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v74 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v75 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -5330,7 +5330,25 @@ window.cpBorrarRemit = async (id) => {
   if (!confirm('¿Borrar este remitente de la lista?')) return;
   try { await deleteDoc(doc(db,'cartasRemitentes',id)); } catch(e) { alert(e.message); }
 };
-// Importa el Excel de clientes: reconoce solas las columnas de nombre, NIF, domicilio, CP, población y provincia
+// Limpia el nombre de un cliente del maestro: quita notas internas (***CONTADO***,
+// * OJO FORMA DE PAGO…) y descarta los que no hay que usar (NO TRABAJAR, MOROSO…).
+// Devuelve null si el cliente no se debe importar.
+function cpLimpiarCliente(nombre) {
+  let n = String(nombre || '').replace(/\s+/g, ' ').trim();
+  const U = n.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (/NO\s*TRABAJ|NOO\s*TRABAJ|NO\s*U[L]?TILIZ|NO\s*FACTUR|YA\s*NO\s*TRABAJ|MOROSO|INCOBRABLE|BLOQUEAD|\bNULO\b|CAMBIO\s*RAZON|CAMBIADO\s*DE\s*NOMBRE/.test(U)) return null;
+  if (/^(MANCHATRANS|TRADIMAN)\b/.test(U)) return null;                       // cuentas internas
+  n = n.replace(/\*+[^*]*\*+/g, ' ')                                           // ***CONTADO***, *CONTADO*…
+       .replace(/["“”]\s*OJO[^"“”]*["“”]/gi, ' ')                             // "OJO FORMA DE PAGO"
+       .replace(/\*\s*OJO.*$/i, ' ')                                           // * OJO FORMA DE PAGO
+       .replace(/!+[^!]*!+/g, ' ')
+       .replace(/\*+/g, ' ')                                                   // asteriscos sueltos
+       .replace(/\s+/g, ' ').trim().replace(/^[-.,\s]+|[-,\s]+$/g, '');
+  return n.length >= 2 ? n.toUpperCase() : null;
+}
+
+// Importa el Excel de clientes: busca la fila de títulos y reconoce las columnas
+// (nombre/cliente, NIF/CIF, dirección, CP, población, provincia)
 window.cpImportarRemit = async (inp) => {
   const f = inp.files && inp.files[0]; inp.value = '';
   const avisoEl = () => document.getElementById('cp-remit-aviso');
@@ -5340,35 +5358,45 @@ window.cpImportarRemit = async (inp) => {
   try {
     const XLSX = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm');
     const wb = XLSX.read(await f.arrayBuffer(), {type:'array'});
-    const filas = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval:''});
-    if (!filas.length) { aviso.textContent = 'El Excel está vacío.'; return; }
-    const cols = Object.keys(filas[0]);
+    const tabla = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, defval:''});
     const n = t => cpNormNombre(t);
-    const col = (...claves) => cols.find(c => claves.some(k => n(c).includes(k)));
-    const cNom = col('RAZON','NOMBRE COMERCIAL','NOMBRE','CLIENTE','DENOMINACION') || cols[0];
-    const cNif = col('NIF','CIF','DNI');
-    const cDom = col('DOMICILIO','DIRECCION','CALLE');
-    const cCp  = col('POSTAL','CP','C P');
-    const cPob = col('POBLACION','LOCALIDAD','MUNICIPIO','CIUDAD');
+    // fila de títulos: la primera que tenga una columna de nombre/cliente
+    const iCab = tabla.findIndex(fila => fila.some(c => /^(CLIENTE|NOMBRE|RAZON SOCIAL|DENOMINACION)/.test(n(c))));
+    if (iCab < 0) { aviso.textContent = 'No encuentro la columna del nombre del cliente (Cliente, Nombre o Razón social).'; return; }
+    const cab = tabla[iCab].map(n);
+    const col = (...claves) => { const i = cab.findIndex(c => claves.some(k => c === k || c.startsWith(k))); return i < 0 ? null : i; };
+    const cNom = col('RAZON SOCIAL','CLIENTE','NOMBRE','DENOMINACION');
+    const cNif = col('CIF','NIF','C I F','DNI');
+    const cDom = col('DIRECCION','DOMICILIO','CALLE');
+    const cCp  = col('CP','C P','COD POSTAL','CODIGO POSTAL');
+    const cPob = col('POBLACION','LOCALIDAD','MUNICIPIO');
     const cPro = col('PROVINCIA');
-    let nuevos = 0, repetidos = 0;
+    const val = (fila, i) => i === null ? '' : String(fila[i] ?? '').trim();
     const vistos = new Set(cpRemit.map(r => cpNormNombre(r.nombre)));
-    const lote = [];
-    filas.forEach(fl => {
-      const nombre = String(fl[cNom]||'').trim().toUpperCase();
-      if (!nombre) return;
+    const lote = []; let descartados = 0, repetidos = 0;
+    tabla.slice(iCab + 1).forEach(fila => {
+      const bruto = val(fila, cNom);
+      if (!bruto) return;
+      const nombre = cpLimpiarCliente(bruto);
+      if (!nombre) { descartados++; return; }
       const k = cpNormNombre(nombre);
       if (vistos.has(k)) { repetidos++; return; }
       vistos.add(k);
-      lote.push({nombre, nif: String(cNif?fl[cNif]:'').trim().toUpperCase(), domicilio: String(cDom?fl[cDom]:'').trim(), cp: String(cCp?fl[cCp]:'').trim(),
-                 poblacion: String(cPob?fl[cPob]:'').trim().toUpperCase(), provincia: String(cPro?fl[cPro]:'').trim().toUpperCase(), ts: Date.now(), origen:'excel'});
+      // el CP a veces va dentro de la dirección o de la población
+      let cp = val(fila, cCp); const dom = val(fila, cDom);
+      if (!cp) { const m = (dom + ' ' + val(fila, cPob)).match(/\b(\d{5})\b/); if (m) cp = m[1]; }
+      lote.push({nombre, nif: val(fila, cNif).toUpperCase(), domicilio: dom, cp,
+                 poblacion: val(fila, cPob).toUpperCase(), provincia: val(fila, cPro).toUpperCase(), ts: Date.now(), origen:'excel'});
     });
+    let hechos = 0;
     for (let i = 0; i < lote.length; i += 25) {
       await Promise.all(lote.slice(i, i+25).map(d => addDoc(collection(db,'cartasRemitentes'), d)));
-      nuevos += Math.min(25, lote.length - i);
-      aviso.textContent = `⏳ Guardando… ${nuevos} de ${lote.length}`;
+      hechos += Math.min(25, lote.length - i);
+      aviso.textContent = `⏳ Guardando… ${hechos} de ${lote.length}`;
     }
-    aviso.innerHTML = `✅ Importados <strong>${nuevos}</strong> remitentes${repetidos ? ` · ${repetidos} ya estaban` : ''}. Columna de nombre usada: <em>${cpEsc(cNom)}</em>${cPob ? `, población: <em>${cpEsc(cPob)}</em>` : ''}.`;
+    aviso.innerHTML = `✅ Importados <strong>${hechos}</strong> remitentes`
+      + (repetidos ? ` · ${repetidos} ya estaban` : '')
+      + (descartados ? ` · ${descartados} no importados (marcados como NO TRABAJAR, MOROSO, NO UTILIZAR… o cuentas internas)` : '') + '.';
   } catch(e) { console.error(e); aviso.textContent = '❌ No se ha podido leer el Excel: ' + e.message; }
 };
 
