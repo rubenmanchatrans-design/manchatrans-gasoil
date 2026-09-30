@@ -682,6 +682,8 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .cp-adr-elegir button { background: var(--input-bg); border: 2px solid var(--card-border); color: var(--text-muted); border-radius: 12px; padding: 0.9rem 0.5rem; font-size: 16px; font-weight: 800; cursor: pointer; }
 .cp-adr-elegir button.on-no { border-color: var(--success); background: rgba(46,204,113,0.12); color: var(--success); }
 .cp-adr-elegir button.on-si { border-color: var(--danger); background: rgba(231,76,60,0.15); color: #ff8b80; }
+.cp-seg3 { grid-template-columns: 1fr 1fr 1fr; }
+.cp-seg3 button { font-size: 13px; padding: 0.6rem 0.2rem; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2292,7 +2294,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v63 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v64 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -4979,7 +4981,7 @@ function cpHtmlMerc(m, i) {
     <div class="cp-fila">
       <div class="cp-campo cp-c3"><label>10 · Nº de bultos</label><input type="number" inputmode="numeric" value="${cpEsc(m.bultos)}" oninput="cpSetMerc(${i},'bultos',this.value)"></div>
       <div class="cp-campo cp-c3"><label>11 · Embalaje</label>
-        <div class="cp-seg">${['Palets','Bultos'].map(e => `<button type="button" class="${m.embalaje===e?'on':''}" onclick="cpSetMerc(${i},'embalaje','${e}'); cpRenderForm()">${e==='Palets'?'🟫 Palets':'📦 Bultos'}</button>`).join('')}</div></div>
+        <div class="cp-seg cp-seg3">${[['Palets','🟫 Palets'],['Bultos','📦 Bultos'],['Palets y bultos','🟫📦 Los dos']].map(([e,t]) => `<button type="button" class="${m.embalaje===e?'on':''}" onclick="cpSetMerc(${i},'embalaje','${e}'); cpRenderForm()">${t}</button>`).join('')}</div></div>
       <div class="cp-campo cp-c3"><label>13 · Peso bruto (kg)</label><input type="number" inputmode="decimal" value="${cpEsc(m.peso)}" oninput="cpSetMerc(${i},'peso',this.value)"></div>
     </div>
     <div class="cp-fila">
@@ -5004,30 +5006,49 @@ window.cpBuscarAdrUI = async (txt) => {
 };
 window.cpAnadirAdr = (idx) => {
   const f = cpAdr[idx];
-  cpEstado.adrLineas.push({un:f[0], nombre:f[1], clase:f[2], codigo:f[3], ge:f[4], etiquetas:f[5], cl:f[7], cat:f[9], tunel:f[10], texto:cpLineaAdr(f), cantidad:'', unidad:'kg', bultos:'', embalaje:''});
+  cpEstado.adrLineas.push({un:f[0], nombre:f[1], clase:f[2], codigo:f[3], ge:f[4], etiquetas:f[5], disposiciones:f[6], cl:f[7], cat:f[9], tunel:f[10], texto:cpLineaAdr(f), tecnico:'', cantidad:'', unidad:'kg', bultos:'', embalaje:''});
   const b = document.getElementById('cp-adr-busca'); if (b) b.value = '';
   cpRenderForm();
 };
+function cpEsNep(l) { return /N\.E\.P\./i.test(l.nombre || '') || String(l.disposiciones||'').split(/\s+/).includes('274'); }
 function cpHtmlAdr(l, i) {
+  const nep = cpEsNep(l);
   return `<div class="cp-adr-linea">
     <div class="cp-adr-cab">
-      <div class="cp-adr-texto">${cpEsc(l.texto)}</div>
+      <div class="cp-adr-texto">${cpEsc(cpTextoAdr(l))}</div>
       <button type="button" class="cp-adr-quitar" onclick="cpEstado.adrLineas.splice(${i},1); cpRenderForm()" aria-label="Quitar esta materia">✕ Quitar</button>
     </div>
+    ${nep ? `<div class="cp-campo"><label>Nombre técnico (N.E.P.: obligatorio poner qué lleva, ADR 3.1.2.8)</label>
+      <input value="${cpEsc(l.tecnico||'')}" placeholder="Ej.: contiene tolueno y etanol" oninput="cpSetAdr(${i},'tecnico',this.value); this.closest('.cp-adr-linea').querySelector('.cp-adr-texto').textContent = cpTextoAdr(cpEstado.adrLineas[${i}])"></div>` : ''}
     <div class="cp-fila">
-      <div class="cp-campo cp-c4"><label>Cantidad total</label><input type="number" inputmode="decimal" value="${cpEsc(l.cantidad)}" placeholder="kg o litros" oninput="cpSetAdr(${i},'cantidad',this.value)"></div>
-      <div class="cp-campo cp-c4"><label>Unidad</label><select onchange="cpSetAdr(${i},'unidad',this.value)">${['kg','L','kg neto explosivo'].map(u=>`<option ${l.unidad===u?'selected':''}>${u}</option>`).join('')}</select></div>
-      <div class="cp-campo cp-c4"><label>Nº bultos</label><input type="number" inputmode="numeric" value="${cpEsc(l.bultos)}" oninput="cpSetAdr(${i},'bultos',this.value)"></div>
-      <div class="cp-campo cp-c4"><label>Tipo de bulto</label>
+      <div class="cp-campo cp-c4"><label>1 · Nº de bultos</label><input type="number" inputmode="numeric" value="${cpEsc(l.bultos)}" oninput="cpSetAdr(${i},'bultos',this.value)"></div>
+      <div class="cp-campo cp-c4"><label>2 · Tipo de bulto</label>
         <select onchange="cpSetAdr(${i},'embalaje',this.value); if(this.value==='Otro'){ cpRenderForm(); }">
           <option value="">— Elegir —</option>
           ${CP_BULTOS_ADR.map(b=>`<option ${l.embalaje===b || (b==='Otro' && l.embalaje && !CP_BULTOS_ADR.includes(l.embalaje))?'selected':''}>${b}</option>`).join('')}
         </select>
         ${l.embalaje==='Otro' || (l.embalaje && !CP_BULTOS_ADR.includes(l.embalaje)) ? `<input style="margin-top:4px" placeholder="Escribe el tipo de bulto" value="${cpEsc(l.embalaje==='Otro'?'':l.embalaje)}" oninput="cpSetAdr(${i},'embalaje',this.value||'Otro')">` : ''}
       </div>
+      <div class="cp-campo cp-c4"><label>3 · Unidad</label><select onchange="cpSetAdr(${i},'unidad',this.value)">${['kg','L','kg neto explosivo'].map(u=>`<option ${l.unidad===u?'selected':''}>${u}</option>`).join('')}</select></div>
+      <div class="cp-campo cp-c4"><label>4 · Cantidad total</label><input type="number" inputmode="decimal" value="${cpEsc(l.cantidad)}" placeholder="${cpEsc(l.unidad||'kg')}" oninput="cpSetAdr(${i},'cantidad',this.value)"></div>
     </div>
     <div class="cp-adr-meta">Categoría de transporte ${cpEsc(l.cat||'—')} · ${l.cl ? 'Cantidad limitada '+cpEsc(l.cl) : 'Sin cantidad limitada'} · Etiquetas ${cpEsc(l.etiquetas||'—')}</div>
   </div>`;
+}
+// Texto oficial de la materia; en las N.E.P. añade el nombre técnico entre paréntesis
+function cpTextoAdr(l) {
+  if (!l.tecnico || !cpEsNep(l)) return l.texto;
+  const tec = ` (${l.tecnico.trim()})`;
+  // ADR 3.1.2.8: el nombre técnico va detrás de "N.E.P." -> "LÍQUIDO INFLAMABLE, N.E.P. (contiene …), 3, II"
+  if (/N\.E\.P\./.test(l.texto)) return l.texto.replace(/N\.E\.P\./, 'N.E.P.' + tec);
+  const partes = l.texto.split(', ');            // UN xxxx, DESIGNACIÓN, etiqueta, GE, (túnel)
+  partes[1] = partes[1] + tec;
+  return partes.join(', ');
+}
+function cpKilosTexto(lineas) {
+  const porUnidad = {};
+  lineas.forEach(l => { const q = parseFloat(String(l.cantidad).replace(',','.')) || 0; porUnidad[l.unidad||'kg'] = (porUnidad[l.unidad||'kg']||0) + q; });
+  return Object.entries(porUnidad).map(([u,q]) => `${cpNum(q, q % 1 ? 2 : 0)} ${u}`).join(' + ') || '0 kg';
 }
 function cpPintarPuntos() {
   const el = document.getElementById('cp-adr-puntos');
@@ -5036,7 +5057,7 @@ function cpPintarPuntos() {
   const {total, ilimitado} = cpPuntosAdr(cpEstado.adrLineas);
   const exento = !ilimitado && total <= 1000;
   el.innerHTML = `<div class="${exento?'alm-banner alm-banner-ok':'alm-banner alm-banner-mal'}" style="margin-top:0.75rem">
-    <strong>${cpNum(total,0)} puntos (1.1.3.6)</strong> ${ilimitado ? '· hay materias de categoría 0: siempre ADR completo'
+    <strong>${cpKilosTexto(cpEstado.adrLineas)} en total</strong> (equivale a ${cpNum(total,0)} puntos del 1.1.3.6) ${ilimitado ? '· hay materias de categoría 0: siempre ADR completo'
       : exento ? '· hasta 1.000: <strong>no hace falta llevar placas naranjas</strong> (exención parcial)'
       : '· 1.001 o más: <strong>hay que llevar placas naranjas</strong> y conductor con carnet ADR'}
     <div style="font-size:12px;opacity:0.85;margin-top:3px">Los puntos son los kilos o litros multiplicados por el factor de su categoría: categoría 3 ×1 (1 kg = 1 punto), categoría 2 ×3, categoría 1 ×50, categoría 4 no cuenta.</div>
@@ -5110,12 +5131,14 @@ function cpRenderLista() {
         <div class="gs-sub">📅 ${cpEsc(cpFecha(c.fecha))} · ${cpEsc(c.transportista?.tractora||'')}${c.transportista?.semirremolque?' + '+cpEsc(c.transportista.semirremolque):''} · → ${cpEsc(String(c.destinoTxt||c.destino?.poblacion||'').split('\n').pop())}</div>
         <div class="gs-chips">
           <span class="gs-chip">${cpEsc(c.id)}</span>
+          ${c.subido === false ? `<span class="gs-chip gs-chip-mal" title="${cpEsc(c.errorSubida||'')}">⚠️ QR sin PDF</span>` : ''}
           ${c.pesoTotal?`<span class="gs-chip">⚖️ ${cpNum(c.pesoTotal,0)} kg</span>`:''}
           ${c.adr?`<span class="gs-chip gs-chip-mal">☢️ ADR · ${cpNum(c.adrPuntos||0,0)} ptos</span>`:''}
           ${c.version>1?`<span class="gs-chip">🔄 v${c.version}</span>`:''}
         </div>
       </div>
       <div class="gs-acciones">
+        ${c.subido === false ? `<button class="alm-accion" style="border-color:var(--danger);color:#ff8b80" onclick="cpResubir('${c.id}')">☁️ Subir de nuevo</button>` : ''}
         <button class="alm-accion alm-accion-ver" onclick="cpVer('${c.id}')">👁 Ver / QR</button>
         <button class="alm-accion" onclick="cpEditar('${c.id}')">✏️ Corregir</button>
       </div>
@@ -5144,7 +5167,7 @@ window.cpVer = async (id) => {
       <button class="alm-accion" onclick="cpCompartir('${c.id}')">📤 Compartir</button>
       <button class="alm-accion" onclick="almCopiar('${url}','Enlace del DeCA')">📋 Copiar enlace</button>
     </div>
-    ${c.adr ? `<div class="alm-sec-tit">☢️ ADR</div><div class="alm-datos">${(c.adrLineas||[]).map(l=>`<div style="grid-column:1/-1"><strong>${cpEsc(l.texto)}</strong><span>${cpEsc(l.cantidad)} ${cpEsc(l.unidad)} · ${cpEsc(l.bultos)} ${cpEsc(l.embalaje)}</span></div>`).join('')}</div>` : ''}
+    ${c.adr ? `<div class="alm-sec-tit">☢️ ADR</div><div class="alm-datos">${(c.adrLineas||[]).map(l=>`<div style="grid-column:1/-1"><strong>${cpEsc(cpTextoAdr(l))}</strong><span>${cpEsc(l.bultos)} ${cpEsc(l.embalaje)} · ${cpEsc(l.cantidad)} ${cpEsc(l.unidad)}</span></div>`).join('')}</div>` : ''}
     <div class="alm-sec-tit">Historial</div>
     <div style="font-size:13px;color:var(--text-muted)">Emitida ${c.ts?new Date(c.ts).toLocaleString('es-ES'):''}${c.version>1?` · corregida ${c.version-1} ${c.version-1===1?'vez':'veces'}, última ${c.modTs?new Date(c.modTs).toLocaleString('es-ES'):''}`:''}${c.emitidaPor?' · por '+cpEsc(c.emitidaPor):''}</div>`,
     `<button class="btn btn-primary" onclick="almCerrarModal(); cpEditar('${c.id}')">✏️ Corregir</button><button class="btn btn-ghost" onclick="almCerrarModal()">Cerrar</button>`);
@@ -5178,6 +5201,7 @@ function cpValidar(c) {
       if (!(parseFloat(l.cantidad) > 0)) f.push(`la cantidad de la materia ADR ${i+1}`);
       if (!(parseInt(l.bultos) > 0)) f.push(`el nº de bultos de la materia ADR ${i+1}`);
       if (!l.embalaje || l.embalaje === 'Otro') f.push(`el tipo de bulto de la materia ADR ${i+1}`);
+      if (cpEsNep(l) && !(l.tecnico||'').trim()) f.push(`el nombre técnico de la materia N.E.P. ${i+1} (qué lleva)`);
     });
   }
   return f;
@@ -5200,35 +5224,59 @@ window.cpGenerar = async () => {
   try { bytes = await cpConstruirPdf(c); }
   catch(e) { console.error(e); showAlert(aviso, 'No se ha podido crear el PDF: ' + e.message, true); return; }
   showAlert(aviso, '⏳ Subiendo el PDF (la inspección lo descargará desde el QR)…', false);
+  const subida = await cpSubirPdf(c, bytes);
+  c.subido = subida.ok;
+  // La carta se guarda SIEMPRE (aunque falle la subida), para poder reintentarlo con el mismo QR
   try {
-    const st = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js');
-    const storage = st.getStorage(undefined, `gs://${CP_BUCKET}`);
-    await st.uploadBytes(st.ref(storage, `${CP_CARPETA}/${c.id}.pdf`), bytes, {
+    const datos = {...c, ts: c.ts || Date.now(), modTs: Date.now(), fechaStr: cpFecha(c.fecha).replace(/^0/,'').replace(/\/0/g,'/'),
+                   emitidaPor: (typeof currentUser!=='undefined' && currentUser?.name) || '', errorSubida: subida.ok ? '' : subida.motivo};
+    delete datos.tocado;
+    await setDoc(doc(db,'cartasPorte',c.id), datos);
+    c.ts = datos.ts;
+  } catch(e) { console.warn('Registro de la carta:', e); }
+  cpResultado = {id:c.id, url:c.url, bytes, subido:subida.ok};
+  cpMostrarResultado(c, bytes, subida.ok, subida.motivo);
+  cpGuardarTrans(true);         // el conductor queda guardado para la próxima vez
+};
+
+// Sube el PDF a Firebase Storage (proyecto de gasoil) y comprueba que ha quedado allí
+async function cpSubirPdf(c, bytes) {
+  let st;
+  try { st = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js'); }
+  catch(e) { return {ok:false, motivo:'No se ha podido cargar el módulo de Firebase Storage (¿sin conexión?).'}; }
+  try {
+    const storage = st.getStorage(appGasoil, `gs://${CP_BUCKET}`);
+    const ref = st.ref(storage, `${CP_CARPETA}/${c.id}.pdf`);
+    await st.uploadBytes(ref, bytes, {
       contentType: 'application/pdf', cacheControl: 'no-cache',
       contentDisposition: `attachment; filename="${c.id}.pdf"`,     // al escanear el QR, se descarga el PDF
     });
+    const meta = await st.getMetadata(ref);                          // confirma que el archivo está
+    if (!meta || !(meta.size > 0)) return {ok:false, motivo:'El PDF se ha subido vacío. Vuelve a intentarlo.'};
+    return {ok:true};
   } catch(e) {
-    console.error(e);
-    showAlert(aviso, 'El PDF se ha creado pero no se ha podido subir: ' + (e.code || e.message) + '. Hay que activar Firebase Storage y sus reglas (ver ⚙️).', true);
-    cpResultado = {id:c.id, url:c.url, bytes, subido:false};
-    cpMostrarResultado(c, bytes, false, 'No se ha podido subir el PDF a Firebase Storage: ' + (e.code || e.message) + '. Comprueba que Storage está activado y que sus reglas permiten escribir en la carpeta deca.');
-    return;
+    console.error('Subida DeCA:', e);
+    const cod = e.code || '';
+    if (cod.includes('unauthorized')) return {ok:false, motivo:'Firebase Storage no deja escribir en la carpeta deca. Revisa las reglas de Storage ("allow write: if true").'};
+    if (cod.includes('bucket-not-found') || cod.includes('project-not-found') || cod.includes('no-default-bucket'))
+      return {ok:false, motivo:'Firebase Storage no está activado en el proyecto control-gasoil-manchatrans. En la consola de Firebase entra en Storage y pulsa "Empezar". Si pide pasar al plan Blaze, hay que hacerlo para poder usarlo.'};
+    if (cod.includes('retry-limit') || cod.includes('network')) return {ok:false, motivo:'Sin conexión o conexión lenta. Vuelve a intentarlo.'};
+    return {ok:false, motivo:`Error de Firebase Storage: ${cod || e.message}`};
   }
-  // Comprobación: lo que descarga el QR tiene que ser el PDF, no un mensaje de error
-  showAlert(aviso, '⏳ Comprobando que el QR descarga el PDF…', false);
-  const prueba = await cpComprobarUrl(c.url);
-  if (!prueba.ok) {
-    cpResultado = {id:c.id, url:c.url, bytes, subido:false, motivo:prueba.motivo};
-    cpMostrarResultado(c, bytes, false, prueba.motivo);
-    return;
-  }
-  try {
-    const datos = {...c, ts: c.ts || Date.now(), modTs: Date.now(), fechaStr: cpFecha(c.fecha).replace(/^0/,'').replace(/\/0/g,'/'), emitidaPor: (typeof currentUser!=='undefined' && currentUser?.name) || ''};
-    await setDoc(doc(db,'cartasPorte',c.id), datos);
-  } catch(e) { console.warn('Registro de la carta:', e); }
-  cpResultado = {id:c.id, url:c.url, bytes, subido:true};
-  cpMostrarResultado(c, bytes, true);
-  cpGuardarTrans(true);         // el conductor queda guardado para la próxima vez
+}
+
+// Volver a subir una carta ya emitida (mismo número y mismo QR)
+window.cpResubir = async (id) => {
+  const c = cpCartas.find(x => x.id === id);
+  if (!c) return;
+  mostrarMensajeFlotante?.('⏳ Regenerando y subiendo la carta…');
+  const copia = JSON.parse(JSON.stringify(c));
+  let bytes;
+  try { bytes = await cpConstruirPdf(copia); } catch(e) { alert('No se ha podido crear el PDF: ' + e.message); return; }
+  const subida = await cpSubirPdf(copia, bytes);
+  try { await updateDoc(doc(db,'cartasPorte',id), {subido: subida.ok, errorSubida: subida.ok ? '' : subida.motivo, modTs: Date.now()}); } catch(e) {}
+  if (subida.ok) mostrarMensajeFlotante?.('✅ Subida. El QR ya descarga el PDF');
+  else alert('No se ha podido subir:\n\n' + subida.motivo);
 };
 function cpMostrarResultado(c, bytes, subido, motivo = '') {
   const el = document.getElementById('cp-pane-nueva');
@@ -5431,12 +5479,12 @@ async function cpConstruirPdf(c) {
       // Materias peligrosas
       const colsA = [['DESCRIPCIÓN ADR (Nº ONU, designación oficial, etiquetas, grupo de embalaje, código de túnel)',0.56],['Nº Y TIPO DE BULTO',0.22],['CANTIDAD TOTAL',0.22]];
       const lineasA = c.adrLineas.map(l => {
-        const desc = partir(l.texto, 9.5, colsA[0][1]*FW-8, true);
+        const desc = partir(cpTextoAdr(l), 9.5, colsA[0][1]*FW-8, true);
         const extra = partir(`Categoría de transporte ${l.cat||'—'}${l.cl?' · Cantidad limitada '+l.cl:''}${l.codigo?' · Código de clasificación '+l.codigo:''}`, 7.2, colsA[0][1]*FW-8);
         return {l, desc, extra, alto: desc.length*12 + extra.length*9 + 10};
       });
       const pts = cpPuntosAdr(c.adrLineas), exento = !pts.ilimitado && pts.total <= 1000;
-      const hPts = 46, hDesc = 18 + c.adrLineas.reduce((s,l)=>s+partir(`${l.texto}, ${l.bultos} ${l.embalaje}, ${l.cantidad} ${l.unidad}`, 8.5, FW-8).length*11, 0);
+      const hPts = 46, hDesc = 18 + c.adrLineas.reduce((s,l)=>s+partir(`${cpTextoAdr(l)}, ${l.bultos} ${l.embalaje}, ${l.cantidad} ${l.unidad}`, 8.5, FW-8).length*11, 0);
       const yPts = yMed, yDesc = yPts + hPts + G, yTabA = yDesc + hDesc + G, hTabA = yMed + hMed - yTabA;
       // tabla
       marco(p, M, yTabA, FW, hTabA, '');
@@ -5454,14 +5502,14 @@ async function cpConstruirPdf(c) {
         if (k < lineasA.length-1) p.drawLine({start:{x:M,y:ly+8},end:{x:M+FW,y:ly+8},thickness:0.3,color:gris});
       });
       // descripción 5.4.1
-      caja(p, M, yDesc, FW, hDesc, 'DESCRIPCIÓN SEGÚN ADR 5.4.1', c.adrLineas.map(l => `${l.texto}, ${l.bultos} ${String(l.embalaje||'').toUpperCase()}, ${l.cantidad} ${l.unidad}`), {size:8.5});
+      caja(p, M, yDesc, FW, hDesc, 'DESCRIPCIÓN SEGÚN ADR 5.4.1', c.adrLineas.map(l => `${cpTextoAdr(l)}, ${l.bultos} ${String(l.embalaje||'').toUpperCase()}, ${l.cantidad} ${l.unidad}`), {size:8.5});
       // puntos
       const colorPts = exento ? rgb(0.1,0.5,0.22) : rojo;
       p.drawRectangle({x:M, y:yPts, width:FW, height:hPts, borderColor:colorPts, borderWidth:1.2});
-      escribir(p, `Puntos 1.1.3.6 ADR:  ${cpNum(pts.total,0)}   ·   ${exento ? 'NO LLEVA PLACAS NARANJAS (exención parcial)' : 'LLEVA PLACAS NARANJAS · ADR COMPLETO'}`, M+8, yPts+hPts-16, {size:10.5, bold:true, color:colorPts});
-      partir(exento ? 'Total por unidad de transporte hasta 1.000 puntos: exención parcial del 1.1.3.6 (sin paneles naranja y sin certificado ADR del conductor).'
-           : pts.ilimitado ? 'Hay materias de categoría de transporte 0: no se aplica la exención del 1.1.3.6.'
-           : 'Total por unidad de transporte de 1.001 puntos o más: paneles naranja, conductor con certificado ADR, equipamiento y documentación ADR.',
+      escribir(p, `Cantidad total ADR:  ${cpKilosTexto(c.adrLineas)}   ·   ${exento ? 'NO LLEVA PLACAS NARANJAS' : 'LLEVA PLACAS NARANJAS'}`, M+8, yPts+hPts-16, {size:10.5, bold:true, color:colorPts});
+      partir(exento ? `Equivale a ${cpNum(pts.total,0)} puntos del 1.1.3.6 ADR (hasta 1.000): exención parcial, sin paneles naranja y sin certificado ADR del conductor.`
+           : pts.ilimitado ? 'Hay materias de categoría de transporte 0: no se aplica la exención del 1.1.3.6. Transporte ADR completo.'
+           : `Equivale a ${cpNum(pts.total,0)} puntos del 1.1.3.6 ADR (1.001 o más): paneles naranja, conductor con certificado ADR, equipamiento y documentación ADR.`,
         7.8, FW-16).forEach((ln,i) => escribir(p, ln, M+8, yPts+hPts-29-i*9.5, {size:7.8}));
     }
 
@@ -5487,7 +5535,7 @@ async function cpConstruirPdf(c) {
   return await pdf.save();
 }
 
-Object.assign(window, { cpTab, cpRenderForm, cpEntrar, cpNuevaCarta });
+Object.assign(window, { cpTab, cpRenderForm, cpEntrar, cpNuevaCarta, cpTextoAdr });
 // los botones del formulario tocan cpEstado directamente: se expone
 Object.defineProperty(window, 'cpEstado', { get: () => cpEstado, set: v => { cpEstado = v; } });
 Object.defineProperty(window, 'cpResultado', { get: () => cpResultado });
