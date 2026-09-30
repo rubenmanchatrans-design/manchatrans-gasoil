@@ -5006,7 +5006,7 @@ function cpRenderForm() {
     </div>`;
   if (c.adr) { cpCargarAdr().then(() => cpPintarPuntos()); cpPintarPuntos(); }
 }
-// Desplegable de matrículas: todas las usadas en cartas + las de la flota.
+// Desplegable de matrículas: solo las guardadas en las cartas de porte (no las de la flota propia).
 // Por defecto sale la última con la que se generó una carta (del conductor, o la última en general).
 function cpTodasMatriculas(campo) {
   const set = new Map();
@@ -5014,7 +5014,6 @@ function cpTodasMatriculas(campo) {
   const lista = campo === 'tractora' ? 'tractoras' : 'semis';
   cpCartas.forEach(c => add(c.transportista?.[campo]));
   cpTrans.forEach(t => { add(t[campo]); (t[lista]||[]).forEach(add); });
-  (typeof vehiculosCache !== 'undefined' ? vehiculosCache : []).filter(v => v.activo !== false).forEach(v => add(v.matricula));
   (cpEstado?.transportista?.[lista] || []).forEach(add);
   return [...set.values()].sort((a,b) => a.localeCompare(b));
 }
