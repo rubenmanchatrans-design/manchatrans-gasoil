@@ -674,6 +674,14 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .cp-adr-cab .cp-adr-texto { margin-bottom: 0; flex: 1; }
 .cp-adr-quitar { flex-shrink: 0; background: transparent; border: 1px solid rgba(231,76,60,0.6); color: #ff8b80; border-radius: 10px; padding: 0.35rem 0.7rem; font-size: 13px; font-weight: 700; cursor: pointer; }
 .cp-adr-quitar:hover { background: rgba(231,76,60,0.15); }
+
+.cp-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem; }
+.cp-seg button { background: var(--input-bg); border: 1px solid var(--card-border); color: var(--text); border-radius: 10px; padding: 0.6rem 0.3rem; font-size: 14px; font-weight: 700; cursor: pointer; }
+.cp-seg button.on { border-color: var(--accent); background: rgba(245,166,35,0.15); color: var(--accent); }
+.cp-adr-elegir { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.cp-adr-elegir button { background: var(--input-bg); border: 2px solid var(--card-border); color: var(--text-muted); border-radius: 12px; padding: 0.9rem 0.5rem; font-size: 16px; font-weight: 800; cursor: pointer; }
+.cp-adr-elegir button.on-no { border-color: var(--success); background: rgba(46,204,113,0.12); color: var(--success); }
+.cp-adr-elegir button.on-si { border-color: var(--danger); background: rgba(231,76,60,0.15); color: #ff8b80; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2284,7 +2292,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v62 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v63 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -4778,7 +4786,7 @@ function cpNuevaCarta() {
     anexos: '', contrato: '', precinto: '', observaciones: '',
     operadorTxt: f.operadorTxt || CP_DEFECTO.operadorTxt,
     transportista: {nombre:'', nif:'', domicilio:'', conductor:'', telefono:'', tractora:'', semirremolque:''},
-    mercancia: [{marcas:'', bultos:'', embalaje:'Palets', naturaleza: CP_DEFECTO.naturaleza, peso:'', volumen:''}],
+    mercancia: [{bultos:'', embalaje:'Palets', naturaleza: CP_DEFECTO.naturaleza, peso:'', volumen:''}],
     adr: false, adrLineas: [],
   };
 }
@@ -4881,9 +4889,8 @@ function cpRenderForm() {
     <div class="refuel-card cp-card">
       <div class="cp-tit">Datos del transporte</div>
       <div class="cp-fila">
-        ${cpCampo('cp-fecha','Fecha', c.fecha, {tipo:'date', ruta:'fecha', ancho:'cp-c3'})}
-        ${cpCampo('cp-precinto','Precinto', c.precinto, {ruta:'precinto', ancho:'cp-c3'})}
-        ${cpCampo('cp-contrato','16 · Contrato / referencia', c.contrato, {ruta:'contrato', ancho:'cp-c3', placeholder:'Nº de contrato o pedido, si lo hay'})}
+        ${cpCampo('cp-fecha','Fecha', c.fecha, {tipo:'date', ruta:'fecha', ancho:'cp-c2'})}
+        ${cpCampo('cp-precinto','Precinto', c.precinto, {ruta:'precinto', ancho:'cp-c2'})}
       </div>
     </div>
 
@@ -4913,14 +4920,16 @@ function cpRenderForm() {
     <div class="refuel-card cp-card">
       <div class="cp-tit">10–14 · Mercancía</div>
       <div id="cp-merc">${c.mercancia.map((m,i)=>cpHtmlMerc(m,i)).join('')}</div>
-      <button type="button" class="alm-anadir" onclick="cpEstado.mercancia.push({marcas:'',bultos:'',embalaje:'Palets',naturaleza:'',peso:'',volumen:''}); cpRenderForm()">＋ Añadir línea de mercancía</button>
+      <button type="button" class="alm-anadir" onclick="cpEstado.mercancia.push({bultos:'',embalaje:'Bultos',naturaleza:'',peso:'',volumen:''}); cpRenderForm()">＋ Añadir línea de mercancía</button>
     </div>
 
     <div class="refuel-card cp-card">
-      <div class="cp-tit" style="display:flex;justify-content:space-between;align-items:center">
-        <span>☢️ Mercancía peligrosa (ADR)</span>
-        <label class="cp-switch"><input type="checkbox" ${c.adr?'checked':''} onchange="cpEstado.adr=this.checked; if(cpEstado.adr && !cpEstado.adrLineas.length) cpEstado.adrLineas=[]; cpRenderForm()"> <span>${c.adr?'Sí, lleva ADR':'No lleva ADR'}</span></label>
+      <div class="cp-tit">☢️ ¿Lleva mercancía peligrosa (ADR)?</div>
+      <div class="cp-adr-elegir">
+        <button type="button" class="${!c.adr?'on-no':''}" onclick="cpEstado.adr=false; cpRenderForm()">✅ No, no lleva ADR</button>
+        <button type="button" class="${c.adr?'on-si':''}" onclick="cpEstado.adr=true; cpRenderForm()">☢️ Sí, lleva ADR</button>
       </div>
+      ${c.adr ? '<div style="font-size:12px;color:var(--text-muted);margin:0.5rem 0 0.75rem">Se generará una hoja más: la carta de porte de ADR, con todos los datos del conductor y las materias peligrosas.</div>' : ''}
       ${c.adr ? `
         <div class="cp-fila">
           <div class="cp-campo" style="flex:1"><label>Buscar en la tabla ADR por nº ONU o por nombre</label>
@@ -4968,10 +4977,10 @@ function cpRenderForm() {
 function cpHtmlMerc(m, i) {
   return `<div class="cp-merc">
     <div class="cp-fila">
-      <div class="cp-campo cp-c4"><label>10 · Marcas</label><input value="${cpEsc(m.marcas)}" oninput="cpSetMerc(${i},'marcas',this.value)"></div>
-      <div class="cp-campo cp-c4"><label>10 · Nº bultos</label><input type="number" inputmode="numeric" value="${cpEsc(m.bultos)}" oninput="cpSetMerc(${i},'bultos',this.value)"></div>
-      <div class="cp-campo cp-c4"><label>11 · Embalaje</label><input list="cp-embalajes" value="${cpEsc(m.embalaje)}" oninput="cpSetMerc(${i},'embalaje',this.value)"></div>
-      <div class="cp-campo cp-c4"><label>13 · Peso bruto (kg)</label><input type="number" inputmode="decimal" value="${cpEsc(m.peso)}" oninput="cpSetMerc(${i},'peso',this.value)"></div>
+      <div class="cp-campo cp-c3"><label>10 · Nº de bultos</label><input type="number" inputmode="numeric" value="${cpEsc(m.bultos)}" oninput="cpSetMerc(${i},'bultos',this.value)"></div>
+      <div class="cp-campo cp-c3"><label>11 · Embalaje</label>
+        <div class="cp-seg">${['Palets','Bultos'].map(e => `<button type="button" class="${m.embalaje===e?'on':''}" onclick="cpSetMerc(${i},'embalaje','${e}'); cpRenderForm()">${e==='Palets'?'🟫 Palets':'📦 Bultos'}</button>`).join('')}</div></div>
+      <div class="cp-campo cp-c3"><label>13 · Peso bruto (kg)</label><input type="number" inputmode="decimal" value="${cpEsc(m.peso)}" oninput="cpSetMerc(${i},'peso',this.value)"></div>
     </div>
     <div class="cp-fila">
       <div class="cp-campo" style="flex:2"><label>12 · Naturaleza de la mercancía</label><input value="${cpEsc(m.naturaleza)}" oninput="cpSetMerc(${i},'naturaleza',this.value)"></div>
@@ -5027,7 +5036,10 @@ function cpPintarPuntos() {
   const {total, ilimitado} = cpPuntosAdr(cpEstado.adrLineas);
   const exento = !ilimitado && total <= 1000;
   el.innerHTML = `<div class="${exento?'alm-banner alm-banner-ok':'alm-banner alm-banner-mal'}" style="margin-top:0.75rem">
-    <strong>Puntos 1.1.3.6: ${cpNum(total,0)}</strong> ${ilimitado ? '· hay materias de categoría 0 (sin exención posible)' : exento ? '· hasta 1.000: transporte en exención parcial (no exige paneles naranja ni ADR del conductor)' : '· más de 1.000: transporte ADR completo (paneles naranja, conductor con ADR, equipamiento)'}
+    <strong>${cpNum(total,0)} puntos (1.1.3.6)</strong> ${ilimitado ? '· hay materias de categoría 0: siempre ADR completo'
+      : exento ? '· hasta 1.000: <strong>no hace falta llevar placas naranjas</strong> (exención parcial)'
+      : '· 1.001 o más: <strong>hay que llevar placas naranjas</strong> y conductor con carnet ADR'}
+    <div style="font-size:12px;opacity:0.85;margin-top:3px">Los puntos son los kilos o litros multiplicados por el factor de su categoría: categoría 3 ×1 (1 kg = 1 punto), categoría 2 ×3, categoría 1 ×50, categoría 4 no cuenta.</div>
   </div>`;
 }
 
@@ -5199,7 +5211,15 @@ window.cpGenerar = async () => {
     console.error(e);
     showAlert(aviso, 'El PDF se ha creado pero no se ha podido subir: ' + (e.code || e.message) + '. Hay que activar Firebase Storage y sus reglas (ver ⚙️).', true);
     cpResultado = {id:c.id, url:c.url, bytes, subido:false};
-    cpMostrarResultado(c, bytes, false);
+    cpMostrarResultado(c, bytes, false, 'No se ha podido subir el PDF a Firebase Storage: ' + (e.code || e.message) + '. Comprueba que Storage está activado y que sus reglas permiten escribir en la carpeta deca.');
+    return;
+  }
+  // Comprobación: lo que descarga el QR tiene que ser el PDF, no un mensaje de error
+  showAlert(aviso, '⏳ Comprobando que el QR descarga el PDF…', false);
+  const prueba = await cpComprobarUrl(c.url);
+  if (!prueba.ok) {
+    cpResultado = {id:c.id, url:c.url, bytes, subido:false, motivo:prueba.motivo};
+    cpMostrarResultado(c, bytes, false, prueba.motivo);
     return;
   }
   try {
@@ -5210,7 +5230,7 @@ window.cpGenerar = async () => {
   cpMostrarResultado(c, bytes, true);
   cpGuardarTrans(true);         // el conductor queda guardado para la próxima vez
 };
-function cpMostrarResultado(c, bytes, subido) {
+function cpMostrarResultado(c, bytes, subido, motivo = '') {
   const el = document.getElementById('cp-pane-nueva');
   const blob = new Blob([bytes], {type:'application/pdf'});
   const local = URL.createObjectURL(blob);
@@ -5222,7 +5242,7 @@ function cpMostrarResultado(c, bytes, subido) {
       <div style="font-size:14px;color:var(--text-muted)">${cpEsc(c.transportista.nombre)} · ${cpEsc(c.transportista.conductor)} · ${cpEsc(c.transportista.tractora)}${c.transportista.semirremolque?' + '+cpEsc(c.transportista.semirremolque):''}</div>
       <div id="cp-qr-res" class="cp-qr" style="margin:1rem auto"></div>
       <div style="font-size:12px;color:var(--text-muted);word-break:break-all">${cpEsc(c.url)}</div>
-      ${subido ? '' : '<div class="alm-banner alm-banner-mal" style="text-align:left">El QR apunta a esta dirección, pero el PDF no está allí todavía. Descárgalo ahora y vuelve a intentar la subida cuando Firebase Storage esté activado.</div>'}
+      ${subido ? '' : `<div class="alm-banner alm-banner-mal" style="text-align:left"><strong>El QR todavía no descarga el PDF.</strong><br>${cpEsc(motivo || 'No se ha podido subir el PDF a Firebase Storage.')}<br><br>Mientras tanto, descárgalo y mándalo al conductor. Cuando esté arreglado, pulsa "Corregir esta carta" y "Regenerar": el QR no cambia.</div>`}
       <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;margin-top:1rem">
         <a class="btn btn-primary" style="width:auto;padding:0.8rem 1.2rem;text-decoration:none" href="${local}" download="${cpEsc(c.id)}.pdf">⬇ Descargar PDF</a>
         <a class="btn btn-ghost" style="width:auto;padding:0.8rem 1.2rem;text-decoration:none" href="${local}" target="_blank" rel="noopener">🖨 Abrir / imprimir</a>
@@ -5237,6 +5257,22 @@ function cpMostrarResultado(c, bytes, subido) {
     </div>`;
   cpPintarQr('cp-qr-res', c.url, 220);
 }
+async function cpComprobarUrl(url) {
+  try {
+    const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'comprobar=' + Date.now(), {cache:'no-store'});
+    const tipo = r.headers.get('content-type') || '';
+    if (r.ok && tipo.includes('pdf')) return {ok:true};
+    let detalle = '';
+    try { const j = await r.json(); detalle = j?.error?.message || JSON.stringify(j).slice(0,160); } catch(e) {}
+    if (r.status === 403) return {ok:false, motivo:`Firebase no deja leer el PDF sin identificarse (permiso denegado). Hay que poner en Storage la regla "allow read: if true" para la carpeta deca. ${detalle}`};
+    if (r.status === 404) return {ok:false, motivo:`El PDF no está en Firebase Storage (no encontrado). Puede que Storage no esté activado o que la subida no se completara. ${detalle}`};
+    return {ok:false, motivo:`Firebase respondió ${r.status} (${tipo || 'sin tipo'}). ${detalle}`};
+  } catch(e) {
+    // Si el navegador no deja comprobarlo (CORS), no se bloquea la carta
+    return {ok:true, sinComprobar:true};
+  }
+}
+
 window.cpCompartir = async (id) => {
   const c = cpCartas.find(x => x.id === id) || cpEstado;
   const url = (c && c.url) || cpUrlDe(id);
@@ -5270,9 +5306,9 @@ async function cpConstruirPdf(c) {
   pdf.setCreator('NexoFlota');
   const fR = await pdf.embedFont(StandardFonts.Helvetica), fB = await pdf.embedFont(StandardFonts.HelveticaBold);
   const W = 595.28, H = 841.89, M = 26, FW = W - 2*M, G = 4;
-  const negro = rgb(0,0,0), gris = rgb(0.38,0.38,0.38), fondo = rgb(0.92,0.93,0.95), azul = rgb(0.12,0.16,0.23), blanco = rgb(1,1,1);
+  const negro = rgb(0,0,0), gris = rgb(0.38,0.38,0.38), fondo = rgb(0.92,0.93,0.95), blanco = rgb(1,1,1);
+  const azul = rgb(0.12,0.16,0.23), rojo = rgb(0.72,0.1,0.1);
 
-  // utilidades de texto (todas pasan por cpPdfTexto)
   const anchoDe = (t, size, bold) => (bold?fB:fR).widthOfTextAtSize(cpPdfTexto(t), size);
   const escribir = (pag, t, x, y, o={}) => pag.drawText(cpPdfTexto(t), {x, y, size:o.size||9, font:o.bold?fB:fR, color:o.color||negro});
   const partir = (t, size, maxW, bold=false) => {
@@ -5288,18 +5324,19 @@ async function cpConstruirPdf(c) {
     });
     return out;
   };
-  // Título que siempre cabe: reduce la letra y, si no, lo corta con "…"
   const titulo = (pag, t, x, y, maxW) => {
     let size = 6.6; t = cpPdfTexto(t);
     while (size > 5.2 && anchoDe(t, size, true) > maxW) size -= 0.2;
     while (anchoDe(t, size, true) > maxW && t.length > 3) t = t.slice(0, -2) + '…';
     escribir(pag, t, x, y, {size, bold:true, color:gris});
   };
-  // Casilla con título gris y contenido que se ajusta al alto disponible
-  const caja = (pag, x, y, w, h, tit, lineas, o={}) => {
-    pag.drawRectangle({x, y, width:w, height:h, borderColor:negro, borderWidth:0.6});
+  const marco = (pag, x, y, w, h, tit, color = negro) => {
+    pag.drawRectangle({x, y, width:w, height:h, borderColor:color, borderWidth: color === negro ? 0.6 : 1.1});
     pag.drawRectangle({x:x+0.3, y:y+h-12, width:w-0.6, height:11.7, color:fondo});
     titulo(pag, tit, x+4, y+h-9, w-8);
+  };
+  const caja = (pag, x, y, w, h, tit, lineas, o={}) => {
+    marco(pag, x, y, w, h, tit);
     let size = o.size || 9;
     const items = (Array.isArray(lineas) ? lineas : [lineas]).map(l => typeof l === 'object' && l !== null ? l : {t:l});
     const montar = sz => items.flatMap(l => partir(l.t, sz, w-8, l.b).map(ln => ({ln, b:l.b})));
@@ -5309,7 +5346,7 @@ async function cpConstruirPdf(c) {
     filas.forEach(({ln, b}) => { if (cy >= y + 2) { escribir(pag, ln, x+4, cy, {size, bold:b}); cy -= size * 1.28; } });
   };
 
-  // ── Datos preparados ──
+  // ── Datos comunes a las dos hojas ──
   const bloque = (txt, obj) => {
     if (txt) return String(txt).split('\n').map((t,i) => i===0 ? {t, b:true} : t);
     if (!obj) return ['—'];
@@ -5322,155 +5359,131 @@ async function cpConstruirPdf(c) {
     `CONDUCTOR:  ${tr.conductor || tr.nombre}${tr.telefono ? '     TFNO ' + tr.telefono : ''}`,
     {t:`18. Matrícula cabeza tractora:  ${tr.tractora || '—'}          Semirremolque:  ${tr.semirremolque || '—'}`, b:true},
   ];
-  const anexos = [c.anexos, c.adr ? 'MERCANCÍA ADR SEGÚN DOCUMENTACIÓN ADJUNTA (ver hoja 2)' : ''].filter(Boolean).join(' · ') || '—';
   const qrPng = await new Promise(r => cpQrCanvas(c.url, 360).toBlob(b => b.arrayBuffer().then(r), 'image/png'));
   const qrImg = await pdf.embedPng(qrPng);
+  const totalHojas = (c.adr && c.adrLineas.length) ? 2 : 1;
 
-  // ════════ HOJA 1 ════════
-  const p = pdf.addPage([W, H]);
-  // Cabecera
-  const hCab = 40, yCab = H - M - hCab;
-  p.drawRectangle({x:M, y:yCab, width:FW, height:hCab, color:azul});
-  escribir(p, 'DOCUMENTO DE CONTROL DE TRANSPORTE DE MERCANCÍAS POR CARRETERA', M+10, yCab+24, {size:11.5, bold:true, color:blanco});
-  escribir(p, 'DeCA · Orden FOM/2861/2012 · Resolución de 5 de junio de 2026', M+10, yCab+10, {size:7.5, color:rgb(0.8,0.84,0.92)});
-  const num = `Nº ${c.id}`;
-  escribir(p, num, M+FW-10-anchoDe(num, 9, true), yCab+10, {size:9, bold:true, color:blanco});
+  // Dibuja una carta de porte completa. modo: 'normal' (mercancía) o 'adr' (materias peligrosas)
+  const hoja = (modo, nHoja) => {
+    const p = pdf.addPage([W, H]);
+    const esAdr = modo === 'adr';
+    // Cabecera
+    const hCab = 40, yCab = H - M - hCab;
+    p.drawRectangle({x:M, y:yCab, width:FW, height:hCab, color: esAdr ? rojo : azul});
+    escribir(p, esAdr ? 'CARTA DE PORTE · MERCANCÍAS PELIGROSAS (ADR)' : 'DOCUMENTO DE CONTROL DE TRANSPORTE DE MERCANCÍAS POR CARRETERA', M+10, yCab+24, {size:11.5, bold:true, color:blanco});
+    escribir(p, esAdr ? 'Documento de transporte ADR 5.4.1 · DeCA · Orden FOM/2861/2012' : 'DeCA · Orden FOM/2861/2012 · Resolución de 5 de junio de 2026', M+10, yCab+10, {size:7.5, color: esAdr ? rgb(1,0.86,0.86) : rgb(0.8,0.84,0.92)});
+    const num = `Nº ${c.id}`;
+    escribir(p, num, M+FW-10-anchoDe(num, 9, true), yCab+10, {size:9, bold:true, color:blanco});
 
-  // Rejilla: columna del QR a la derecha en las dos primeras filas
-  const qrCol = 118, izqW = FW - qrCol - G, mitad = (izqW - G) / 2, mitadFull = (FW - G) / 2;
-  let y = yCab - G;
-  const fila = h => { y -= h; const y0 = y; y -= G; return y0; };
+    const qrCol = 118, izqW = FW - qrCol - G, mitad = (izqW - G) / 2, mitadFull = (FW - G) / 2;
+    let y = yCab - G;
+    const fila = h => { y -= h; const y0 = y; y -= G; return y0; };
 
-  const hA = 74, yA = fila(hA);
-  caja(p, M, yA, mitad, hA, '1 · CARGADOR O REMITENTE', bloque(c.cargadorTxt, c.cargador));
-  caja(p, M+mitad+G, yA, mitad, hA, 'FECHA · PRECINTO · CONTRATO', [{t:`Fecha:  ${cpFecha(c.fecha)}`, b:true}, `Precinto:  ${c.precinto||'—'}`, `16 · Contrato / referencia:  ${c.contrato||'—'}`]);
-  const hB = 48, yB = fila(hB);
-  caja(p, M, yB, mitad, hB, 'EXPEDIDOR (de no coincidir con el cargador)', [c.expedidor || '—']);
-  caja(p, M+mitad+G, yB, mitad, hB, '2 · PUNTO INTERMEDIO 1', [c.intermedio1 || '—']);
-  // QR ocupando las filas A y B
-  const qrX = M + FW - qrCol, qrAlto = hA + G + hB;
-  p.drawRectangle({x:qrX, y:yB, width:qrCol, height:qrAlto, borderColor:negro, borderWidth:0.6});
-  const qrTam = qrCol - 16;
-  p.drawImage(qrImg, {x:qrX+8, y:yB+qrAlto-8-qrTam, width:qrTam, height:qrTam});
-  ['Escanee para descargar', 'el documento original'].forEach((t,i) => escribir(p, t, qrX + (qrCol-anchoDe(t,6.6,false))/2, yB+14-i*8, {size:6.6, color:gris}));
+    const hA = 74, yA = fila(hA);
+    caja(p, M, yA, mitad, hA, esAdr ? '1 · CARGADOR · EXPEDIDOR ADR' : '1 · CARGADOR O REMITENTE', bloque(c.cargadorTxt, c.cargador));
+    caja(p, M+mitad+G, yA, mitad, hA, 'FECHA · PRECINTO', [{t:`Fecha:  ${cpFecha(c.fecha)}`, b:true}, `Precinto:  ${c.precinto||'—'}`]);
+    const hB = 48, yB = fila(hB);
+    caja(p, M, yB, mitad, hB, 'EXPEDIDOR (de no coincidir con el cargador)', [c.expedidor || '—']);
+    caja(p, M+mitad+G, yB, mitad, hB, '2 · PUNTO INTERMEDIO 1', [c.intermedio1 || '—']);
+    const qrX = M + FW - qrCol, qrAlto = hA + G + hB, qrTam = qrCol - 16;
+    p.drawRectangle({x:qrX, y:yB, width:qrCol, height:qrAlto, borderColor:negro, borderWidth:0.6});
+    p.drawImage(qrImg, {x:qrX+8, y:yB+qrAlto-8-qrTam, width:qrTam, height:qrTam});
+    ['Escanee para descargar', 'el documento original'].forEach((t,i) => escribir(p, t, qrX + (qrCol-anchoDe(t,6.6,false))/2, yB+14-i*8, {size:6.6, color:gris}));
 
-  const hC = 48, yC = fila(hC);
-  caja(p, M, yC, mitadFull, hC, '3 · PUNTO INTERMEDIO 2', [c.intermedio2 || '—']);
-  caja(p, M+mitadFull+G, yC, mitadFull, hC, '6 · LUGAR DE DESTINO DE LA EXPEDICIÓN', [c.lugarDestino || '—']);
-  const hD = 74, yD = fila(hD);
-  caja(p, M, yD, mitadFull, hD, '4 · DESTINO', bloque(c.destinoTxt, c.destino));
-  caja(p, M+mitadFull+G, yD, mitadFull, hD, '15 · OPERADOR DE TRANSPORTE QUE HA INTERMEDIADO', bloque(c.operadorTxt, c.operador));
-  const hE = 70, yE = fila(hE);
-  caja(p, M, yE, FW, hE, '14 · EMPRESA TRANSPORTISTA · CONDUCTOR · 18 · MATRÍCULAS', lineasTrans, {size:9.5});
+    const hC = 48, yC = fila(hC);
+    caja(p, M, yC, mitadFull, hC, '3 · PUNTO INTERMEDIO 2', [c.intermedio2 || '—']);
+    caja(p, M+mitadFull+G, yC, mitadFull, hC, '6 · LUGAR DE DESTINO DE LA EXPEDICIÓN', [c.lugarDestino || '—']);
+    const hD = 74, yD = fila(hD);
+    caja(p, M, yD, mitadFull, hD, esAdr ? '4 · DESTINO · DESTINATARIO ADR' : '4 · DESTINO', bloque(c.destinoTxt, c.destino));
+    caja(p, M+mitadFull+G, yD, mitadFull, hD, '15 · OPERADOR DE TRANSPORTE QUE HA INTERMEDIADO', bloque(c.operadorTxt, c.operador));
+    const hE = 70, yE = fila(hE);
+    caja(p, M, yE, FW, hE, '14 · EMPRESA TRANSPORTISTA · CONDUCTOR · 18 · MATRÍCULAS', lineasTrans, {size:9.5});
 
-  // Parte de abajo (de abajo arriba): pie, firmas, arbitraje, anexos
-  const hPie = 18, hFirmas = 78, hArb = 42, hAnx = 48;
-  const yFirmas = M + hPie, yArb = yFirmas + hFirmas + G, yAnx = yArb + hArb + G;
-  // Mercancía: ocupa todo el hueco que queda en medio
-  const yTab = yAnx + hAnx + G, hTab = y - yTab;
-  const cols = [['10 · MARCAS',0.14],['10 · Nº BULTOS',0.10],['11 · EMBALAJE',0.13],['12 · NATURALEZA DE LA MERCANCÍA',0.39],['13 · PESO BRUTO kg',0.12],['14 · VOLUMEN',0.12]];
-  p.drawRectangle({x:M, y:yTab, width:FW, height:hTab, borderColor:negro, borderWidth:0.6});
-  p.drawRectangle({x:M+0.3, y:yTab+hTab-13, width:FW-0.6, height:12.7, color:fondo});
-  const hTot = 16;
-  p.drawLine({start:{x:M, y:yTab+hTot}, end:{x:M+FW, y:yTab+hTot}, thickness:0.6, color:negro});
-  let cx = M;
-  cols.forEach(([t,f], i) => {
-    const w = f*FW;
-    titulo(p, t, cx+4, yTab+hTab-9.5, w-8);
-    if (i < cols.length-1) p.drawLine({start:{x:cx+w, y:yTab+hTot}, end:{x:cx+w, y:yTab+hTab}, thickness:0.4, color:gris});
-    cx += w;
-  });
-  const filasMerc = c.mercancia.filter(m => m.naturaleza || m.bultos || m.peso || m.marcas);
-  let ry = yTab + hTab - 13 - 13;
-  filasMerc.forEach(m => {
-    const valores = [m.marcas, m.bultos, m.embalaje, m.naturaleza, m.peso ? cpNum(m.peso,0) : '', m.volumen];
-    let alto = 1; cx = M;
-    const partes = valores.map((v,i) => { const ls = partir(String(v||''), 9, cols[i][1]*FW-8); alto = Math.max(alto, ls.length); return ls; });
-    partes.forEach((ls,i) => { ls.forEach((ln,k) => { if (ry - k*11.5 > yTab + hTot + 2) escribir(p, ln, cx+4, ry - k*11.5, {size:9}); }); cx += cols[i][1]*FW; });
-    ry -= alto * 11.5 + 4;
-  });
-  const total = `TOTAL:   ${c.bultosTotal||0} bultos   ·   ${cpNum(c.pesoTotal||0,0)} kg`;
-  escribir(p, total, M+4, yTab+5, {size:9, bold:true});
+    // Parte de abajo (de abajo arriba)
+    const hPie = 18, hFirmas = 78, hArb = 42, hAnx = 48;
+    const yFirmas = M + hPie, yArb = yFirmas + hFirmas + G, yAnx = yArb + hArb + G;
+    const yMed = yAnx + hAnx + G, hMed = y - yMed;       // hueco central
 
-  caja(p, M, yAnx, mitadFull, hAnx, '8 · DOCUMENTOS ANEXOS (dato no obligatorio)', [anexos]);
-  caja(p, M+mitadFull+G, yAnx, mitadFull, hAnx, 'OBSERVACIONES', [c.observaciones || '—']);
-  caja(p, M, yArb, FW, hArb, '17 bis · SOMETIMIENTO A ARBITRAJE', ['Las partes se someten, para la resolución de cualquier controversia relativa a la interpretación y ejecución del contrato de transporte al que se refiere el presente documento, a la Junta Arbitral de Transporte que proceda conforme a lo establecido en la Ley 16/1987, de Ordenación de los Transportes Terrestres, y sus normas de desarrollo.'], {size:7});
-  const fW3 = (FW - 2*G) / 3;
-  ['FIRMA Y SELLO DEL CARGADOR', 'EMPRESA TRANSPORTISTA', '20 · RECIBO · FIRMA Y SELLO DEL CONSIGNATARIO'].forEach((t,i) => {
-    const x = M + i*(fW3+G);
-    p.drawRectangle({x, y:yFirmas, width:fW3, height:hFirmas, borderColor:negro, borderWidth:0.6});
-    p.drawRectangle({x:x+0.3, y:yFirmas+hFirmas-12, width:fW3-0.6, height:11.7, color:fondo});
-    titulo(p, t, x+4, yFirmas+hFirmas-9, fW3-8);
-    if (i===2) escribir(p, 'Lugar y fecha: ____________________', x+4, yFirmas+6, {size:7, color:gris});
-  });
-  escribir(p, 'Documento electrónico de control administrativo (DeCA), conforme a la Orden FOM/2861/2012. Original disponible en la dirección del código QR.', M, M+8, {size:6.4, color:gris});
-  escribir(p, `Emitido con NexoFlota · ${new Date().toLocaleString('es-ES')} · versión ${c.version}${c.adr ? ' · hoja 1 de 2' : ''}`, M, M, {size:6.4, color:gris});
+    if (!esAdr) {
+      // Tabla de mercancía
+      const cols = [['10 · Nº BULTOS',0.12],['11 · EMBALAJE',0.14],['12 · NATURALEZA DE LA MERCANCÍA',0.46],['13 · PESO BRUTO kg',0.14],['14 · VOLUMEN',0.14]];
+      p.drawRectangle({x:M, y:yMed, width:FW, height:hMed, borderColor:negro, borderWidth:0.6});
+      p.drawRectangle({x:M+0.3, y:yMed+hMed-13, width:FW-0.6, height:12.7, color:fondo});
+      const hTot = 16;
+      p.drawLine({start:{x:M, y:yMed+hTot}, end:{x:M+FW, y:yMed+hTot}, thickness:0.6, color:negro});
+      let cx = M;
+      cols.forEach(([t,f], i) => {
+        const w = f*FW;
+        titulo(p, t, cx+4, yMed+hMed-9.5, w-8);
+        if (i < cols.length-1) p.drawLine({start:{x:cx+w, y:yMed+hTot}, end:{x:cx+w, y:yMed+hMed}, thickness:0.4, color:gris});
+        cx += w;
+      });
+      let ry = yMed + hMed - 26;
+      c.mercancia.filter(m => m.naturaleza || m.bultos || m.peso).forEach(m => {
+        const valores = [m.bultos, m.embalaje, m.naturaleza, m.peso ? cpNum(m.peso,0) : '', m.volumen];
+        let alto = 1; cx = M;
+        const partes = valores.map((v,i) => { const ls = partir(String(v||''), 9.5, cols[i][1]*FW-8); alto = Math.max(alto, ls.length); return ls; });
+        partes.forEach((ls,i) => { ls.forEach((ln,k) => { if (ry - k*12 > yMed + hTot + 2) escribir(p, ln, cx+4, ry - k*12, {size:9.5}); }); cx += cols[i][1]*FW; });
+        ry -= alto * 12 + 5;
+      });
+      escribir(p, `TOTAL:   ${c.bultosTotal||0} bultos   ·   ${cpNum(c.pesoTotal||0,0)} kg`, M+4, yMed+5, {size:9, bold:true});
+    } else {
+      // Materias peligrosas
+      const colsA = [['DESCRIPCIÓN ADR (Nº ONU, designación oficial, etiquetas, grupo de embalaje, código de túnel)',0.56],['Nº Y TIPO DE BULTO',0.22],['CANTIDAD TOTAL',0.22]];
+      const lineasA = c.adrLineas.map(l => {
+        const desc = partir(l.texto, 9.5, colsA[0][1]*FW-8, true);
+        const extra = partir(`Categoría de transporte ${l.cat||'—'}${l.cl?' · Cantidad limitada '+l.cl:''}${l.codigo?' · Código de clasificación '+l.codigo:''}`, 7.2, colsA[0][1]*FW-8);
+        return {l, desc, extra, alto: desc.length*12 + extra.length*9 + 10};
+      });
+      const pts = cpPuntosAdr(c.adrLineas), exento = !pts.ilimitado && pts.total <= 1000;
+      const hPts = 46, hDesc = 18 + c.adrLineas.reduce((s,l)=>s+partir(`${l.texto}, ${l.bultos} ${l.embalaje}, ${l.cantidad} ${l.unidad}`, 8.5, FW-8).length*11, 0);
+      const yPts = yMed, yDesc = yPts + hPts + G, yTabA = yDesc + hDesc + G, hTabA = yMed + hMed - yTabA;
+      // tabla
+      marco(p, M, yTabA, FW, hTabA, '');
+      let cx = M;
+      colsA.forEach(([t,f],i) => { titulo(p, t, cx+4, yTabA+hTabA-9.5, f*FW-8); if (i<colsA.length-1) p.drawLine({start:{x:cx+f*FW,y:yTabA},end:{x:cx+f*FW,y:yTabA+hTabA-12},thickness:0.4,color:gris}); cx += f*FW; });
+      let ly = yTabA + hTabA - 26;
+      lineasA.forEach(({l, desc, extra, alto}, k) => {
+        if (ly < yTabA + 10) return;
+        desc.forEach((ln,i) => escribir(p, ln, M+4, ly - i*12, {size:9.5, bold:true}));
+        extra.forEach((ln,i) => escribir(p, ln, M+4, ly - desc.length*12 - i*9 + 2, {size:7.2, color:gris}));
+        const xB = M + colsA[0][1]*FW, xC = xB + colsA[1][1]*FW;
+        partir(`${l.bultos||'—'} ${l.embalaje||''}`, 9.5, colsA[1][1]*FW-8).forEach((ln,i) => escribir(p, ln, xB+4, ly - i*12, {size:9.5}));
+        escribir(p, `${l.cantidad} ${l.unidad}`, xC+4, ly, {size:9.5, bold:true});
+        ly -= alto;
+        if (k < lineasA.length-1) p.drawLine({start:{x:M,y:ly+8},end:{x:M+FW,y:ly+8},thickness:0.3,color:gris});
+      });
+      // descripción 5.4.1
+      caja(p, M, yDesc, FW, hDesc, 'DESCRIPCIÓN SEGÚN ADR 5.4.1', c.adrLineas.map(l => `${l.texto}, ${l.bultos} ${String(l.embalaje||'').toUpperCase()}, ${l.cantidad} ${l.unidad}`), {size:8.5});
+      // puntos
+      const colorPts = exento ? rgb(0.1,0.5,0.22) : rojo;
+      p.drawRectangle({x:M, y:yPts, width:FW, height:hPts, borderColor:colorPts, borderWidth:1.2});
+      escribir(p, `Puntos 1.1.3.6 ADR:  ${cpNum(pts.total,0)}   ·   ${exento ? 'NO LLEVA PLACAS NARANJAS (exención parcial)' : 'LLEVA PLACAS NARANJAS · ADR COMPLETO'}`, M+8, yPts+hPts-16, {size:10.5, bold:true, color:colorPts});
+      partir(exento ? 'Total por unidad de transporte hasta 1.000 puntos: exención parcial del 1.1.3.6 (sin paneles naranja y sin certificado ADR del conductor).'
+           : pts.ilimitado ? 'Hay materias de categoría de transporte 0: no se aplica la exención del 1.1.3.6.'
+           : 'Total por unidad de transporte de 1.001 puntos o más: paneles naranja, conductor con certificado ADR, equipamiento y documentación ADR.',
+        7.8, FW-16).forEach((ln,i) => escribir(p, ln, M+8, yPts+hPts-29-i*9.5, {size:7.8}));
+    }
 
-  // ════════ HOJA 2 · ADR ════════
-  if (c.adr && c.adrLineas.length) {
-    const q = pdf.addPage([W, H]);
-    const rojo = rgb(0.72,0.1,0.1);
-    q.drawRectangle({x:M, y:H-M-40, width:FW, height:40, color:rojo});
-    escribir(q, 'MERCANCÍAS PELIGROSAS · DOCUMENTO DE TRANSPORTE (ADR 5.4.1)', M+10, H-M-24, {size:11.5, bold:true, color:blanco});
-    escribir(q, `Anexo a la carta de porte ${c.id} · ${cpFecha(c.fecha)}`, M+10, H-M-35, {size:7.5, color:rgb(1,0.88,0.88)});
-    let ay = H - M - 40 - G;
-    const hDatos = 60;
-    ay -= hDatos;
-    caja(q, M, ay, mitadFull, hDatos, 'EXPEDIDOR', bloque(c.cargadorTxt, c.cargador));
-    caja(q, M+mitadFull+G, ay, mitadFull, hDatos, 'TRANSPORTISTA Y VEHÍCULO', [{t:tr.nombre, b:true}, `Conductor: ${tr.conductor||tr.nombre}`, `Vehículo: ${tr.tractora||'—'}${tr.semirremolque?'  +  '+tr.semirremolque:''}`]);
-    ay -= G;
-    // tabla de materias
-    const colsA = [['DESCRIPCIÓN (Nº ONU, designación, etiquetas, grupo de embalaje, código de túnel)',0.56],['Nº Y TIPO DE BULTO',0.22],['CANTIDAD',0.22]];
-    const lineasA = c.adrLineas.map(l => {
-      const desc = partir(l.texto, 9.5, colsA[0][1]*FW-8, true);
-      const extra = partir(`Categoría de transporte ${l.cat||'—'}${l.cl?' · Cantidad limitada '+l.cl:''}${l.codigo?' · Código de clasificación '+l.codigo:''}`, 7.2, colsA[0][1]*FW-8);
-      return {l, desc, extra, alto: desc.length*12 + extra.length*9 + 10};
+    const mitadF = (FW - G) / 2;
+    caja(p, M, yAnx, mitadF, hAnx, '8 · DOCUMENTOS ANEXOS', [esAdr ? 'Instrucciones escritas ADR · Certificado ADR del conductor (si procede)'
+      : ([c.anexos, c.adr ? 'MERCANCÍA ADR SEGÚN DOCUMENTACIÓN ADJUNTA (hoja 2)' : ''].filter(Boolean).join(' · ') || '—')]);
+    caja(p, M+mitadF+G, yAnx, mitadF, hAnx, 'OBSERVACIONES', [c.observaciones || '—']);
+    caja(p, M, yArb, FW, hArb, '17 bis · SOMETIMIENTO A ARBITRAJE', ['Las partes se someten, para la resolución de cualquier controversia relativa a la interpretación y ejecución del contrato de transporte al que se refiere el presente documento, a la Junta Arbitral de Transporte que proceda conforme a lo establecido en la Ley 16/1987, de Ordenación de los Transportes Terrestres, y sus normas de desarrollo.'], {size:7});
+    const fW3 = (FW - 2*G) / 3;
+    const firmas = esAdr ? ['FIRMA Y SELLO DEL EXPEDIDOR', 'FIRMA DEL CONDUCTOR', '20 · RECIBO · FIRMA Y SELLO DEL CONSIGNATARIO']
+                         : ['FIRMA Y SELLO DEL CARGADOR', 'EMPRESA TRANSPORTISTA', '20 · RECIBO · FIRMA Y SELLO DEL CONSIGNATARIO'];
+    firmas.forEach((t,i) => {
+      const x = M + i*(fW3+G);
+      marco(p, x, yFirmas, fW3, hFirmas, t);
+      if (i===2) escribir(p, 'Lugar y fecha: ____________________', x+4, yFirmas+6, {size:7, color:gris});
     });
-    const hTabA = 14 + lineasA.reduce((s,x)=>s+x.alto, 0) + 6;
-    ay -= hTabA;
-    q.drawRectangle({x:M, y:ay, width:FW, height:hTabA, borderColor:negro, borderWidth:0.6});
-    q.drawRectangle({x:M+0.3, y:ay+hTabA-13, width:FW-0.6, height:12.7, color:fondo});
-    cx = M;
-    colsA.forEach(([t,f],i) => { titulo(q, t, cx+4, ay+hTabA-9.5, f*FW-8); if (i<colsA.length-1) q.drawLine({start:{x:cx+f*FW,y:ay},end:{x:cx+f*FW,y:ay+hTabA},thickness:0.4,color:gris}); cx += f*FW; });
-    let ly = ay + hTabA - 13 - 13;
-    lineasA.forEach(({l, desc, extra, alto}, k) => {
-      desc.forEach((ln,i) => escribir(q, ln, M+4, ly - i*12, {size:9.5, bold:true}));
-      extra.forEach((ln,i) => escribir(q, ln, M+4, ly - desc.length*12 - i*9 + 2, {size:7.2, color:gris}));
-      const xB = M + colsA[0][1]*FW, xC = xB + colsA[1][1]*FW;
-      partir(`${l.bultos||'—'} ${l.embalaje||''}`, 9.5, colsA[1][1]*FW-8).forEach((ln,i) => escribir(q, ln, xB+4, ly - i*12, {size:9.5}));
-      escribir(q, `${l.cantidad} ${l.unidad}`, xC+4, ly, {size:9.5, bold:true});
-      ly -= alto;
-      if (k < lineasA.length-1) q.drawLine({start:{x:M,y:ly+8},end:{x:M+FW,y:ly+8},thickness:0.3,color:gris});
-    });
-    ay -= G;
-    // descripción completa en el orden del 5.4.1
-    const desc541 = c.adrLineas.map(l => `${l.texto}, ${l.bultos} ${String(l.embalaje||'').toUpperCase()}, ${l.cantidad} ${l.unidad}`);
-    const hDesc = 18 + desc541.reduce((s,t)=>s+partir(t, 8.5, FW-8).length*11, 0);
-    ay -= hDesc;
-    caja(q, M, ay, FW, hDesc, 'DESCRIPCIÓN SEGÚN ADR 5.4.1', desc541, {size:8.5});
-    ay -= G;
-    // puntos 1.1.3.6
-    const pts = cpPuntosAdr(c.adrLineas), exento = !pts.ilimitado && pts.total <= 1000;
-    const hPts = 50; ay -= hPts;
-    const colorPts = exento ? rgb(0.1,0.5,0.22) : rojo;
-    q.drawRectangle({x:M, y:ay, width:FW, height:hPts, borderColor:colorPts, borderWidth:1.2});
-    escribir(q, `Puntos según 1.1.3.6 ADR:  ${cpNum(pts.total,0)}`, M+8, ay+hPts-16, {size:11.5, bold:true, color:colorPts});
-    partir(exento ? 'Total por unidad de transporte igual o inferior a 1.000 puntos: transporte acogido a la exención parcial del 1.1.3.6 (sin paneles naranja; conductor sin certificado ADR).'
-         : pts.ilimitado ? 'Hay materias de categoría de transporte 0: no es aplicable la exención del 1.1.3.6. Transporte ADR completo.'
-         : 'Total por unidad de transporte superior a 1.000 puntos: transporte ADR completo (paneles naranja, conductor con certificado ADR, equipamiento y documentación ADR).',
-      8.3, FW-16).forEach((ln,i) => escribir(q, ln, M+8, ay+hPts-30-i*10.5, {size:8.3}));
-    ay -= G + 30;
-    partir('Este anexo recoge los datos del ADR 5.4.1 con la información facilitada por el cargador. Quien carga las mercancías es responsable de la exactitud de las cantidades declaradas y de entregar al conductor las instrucciones escritas. Tabla ADR 2019.', 7, FW).forEach((ln,i) => escribir(q, ln, M, ay-i*9, {size:7, color:gris}));
-    // firma del expedidor
-    const hFirmaA = 70;
-    q.drawRectangle({x:M, y:M+hPie, width:mitadFull, height:hFirmaA, borderColor:negro, borderWidth:0.6});
-    q.drawRectangle({x:M+0.3, y:M+hPie+hFirmaA-12, width:mitadFull-0.6, height:11.7, color:fondo});
-    titulo(q, 'FIRMA DEL EXPEDIDOR', M+4, M+hPie+hFirmaA-9, mitadFull-8);
-    q.drawRectangle({x:M+mitadFull+G, y:M+hPie, width:mitadFull, height:hFirmaA, borderColor:negro, borderWidth:0.6});
-    q.drawRectangle({x:M+mitadFull+G+0.3, y:M+hPie+hFirmaA-12, width:mitadFull-0.6, height:11.7, color:fondo});
-    titulo(q, 'FIRMA DEL CONDUCTOR', M+mitadFull+G+4, M+hPie+hFirmaA-9, mitadFull-8);
-    escribir(q, `Carta de porte ${c.id} · hoja 2 de 2 · original en la dirección del código QR de la hoja 1`, M, M, {size:6.4, color:gris});
-  }
+    escribir(p, 'Documento electrónico de control administrativo (DeCA), conforme a la Orden FOM/2861/2012. Original disponible en la dirección del código QR.', M, M+8, {size:6.4, color:gris});
+    escribir(p, `Emitido con NexoFlota · ${new Date().toLocaleString('es-ES')} · versión ${c.version} · hoja ${nHoja} de ${totalHojas}`, M, M, {size:6.4, color:gris});
+  };
+
+  hoja('normal', 1);
+  if (totalHojas === 2) hoja('adr', 2);
   return await pdf.save();
 }
 
