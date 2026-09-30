@@ -2343,7 +2343,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v90 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v91 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -5418,7 +5418,6 @@ function cpPintarPuntos() {
     <table class="cp-desglose">
       <tr><th>Categoría de transporte</th><th>Kilos / litros</th><th>Coeficiente</th><th>Valor 1.1.3.6</th></tr>
       ${cpDesgloseAdr(cpEstado.adrLineas).map(r => `<tr class="${r.cant ? '' : 'cp-vacio'}"><td>Categoría ${r.cat}</td><td>${r.cant ? cpNum(r.cant, r.cant % 1 ? 2 : 0) : '—'}</td><td>× ${r.coef}</td><td>${r.cant ? cpNum(r.valor,0) : '—'}</td></tr>`).join('')}
-      <tr class="cp-total"><td colspan="3">Total</td><td>${cpNum(total,0)}</td></tr>
     </table>
   </div>`;
 }
@@ -6293,7 +6292,7 @@ async function cpConstruirPdf(c) {
     caja(p, M, yE, FW, hE, 'EMPRESA TRANSPORTISTA · CONDUCTOR · MATRÍCULAS', lineasTrans, {size:9.5});
 
     // Parte de abajo (de abajo arriba)
-    const hPie = 18, hFirmas = 78, hArb = 42, hAnx = esAdr ? 70 : 48;
+    const hPie = 18, hFirmas = 78, hArb = 42, hAnx = esAdr ? 64 : 48;
     const yFirmas = M + hPie, yArb = yFirmas + hFirmas + G, yAnx = yArb + hArb + G;
     const yMed = yAnx + hAnx + G, hMed = y - yMed;       // hueco central
 
@@ -6386,22 +6385,38 @@ async function cpConstruirPdf(c) {
       : ([c.anexos, c.adr ? 'MERCANCÍA ADR SEGÚN DOCUMENTACIÓN ADJUNTA (hoja 2)' : ''].filter(Boolean).join(' · ') || '—')]);
     if (!esAdr) caja(p, M+mitadF+G, yAnx, mitadF, hAnx, 'OBSERVACIONES', [c.observaciones || '—']);
     else {
-      // Cálculo 1.1.3.6 por categoría de transporte
+      // Cálculo 1.1.3.6 por categoría de transporte (el total ya va en el recuadro de cantidad ADR)
       const x0 = M+mitadF+G, w = mitadF;
       marco(p, x0, yAnx, w, hAnx, 'CÁLCULO 1.1.3.6 POR CATEGORÍA DE TRANSPORTE');
-      const colsD = [['Categoría', 0.30], ['Kilos/litros', 0.26], ['Coef.', 0.16], ['Valor', 0.28]];
-      const filaH = 9.6, fs = 7.6;
-      let yy = yAnx + hAnx - 12 - 8.5;
-      let xx = x0 + 4;
-      colsD.forEach(([t, f]) => { escribir(p, t, xx, yy, {size:6.4, bold:true, color:gris}); xx += f * (w - 8); });
-      const desg = cpDesgloseAdr(c.adrLineas), ptsTot = cpPuntosAdr(c.adrLineas).total;
-      [...desg.map(r => [`Categoría ${r.cat}`, r.cant ? cpNum(r.cant, r.cant % 1 ? 2 : 0) : '—', `× ${r.coef}`, r.cant ? cpNum(r.valor, 0) : '—', false]),
-       ['TOTAL', '', '', cpNum(ptsTot, 0), true]].forEach((fila, k) => {
-        yy -= filaH;
-        if (fila[4]) p.drawLine({start:{x:x0+3, y:yy+filaH-2}, end:{x:x0+w-3, y:yy+filaH-2}, thickness:0.4, color:gris});
-        xx = x0 + 4;
-        fila.slice(0, 4).forEach((v, j) => { escribir(p, v, xx, yy, {size:fs, bold: fila[4] || j === 3}); xx += colsD[j][1] * (w - 8); });
+      const tx = x0 + 5, tw = w - 10;                              // tabla dentro del recuadro
+      const cols = [['Categoría', 0.34, 'izq'], ['Kilos / litros', 0.26, 'der'], ['Coeficiente', 0.18, 'der'], ['Valor', 0.22, 'der']];
+      const hCab = 10, hFila = 11.2, fs = 8;
+      let yTop = yAnx + hAnx - 12 - 3;                             // debajo del título del recuadro
+      // cabecera de la tabla
+      p.drawRectangle({x:tx, y:yTop - hCab, width:tw, height:hCab, color:rgb(0.96,0.96,0.97)});
+      let cx = tx;
+      cols.forEach(([t, f, al]) => {
+        const cw = f * tw, ancho = anchoDe(t, 6.4, true);
+        escribir(p, t, al === 'der' ? cx + cw - 4 - ancho : cx + 4, yTop - hCab + 3, {size:6.4, bold:true, color:gris});
+        cx += cw;
       });
+      // filas
+      cpDesgloseAdr(c.adrLineas).forEach((r, k) => {
+        const y0 = yTop - hCab - (k + 1) * hFila;
+        p.drawLine({start:{x:tx, y:y0 + hFila}, end:{x:tx + tw, y:y0 + hFila}, thickness:0.35, color:rgb(0.8,0.8,0.82)});
+        const vals = [`Categoría ${r.cat}`, r.cant ? cpNum(r.cant, r.cant % 1 ? 2 : 0) : '—', `× ${r.coef}`, r.cant ? cpNum(r.valor, 0) : '—'];
+        const color = r.cant ? negro : gris;
+        cx = tx;
+        vals.forEach((v, j) => {
+          const [, f, al] = cols[j], cw = f * tw, bold = j === 3 && !!r.cant, ancho = anchoDe(v, fs, bold);
+          escribir(p, v, al === 'der' ? cx + cw - 4 - ancho : cx + 4, y0 + 3.3, {size:fs, bold, color});
+          cx += cw;
+        });
+      });
+      // separadores verticales
+      cx = tx;
+      cols.slice(0, -1).forEach(([, f]) => { cx += f * tw; p.drawLine({start:{x:cx, y:yTop - hCab - 3 * hFila}, end:{x:cx, y:yTop}, thickness:0.35, color:rgb(0.8,0.8,0.82)}); });
+      p.drawRectangle({x:tx, y:yTop - hCab - 3 * hFila, width:tw, height:hCab + 3 * hFila, borderColor:rgb(0.7,0.7,0.72), borderWidth:0.5});
     }
     caja(p, M, yArb, FW, hArb, 'SOMETIMIENTO A ARBITRAJE', ['Las partes se someten, para la resolución de cualquier controversia relativa a la interpretación y ejecución del contrato de transporte al que se refiere el presente documento, a la Junta Arbitral de Transporte que proceda conforme a lo establecido en la Ley 16/1987, de Ordenación de los Transportes Terrestres, y sus normas de desarrollo.'], {size:7});
     const fW3 = (FW - 2*G) / 3;
