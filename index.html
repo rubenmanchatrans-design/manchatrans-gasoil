@@ -2336,7 +2336,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v87 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v88 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -5014,11 +5014,19 @@ function cpRenderForm() {
         <div class="cp-fila">${cpCampo('cp-t-tel','Teléfono del conductor', c.transportista.telefono, {ruta:'transportista.telefono', ancho:'cp-c2', tipo:'tel'})}</div>
         <button type="button" class="alm-accion" onclick="cpGuardarConductor()">💾 Guardar conductor</button>
       ` : `
-        ${cpConductoresDe(c.transportista.nombre).length ? `<div class="cp-campo"><label>Conductor de ${cpEsc(c.transportista.nombre)} que ya ha venido</label>
-          <select onchange="cpElegirConductor(this.value)">
-            <option value="">— Elegir conductor, o rellenar uno nuevo abajo —</option>
-            ${cpConductoresDe(c.transportista.nombre).map(t => `<option value="${t.id}" ${cpNormNombre(t.conductor) === cpNormNombre(c.transportista.conductor) ? 'selected' : ''}>${cpEsc(t.conductor)}${t.telefono ? ' · ' + cpEsc(t.telefono) : ''}</option>`).join('')}
-          </select></div>` : ''}
+        ${(c.transportista.nombre||'').trim() ? (() => {
+          const conds = cpConductoresDe(c.transportista.nombre);
+          const sel = conds.find(t => cpNormNombre(t.conductor) === cpNormNombre(c.transportista.conductor));
+          return `<div class="cp-campo"><label>Conductores de ${cpEsc(c.transportista.nombre)} (${conds.length})</label>
+            <div style="display:flex;gap:0.4rem">
+              <select style="flex:1;min-width:0" onchange="cpElegirConductor(this.value)">
+                <option value="">${conds.length ? (sel ? '— Otro conductor —' : '✏️ Conductor nuevo (rellena abajo)') : '✏️ Aún no tiene conductores: rellena abajo'}</option>
+                ${conds.map(t => `<option value="${t.id}" ${sel && sel.id === t.id ? 'selected' : ''}>${cpEsc(t.conductor)}${t.telefono ? ' · ' + cpEsc(t.telefono) : ''}</option>`).join('')}
+              </select>
+              <button type="button" class="alm-accion" style="flex-shrink:0" onclick="cpNuevoConductorEmpresa()">➕ Nuevo</button>
+              ${sel ? `<button type="button" class="alm-accion alm-accion-borrar" style="flex-shrink:0" title="Quitar este conductor de la empresa" aria-label="Quitar conductor" onclick="cpBorrarConductor('${sel.id}')">🗑</button>` : ''}
+            </div></div>`;
+        })() : ''}
         <div class="cp-fila">
           ${cpCampo('cp-t-cond','Nombre del conductor', c.transportista.conductor, {ruta:'transportista.conductor', ancho:'cp-c3'})}
           ${cpCampo('cp-t-dni','DNI del conductor', c.transportista.conductorDni, {ruta:'transportista.conductorDni', ancho:'cp-c3'})}
@@ -5669,6 +5677,26 @@ window.cpElegirConductor = (id) => {
                             tractoras: cpAnadirMatricula(t.tractoras, t.tractora), idGuardado:t.id});
   else Object.assign(tr, {conductor:'', conductorDni:'', telefono:'', idGuardado:null});
   cpRenderForm();
+};
+// Dejar los campos en blanco para dar de alta otro conductor en la misma empresa
+window.cpNuevoConductorEmpresa = () => {
+  Object.assign(cpEstado.transportista, {autonomo:false, conductor:'', conductorDni:'', telefono:'', idGuardado:null});
+  cpRenderForm();
+  setTimeout(() => document.getElementById('cp-t-cond')?.focus(), 50);
+};
+// Quitar un conductor de su empresa (la empresa se queda guardada)
+window.cpBorrarConductor = async (id) => {
+  const t = cpTrans.find(x => x.id === id);
+  if (!t) return;
+  if (!confirm(`¿Quitar a ${t.conductor} de ${t.nombre}?\n\nLas cartas ya emitidas con él no se tocan.`)) return;
+  const quedan = cpConductoresDe(t.nombre).filter(x => x.id !== id).length;
+  try {
+    if (quedan) await deleteDoc(doc(db,'cartasTransportistas',id));
+    else await updateDoc(doc(db,'cartasTransportistas',id), {conductor:'', conductorDni:'', telefono:'', autonomo:false, ts: Date.now()});   // se queda la empresa sola
+    Object.assign(cpEstado.transportista, {conductor:'', conductorDni:'', telefono:'', idGuardado:null});
+    mostrarMensajeFlotante?.(`🗑 ${t.conductor} quitado de ${t.nombre}`);
+    setTimeout(cpRenderForm, 150);
+  } catch(e) { alert('No se ha podido quitar: ' + e.message); }
 };
 window.cpModoConductor = (autonomo) => {
   const tr = cpEstado.transportista;
