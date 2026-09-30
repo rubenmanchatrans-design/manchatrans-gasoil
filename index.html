@@ -2336,7 +2336,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v86 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v87 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -4872,6 +4872,7 @@ function cpNuevaCarta() {
 
 // ── Entrada al módulo ──
 function cpEntrar() {
+  cpCargarMatBorradas().then(() => { if (document.getElementById('cp-pane-nueva')?.style.display !== 'none' && !document.getElementById('alm-modal')) cpRenderForm(); });
   if (!cpEstado) cpEstado = cpNuevaCarta();
   cpTab('nueva');
   if (!cpUnsub) {
@@ -5089,9 +5090,36 @@ function cpRenderForm() {
 }
 // Desplegable de matrículas: solo las guardadas en las cartas de porte (no las de la flota propia).
 // Por defecto sale la última con la que se generó una carta (del conductor, o la última en general).
+// Matrículas borradas de la lista (camiones que ya no traen). Las cartas emitidas no se tocan.
+let cpMatBorradas = new Set();
+const cpNormMat = m => String(m||'').toUpperCase().replace(/[\s-]+/g,'');
+const cpMatBorrada = m => !!m && cpMatBorradas.has(cpNormMat(m));
+async function cpCargarMatBorradas() {
+  try { const d = await getDoc(doc(db,'configuracion','cartasMatriculasBorradas')); cpMatBorradas = new Set((d.exists() ? d.data().tractoras || [] : []).map(cpNormMat)); } catch(e) {}
+}
+async function cpGuardarMatBorradas() {
+  try { await setDoc(doc(db,'configuracion','cartasMatriculasBorradas'), {tractoras:[...cpMatBorradas]}); } catch(e) { console.warn(e); }
+}
+window.cpBorrarMatricula = async () => {
+  const m = (cpEstado.transportista.tractora || '').trim();
+  if (!m) { mostrarMensajeFlotante?.('Elige primero la matrícula que quieres borrar'); return; }
+  if (!confirm(`¿Borrar la matrícula ${m} de la lista?\n\nYa no saldrá en el desplegable ni se pondrá sola. Las cartas ya emitidas con ella no se tocan.`)) return;
+  cpMatBorradas.add(cpNormMat(m));
+  await cpGuardarMatBorradas();
+  // se quita de las fichas de los conductores que la tenían
+  const k = cpNormMat(m);
+  await Promise.all(cpTrans.filter(t => cpNormMat(t.tractora) === k || (t.tractoras||[]).some(x => cpNormMat(x) === k)).map(t => {
+    const resto = (t.tractoras||[]).filter(x => cpNormMat(x) !== k && !cpMatBorrada(x));
+    return updateDoc(doc(db,'cartasTransportistas',t.id), {tractoras: resto, tractora: cpNormMat(t.tractora) === k ? (resto[0]||'') : t.tractora}).catch(()=>{});
+  }));
+  cpEstado.transportista.tractoras = (cpEstado.transportista.tractoras||[]).filter(x => cpNormMat(x) !== k);
+  cpEstado.transportista.tractora = '';
+  mostrarMensajeFlotante?.(`🗑 Matrícula ${m} borrada de la lista`);
+  cpRenderForm();
+};
 function cpTodasMatriculas(campo) {
   const set = new Map();
-  const add = m => { m = String(m||'').trim(); if (m && !set.has(m.toUpperCase())) set.set(m.toUpperCase(), m); };
+  const add = m => { m = String(m||'').trim(); if (m && !cpMatBorrada(m) && !set.has(m.toUpperCase())) set.set(m.toUpperCase(), m); };
   const lista = campo === 'tractora' ? 'tractoras' : 'semis';
   cpCartas.forEach(c => add(c.transportista?.[campo]));
   cpTrans.forEach(t => { add(t[campo]); (t[lista]||[]).forEach(add); });
@@ -5103,11 +5131,14 @@ function cpHtmlSelectMat(campo, etiqueta) {
   const todas = cpTodasMatriculas(campo);
   if (actual && !todas.some(m => m.toUpperCase() === actual.toUpperCase())) todas.unshift(actual);
   return `<div class="cp-campo cp-c2"><label>${etiqueta}</label>
-    <select id="cp-t-${campo==='tractora'?'trac':'semi'}" onchange="cpElegirMatricula('${campo}', this)" style="font-family:monospace;font-size:16px;font-weight:700">
-      <option value="">— Elegir —</option>
-      ${todas.map(m => `<option ${m.toUpperCase()===actual.toUpperCase()?'selected':''}>${cpEsc(m)}</option>`).join('')}
-      <option value="__otra__">➕ Otra matrícula…</option>
-    </select></div>`;
+    <div style="display:flex;gap:0.4rem">
+      <select id="cp-t-${campo==='tractora'?'trac':'semi'}" onchange="cpElegirMatricula('${campo}', this)" style="font-family:monospace;font-size:16px;font-weight:700;flex:1;min-width:0">
+        <option value="">— Elegir —</option>
+        ${todas.map(m => `<option ${m.toUpperCase()===actual.toUpperCase()?'selected':''}>${cpEsc(m)}</option>`).join('')}
+        <option value="__otra__">➕ Otra matrícula…</option>
+      </select>
+      ${campo === 'tractora' ? `<button type="button" class="alm-accion alm-accion-borrar" style="flex-shrink:0" title="Borrar esta matrícula de la lista" aria-label="Borrar matrícula" onclick="cpBorrarMatricula()">🗑</button>` : ''}
+    </div></div>`;
 }
 window.cpElegirMatricula = (campo, sel) => {
   if (sel.value === '__otra__') {
@@ -5130,6 +5161,7 @@ window.cpGuardarNuevaMat = (campo) => {
   const m = (document.getElementById('cp-nueva-mat')?.value || '').trim().toUpperCase();
   if (!m) { document.getElementById('cp-nueva-mat')?.focus(); return; }
   cpEstado.transportista[campo] = m;
+  if (campo === 'tractora' && cpMatBorrada(m)) { cpMatBorradas.delete(cpNormMat(m)); cpGuardarMatBorradas(); }
   const lista = campo === 'tractora' ? 'tractoras' : 'semis';
   cpEstado.transportista[lista] = cpAnadirMatricula(cpEstado.transportista[lista], m);
   almCerrarModal();
@@ -5139,7 +5171,7 @@ window.cpGuardarNuevaMat = (campo) => {
 function cpMatriculasPorDefecto() {
   const t = cpEstado.transportista, ult = cpCartas[0]?.transportista;
   if (!ult) return;
-  if (!t.tractora) t.tractora = ult.tractora || '';
+  if (!t.tractora && !cpMatBorrada(ult.tractora)) t.tractora = ult.tractora || '';
 }
 
 function cpHtmlMerc(m, i) {
@@ -5621,7 +5653,8 @@ function cpRellenarDesde(t) {
   const tr = cpEstado.transportista;
   Object.assign(tr, {nombre:d.nombre||'', nif:d.nif||'', domicilio:d.domicilio||'', cp:d.cp||'', poblacion:d.poblacion||'', provincia:d.provincia||'',
     autonomo: cpEsAutonomo(d), conductor: cpEsAutonomo(d) ? (d.nombre||'') : (d.conductor||''), conductorDni: d.conductorDni||'', telefono:d.telefono||'',
-    tractora:d.tractora||'', semirremolque:'', tractoras: cpAnadirMatricula(d.tractoras, d.tractora), idGuardado: t.id});
+    tractora: cpMatBorrada(d.tractora) ? ((d.tractoras||[]).find(x => !cpMatBorrada(x)) || '') : (d.tractora||''), semirremolque:'',
+    tractoras: cpAnadirMatricula(d.tractoras, d.tractora).filter(x => !cpMatBorrada(x)), idGuardado: t.id});
 }
 window.cpElegirEmpresa = (clave) => {
   const e = cpEmpresas().find(x => x.clave === clave);
@@ -5632,7 +5665,7 @@ window.cpElegirEmpresa = (clave) => {
 window.cpElegirConductor = (id) => {
   const t = cpTrans.find(x => x.id === id);
   const tr = cpEstado.transportista;
-  if (t) Object.assign(tr, {autonomo:false, conductor:t.conductor||'', conductorDni:t.conductorDni||'', telefono:t.telefono||'', tractora:t.tractora||tr.tractora,
+  if (t) Object.assign(tr, {autonomo:false, conductor:t.conductor||'', conductorDni:t.conductorDni||'', telefono:t.telefono||'', tractora: (!cpMatBorrada(t.tractora) && t.tractora) || tr.tractora,
                             tractoras: cpAnadirMatricula(t.tractoras, t.tractora), idGuardado:t.id});
   else Object.assign(tr, {conductor:'', conductorDni:'', telefono:'', idGuardado:null});
   cpRenderForm();
@@ -5723,7 +5756,7 @@ function cpRenderTrans() {
         <div class="gs-fila-info">
           <div class="gs-tit">${cpEsc(t.nombre)} <span style="font-weight:500;font-size:12px;color:var(--text-muted)">${cpEsAutonomo(t) ? '· autónomo' : (t.conductor ? '· empresa' : '· empresa (sin conductores todavía)')}</span></div>
           <div class="gs-sub">${cpEsc(t.nif||'')}${t.domicilio?' · '+cpEsc(cpDomicilioTexto(cpPartirDomicilio(t))):''}</div>
-          <div class="gs-chips">${t.conductor && !cpEsAutonomo(t) ? `<span class="gs-chip">👤 ${cpEsc(t.conductor)}${t.conductorDni?' · DNI '+cpEsc(t.conductorDni):''}${t.telefono?' · '+cpEsc(t.telefono):''}</span>` : (t.telefono ? `<span class="gs-chip">📞 ${cpEsc(t.telefono)}</span>` : '')}${cpAnadirMatricula(t.tractoras, t.tractora).map(m=>`<span class="gs-chip">🚛 ${cpEsc(m)}</span>`).join('')}</div>
+          <div class="gs-chips">${t.conductor && !cpEsAutonomo(t) ? `<span class="gs-chip">👤 ${cpEsc(t.conductor)}${t.conductorDni?' · DNI '+cpEsc(t.conductorDni):''}${t.telefono?' · '+cpEsc(t.telefono):''}</span>` : (t.telefono ? `<span class="gs-chip">📞 ${cpEsc(t.telefono)}</span>` : '')}${cpAnadirMatricula(t.tractoras, t.tractora).filter(m => !cpMatBorrada(m)).map(m=>`<span class="gs-chip">🚛 ${cpEsc(m)}</span>`).join('')}</div>
         </div>
         <div class="gs-acciones">
           <button class="alm-accion alm-accion-ver" onclick="cpUsarTrans('${t.id}'); cpTab('nueva')">📄 Nueva carta</button>
