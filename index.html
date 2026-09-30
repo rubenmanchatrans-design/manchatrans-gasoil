@@ -2343,7 +2343,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v91 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v92 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -6173,7 +6173,8 @@ async function cpConstruirPdf(c) {
   const pdf = await PDFDocument.create();
   pdf.setTitle(cpPdfTexto(`Documento de control de transporte ${c.id}`));
   pdf.setAuthor(cpPdfTexto(String(c.cargadorTxt || c.cargador?.nombre || '').split('\n')[0]));
-  pdf.setCreator('NexoFlota');
+  pdf.setCreator(cpPdfTexto(String(c.cargadorTxt || c.cargador?.nombre || '').split('\n')[0]));
+  pdf.setProducer(cpPdfTexto(String(c.cargadorTxt || c.cargador?.nombre || '').split('\n')[0]));
   const fR = await pdf.embedFont(StandardFonts.Helvetica), fB = await pdf.embedFont(StandardFonts.HelveticaBold);
   const W = 595.28, H = 841.89, M = 26, FW = W - 2*M, G = 4;
   const negro = rgb(0,0,0), gris = rgb(0.38,0.38,0.38), fondo = rgb(0.92,0.93,0.95), blanco = rgb(1,1,1);
@@ -6428,7 +6429,7 @@ async function cpConstruirPdf(c) {
       if (i===2) escribir(p, 'Lugar y fecha: ____________________', x+4, yFirmas+6, {size:7, color:gris});
     });
     escribir(p, 'Documento electrónico de control administrativo (DeCA), conforme a la Orden FOM/2861/2012. Original disponible en la dirección del código QR.', M, M+8, {size:6.4, color:gris});
-    escribir(p, `Emitido con NexoFlota · ${new Date().toLocaleString('es-ES')} · versión ${c.version} · hoja ${nHoja} de ${totalHojas}`, M, M, {size:6.4, color:gris});
+    escribir(p, `Emitido el ${new Date().toLocaleString('es-ES')} · versión ${c.version} · hoja ${nHoja} de ${totalHojas}`, M, M, {size:6.4, color:gris});
   };
 
   hoja('normal', 1);
