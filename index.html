@@ -632,6 +632,35 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .alm-toast-foto { position: fixed; left: 50%; top: 18px; transform: translateX(-50%); z-index: 6000; max-width: 92%; padding: 0.85rem 1.2rem; border-radius: 14px; font-size: 16px; font-weight: 800; text-align: center; box-shadow: 0 8px 28px rgba(0,0,0,0.5); color: #fff; background: #2563eb; }
 .alm-toast-foto.bien { background: #16a34a; }
 .alm-toast-foto.mal { background: var(--danger); }
+
+/* ── Cartas de porte ── */
+.cp-card { margin-bottom: 0.75rem; }
+.cp-tit { font-size: 13px; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.6rem; }
+.cp-sub { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin: 0.9rem 0 0.4rem; }
+.cp-fila { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.cp-campo { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; margin-bottom: 0.5rem; }
+.cp-campo label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
+.cp-campo input, .cp-campo select, .cp-campo textarea { background: var(--input-bg); border: 1px solid var(--card-border); color: var(--text); border-radius: 10px; padding: 0.6rem 0.7rem; font-size: 15px; width: 100%; box-sizing: border-box; font-family: inherit; }
+.cp-campo input:focus, .cp-campo select:focus, .cp-campo textarea:focus { outline: none; border-color: var(--accent); }
+.cp-c2 { flex: 1 1 calc(50% - 0.5rem); } .cp-c3 { flex: 1 1 calc(33% - 0.5rem); } .cp-c4 { flex: 1 1 calc(25% - 0.5rem); min-width: 110px; }
+@media (max-width: 560px) { .cp-c3, .cp-c4 { flex: 1 1 calc(50% - 0.5rem); } }
+.cp-merc { background: var(--navy-light); border-radius: 12px; padding: 0.6rem 0.7rem 0.1rem; margin-bottom: 0.5rem; }
+.cp-switch { display: flex; align-items: center; gap: 0.5rem; font-size: 14px; font-weight: 700; color: var(--text); cursor: pointer; text-transform: none; letter-spacing: 0; }
+.cp-switch input { width: 22px; height: 22px; accent-color: var(--accent); }
+.cp-adr-res { display: flex; flex-direction: column; gap: 0.3rem; max-height: 300px; overflow-y: auto; margin-bottom: 0.6rem; }
+.cp-adr-opt { background: var(--navy-light); border-radius: 10px; padding: 0.55rem 0.7rem; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.cp-adr-opt:hover { outline: 1px solid var(--accent); }
+.cp-un { font-family: monospace; font-weight: 800; color: var(--accent); }
+.cp-adr-nom { font-size: 13px; }
+.cp-adr-meta { font-size: 11px; color: var(--text-muted); }
+.cp-adr-linea { border: 1px solid rgba(231,76,60,0.5); border-radius: 12px; padding: 0.6rem 0.7rem 0.2rem; margin-bottom: 0.5rem; background: rgba(231,76,60,0.06); }
+.cp-adr-texto { font-weight: 800; font-size: 14px; margin-bottom: 0.4rem; }
+.cp-details summary { cursor: pointer; list-style: none; }
+.cp-details summary::-webkit-details-marker { display: none; }
+.cp-details summary::before { content: '▸ '; color: var(--text-muted); }
+.cp-details[open] summary::before { content: '▾ '; }
+.cp-qr { display: inline-block; background: #fff; padding: 8px; border-radius: 12px; line-height: 0; }
+.cp-qr canvas { display: block; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -643,6 +672,7 @@ html.giro-fijo #screen-chat { height: 100% !important; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -821,6 +851,12 @@ html.giro-fijo #screen-chat { height: 100% !important; }
           <span class="hc-name">ADR / CAP</span>
           <span class="hc-desc">Vencimientos · Renovaciones</span>
           <span id="home-badge-adrcap" class="hc-badge"></span>
+        </button>
+        <button class="home-card" id="home-btn-cartas">
+          <span class="hc-icon" style="background:rgba(14,165,233,0.15);">📄</span>
+          <span class="hc-name">Cartas de porte</span>
+          <span class="hc-desc">DeCA con QR · ADR · Transportistas</span>
+          <span id="home-info-cartas" class="hc-info"></span>
         </button>
         <button class="home-card" id="home-btn-formacion">
           <span class="hc-icon" style="background:rgba(34,197,94,0.15);">🎓</span>
@@ -1304,6 +1340,19 @@ html.giro-fijo #screen-chat { height: 100% !important; }
 
     <!-- ═══════════ FIN MÓDULO ADR/CAP ═══════════ -->
 
+    <!-- ═══════════ MÓDULO CARTAS DE PORTE (DeCA) ═══════════ -->
+    <div id="module-cartas" class="mod-nuevo" style="display:none;">
+      <div class="alm-estados" style="grid-template-columns:repeat(3,1fr)">
+        <button type="button" class="alm-estado on" id="cp-tab-nueva" onclick="cpTab('nueva')">➕ Nueva carta</button>
+        <button type="button" class="alm-estado" id="cp-tab-lista" onclick="cpTab('lista')">📋 Emitidas <span class="alm-badge" id="cp-n">0</span></button>
+        <button type="button" class="alm-estado" id="cp-tab-trans" onclick="cpTab('trans')">🚛 Transportistas</button>
+      </div>
+      <div id="cp-pane-nueva"></div>
+      <div id="cp-pane-lista" style="display:none"></div>
+      <div id="cp-pane-trans" style="display:none"></div>
+    </div>
+    <!-- ═══════════ FIN MÓDULO CARTAS DE PORTE ═══════════ -->
+
     <!-- ═══════════ MÓDULO FORMACIÓN (créditos y cursos) ═══════════ -->
     <div id="module-formacion" class="mod-nuevo" style="display:none;">
       <div id="ftab-creditos-formacion" class="tab-pane active">
@@ -1734,7 +1783,8 @@ let MODULO_CODIGOS = {
   adrcap: '4444',
   seguros: '5555',
   almacen: '6666',
-  formacion: '7777'
+  formacion: '7777',
+  cartas: '8888'
 };
 const DEPOSITO_CAP = 10000;
 const ALERTA_MIN = 1000;
@@ -2221,7 +2271,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v57 · 23/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v59 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -2866,7 +2916,8 @@ function almClienteEtiquetaPropia(cod) {
 }
 // Sus expediciones de entrada de los últimos días que aún no tienen medida
 function almPendientesCliente(cliente) {
-  const medidas = new Set(almCache.map(r => r.expedicion));
+  // solo cuentan como hechas las que tienen medida; las fichas de "solo fotos" siguen pendientes
+  const medidas = new Set(almCache.filter(r => r.medida !== 'foto' && (r.volumen > 0 || r.peso > 0)).map(r => r.expedicion));
   return almIdx.entradas.filter(f => f.cli === cliente && !medidas.has(f.ref || f.alb)).slice(0, 12);
 }
 
@@ -2978,9 +3029,10 @@ function almHtmlManual() {
   let bloque = '';
   if (res && e.clientePropio && res.length === 0) {
     const total = almIdx.entradas.filter(f => f.cli === e.clientePropio).length;
+    const enPistola = almIdx.entradas.length;
     bloque = `<div style="color:var(--warning);font-size:13px;margin-top:0.75rem">${total
       ? `Las ${total} expediciones de ${almEsc(e.clientePropio)} de los últimos ${ALM_DIAS_EXP} días ya están medidas.`
-      : `No hay ninguna expedición marcada como ${almEsc(e.clientePropio)} en los últimos ${ALM_DIAS_EXP} días. Puede que el programa del PC no las esté reconociendo: avisa a quien lleva la app.`}
+      : `No hay ninguna expedición marcada como ${almEsc(e.clientePropio)} entre las ${enPistola} cargadas en la pistola. Si el programa del PC ya las reconoce, sal del Almacén y vuelve a entrar para recargarlas.`}
       Escribe la expedición de la etiqueta pequeña.</div>`;
   } else if (res && ((e.clientePropio && res.length >= 1 && res.length <= 12) || (res.length > 1 && res.length <= 8))) {
     bloque = `<div style="font-size:13px;color:var(--text-muted);margin:0.75rem 0 0.4rem">${e.clientePropio
@@ -4660,6 +4712,660 @@ Object.assign(window, {
 });
 
 // ════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════
+// CARTAS DE PORTE · DeCA (Documento electrónico de Control Administrativo)
+// Orden FOM/2861/2012 · Resolución de 5 de junio de 2026
+// El PDF se genera aquí (pdf-lib), se sube a Firebase Storage con una dirección
+// única y el QR lleva esa dirección. Si se corrige, se regenera con el mismo QR.
+// ════════════════════════════════════════════════════════════════════════════
+const CP_BUCKET = firebaseConfigGasoil.storageBucket;
+const CP_CARPETA = 'deca';
+const CP_DEFECTO = {
+  cargador: {nombre:'MANCHEGA DE TRANSPORTES, S.L.', nif:'B13101647', domicilio:'CTRA. DE CARRIÓN, KM. 311,300', cp:'13005', poblacion:'CIUDAD REAL'},
+  operador: {nombre:'XPO TRANSPORT SOLUTIONS SPAIN, S.L.', nif:'B78503406', domicilio:'Bº DE SAN MARTÍN, S/N', cp:'39011', poblacion:'SANTANDER', telefono:'942 35 23 52'},
+  destino:  {nombre:'XPO LOGISTICS', domicilio:'C/ SEVERO OCHOA, 34', cp:'28906', poblacion:'GETAFE (MADRID)'},
+  lugarDestino: 'Varios destinos. Mercancía en régimen de carga fraccionada.',
+  naturaleza: 'Paletería industrial',
+};
+// Factores del 1.1.3.6 ADR (exención por cantidades transportadas por unidad de transporte)
+const CP_FACTOR_CAT = {'0': null, '1': 50, '2': 3, '3': 1, '4': 0};
+
+let cpCartas = [], cpTrans = [], cpAdr = null, cpAdrCargando = null, cpUnsub = null;
+let cpEstado = null;          // carta en edición
+let cpResultado = null;       // {id, url, pdfBytes}
+
+const cpEsc = almEsc, cpNum = almNum;
+const cpHoy = () => new Date().toISOString().slice(0,10);
+const cpFecha = iso => { if (!iso) return ''; const [a,m,d] = iso.split('-'); return `${d}/${m}/${a}`; };
+const cpUrlDe = id => `https://firebasestorage.googleapis.com/v0/b/${CP_BUCKET}/o/${encodeURIComponent(`${CP_CARPETA}/${id}.pdf`)}?alt=media`;
+const cpNuevoId = () => {
+  const d = new Date();
+  const f = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  const r = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())).replace(/-/g,'').slice(0,10).toUpperCase();
+  return `CP-${f}-${r}`;
+};
+
+function cpNuevaCarta() {
+  return {
+    fecha: cpHoy(),
+    cargador: {...CP_DEFECTO.cargador}, expedidor: '',
+    intermedio1: '', intermedio2: '',
+    destino: {...CP_DEFECTO.destino}, lugarDestino: CP_DEFECTO.lugarDestino,
+    anexos: '', contrato: '', precinto: '', observaciones: '',
+    operador: {...CP_DEFECTO.operador},
+    transportista: {nombre:'', nif:'', domicilio:'', conductor:'', telefono:'', tractora:'', semirremolque:''},
+    mercancia: [{marcas:'', bultos:'', embalaje:'Palets', naturaleza: CP_DEFECTO.naturaleza, peso:'', volumen:''}],
+    adr: false, adrLineas: [],
+  };
+}
+
+// ── Entrada al módulo ──
+function cpEntrar() {
+  if (!cpEstado) cpEstado = cpNuevaCarta();
+  cpTab('nueva');
+  if (!cpUnsub) {
+    cpUnsub = onSnapshot(query(collection(db,'cartasPorte'), orderBy('ts','desc')), snap => {
+      cpCartas = snap.docs.map(d => ({id:d.id, ...d.data()}));
+      const n = document.getElementById('cp-n'); if (n) n.textContent = cpCartas.length;
+      if (document.getElementById('cp-pane-lista')?.style.display !== 'none') cpRenderLista();
+      const hi = document.getElementById('home-info-cartas');
+      if (hi) { const hoy = new Date().toLocaleDateString('es-ES'); const h = cpCartas.filter(c => c.fechaStr === hoy).length; hi.innerHTML = `📄 <strong>${h}</strong> carta${h===1?'':'s'} hoy`; }
+    }, e => console.warn('cartasPorte', e));
+    onSnapshot(collection(db,'cartasTransportistas'), snap => {
+      cpTrans = snap.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b) => (a.nombre||'').localeCompare(b.nombre||''));
+      if (document.getElementById('cp-pane-trans')?.style.display !== 'none') cpRenderTrans();
+      cpRellenarSelectTrans();
+    }, e => console.warn('cartasTransportistas', e));
+  }
+  cpCargarAdr();
+}
+function cpTab(t) {
+  ['nueva','lista','trans'].forEach(x => {
+    document.getElementById('cp-pane-'+x).style.display = x===t ? 'block' : 'none';
+    document.getElementById('cp-tab-'+x).classList.toggle('on', x===t);
+  });
+  if (t==='nueva') cpRenderForm();
+  if (t==='lista') cpRenderLista();
+  if (t==='trans') cpRenderTrans();
+}
+
+// ── Tabla ADR (se carga una vez, del fichero adr.json que va con la app) ──
+function cpCargarAdr() {
+  if (cpAdr || cpAdrCargando) return cpAdrCargando;
+  cpAdrCargando = fetch('adr.json').then(r => r.json()).then(j => { cpAdr = j.filas; return cpAdr; })
+    .catch(e => { console.warn('ADR:', e); cpAdrCargando = null; return null; });
+  return cpAdrCargando;
+}
+function cpBuscarAdr(txt) {
+  if (!cpAdr) return [];
+  const t = (txt||'').trim().toUpperCase();
+  if (!t) return [];
+  const esUn = /^\d{1,4}$/.test(t);
+  const res = cpAdr.filter(f => esUn ? f[0].startsWith(t.padStart(4,'0').slice(0,4)) || f[0] === t.padStart(4,'0') : f[1].toUpperCase().includes(t));
+  return res.slice(0, 40);
+}
+function cpLineaAdr(f) {
+  const [un,nombre,clase,cod,ge,etq,de,cl,ce,cat,tunel] = f;
+  const nombreCorto = nombre.replace(/\s*\(.*?\)\s*/g,' ').replace(/\s+/g,' ').trim();
+  const partes = [`UN ${un}`, nombreCorto, etq || clase];
+  if (ge) partes.push(ge);
+  if (tunel) partes.push(`(${tunel})`);
+  return partes.join(', ');
+}
+function cpPuntosAdr(lineas) {
+  let total = 0, ilimitado = false;
+  lineas.forEach(l => {
+    const cant = parseFloat(String(l.cantidad).replace(',','.')) || 0;
+    const fac = CP_FACTOR_CAT[l.cat];
+    if (fac === null || fac === undefined) { ilimitado = ilimitado || (l.cat === '0' && cant > 0); return; }
+    total += cant * fac;
+  });
+  return {total, ilimitado};
+}
+
+// ── Formulario ──
+function cpCampo(id, etiqueta, valor, opts = {}) {
+  const tipo = opts.tipo || 'text';
+  return `<div class="cp-campo ${opts.ancho||''}">
+    <label for="${id}">${etiqueta}</label>
+    ${tipo==='area' ? `<textarea id="${id}" rows="${opts.filas||2}" oninput="cpSet('${opts.ruta}', this.value)">${cpEsc(valor||'')}</textarea>`
+      : `<input id="${id}" type="${tipo}" value="${cpEsc(valor||'')}" ${opts.list?`list="${opts.list}"`:''} ${opts.placeholder?`placeholder="${cpEsc(opts.placeholder)}"`:''} oninput="cpSet('${opts.ruta}', this.value)">`}
+  </div>`;
+}
+window.cpSet = (ruta, valor) => {
+  const p = ruta.split('.'); let o = cpEstado;
+  for (let i = 0; i < p.length-1; i++) o = o[p[i]];
+  o[p[p.length-1]] = valor;
+};
+window.cpSetMerc = (i, k, v) => { cpEstado.mercancia[i][k] = v; };
+window.cpSetAdr = (i, k, v) => { cpEstado.adrLineas[i][k] = v; cpPintarPuntos(); };
+
+function cpRenderForm() {
+  const c = cpEstado, el = document.getElementById('cp-pane-nueva');
+  if (!el) return;
+  const mats = [...new Set([...(vehiculosCache||[]).filter(v=>v.activo!==false).map(v=>v.matricula), ...cpTrans.flatMap(t=>[t.tractora,t.semirremolque])])].filter(Boolean).sort();
+  el.innerHTML = `
+    <datalist id="cp-mats">${mats.map(m=>`<option value="${cpEsc(m)}">`).join('')}</datalist>
+    <datalist id="cp-embalajes">${['Palets','Cajas','Bultos','Bidones','Sacos','Rollos','Jaulas','Contenedor'].map(m=>`<option value="${m}">`).join('')}</datalist>
+
+    <div class="refuel-card cp-card">
+      <div class="cp-tit">Datos del transporte</div>
+      <div class="cp-fila">
+        ${cpCampo('cp-fecha','Fecha', c.fecha, {tipo:'date', ruta:'fecha', ancho:'cp-c3'})}
+        ${cpCampo('cp-precinto','Precinto', c.precinto, {ruta:'precinto', ancho:'cp-c3'})}
+        ${cpCampo('cp-contrato','16 · Contrato / referencia', c.contrato, {ruta:'contrato', ancho:'cp-c3', placeholder:'Nº de contrato o pedido, si lo hay'})}
+      </div>
+    </div>
+
+    <div class="refuel-card cp-card">
+      <div class="cp-tit">14 · Empresa transportista y conductor</div>
+      <div class="cp-fila">
+        <div class="cp-campo cp-c2"><label>Plantilla guardada</label>
+          <select id="cp-sel-trans" onchange="cpUsarTrans(this.value)"><option value="">— Elegir transportista guardado —</option>
+            ${cpTrans.map(t=>`<option value="${t.id}">${cpEsc(t.nombre)}${t.conductor?' · '+cpEsc(t.conductor):''}</option>`).join('')}</select></div>
+        <div class="cp-campo cp-c2" style="display:flex;align-items:flex-end"><button type="button" class="alm-accion" style="width:100%" onclick="cpGuardarTrans()">💾 Guardar como plantilla</button></div>
+      </div>
+      <div class="cp-fila">
+        ${cpCampo('cp-t-nombre','Empresa / autónomo', c.transportista.nombre, {ruta:'transportista.nombre', ancho:'cp-c2'})}
+        ${cpCampo('cp-t-nif','NIF / DNI', c.transportista.nif, {ruta:'transportista.nif', ancho:'cp-c2'})}
+      </div>
+      ${cpCampo('cp-t-dom','Domicilio', c.transportista.domicilio, {ruta:'transportista.domicilio'})}
+      <div class="cp-fila">
+        ${cpCampo('cp-t-cond','Conductor', c.transportista.conductor, {ruta:'transportista.conductor', ancho:'cp-c2'})}
+        ${cpCampo('cp-t-tel','Teléfono del conductor', c.transportista.telefono, {ruta:'transportista.telefono', ancho:'cp-c2', tipo:'tel'})}
+      </div>
+      <div class="cp-fila">
+        ${cpCampo('cp-t-trac','18 · Matrícula cabeza tractora', c.transportista.tractora, {ruta:'transportista.tractora', ancho:'cp-c2', list:'cp-mats'})}
+        ${cpCampo('cp-t-semi','18 · Matrícula semirremolque', c.transportista.semirremolque, {ruta:'transportista.semirremolque', ancho:'cp-c2', list:'cp-mats'})}
+      </div>
+    </div>
+
+    <div class="refuel-card cp-card">
+      <div class="cp-tit">10–14 · Mercancía</div>
+      <div id="cp-merc">${c.mercancia.map((m,i)=>cpHtmlMerc(m,i)).join('')}</div>
+      <button type="button" class="alm-anadir" onclick="cpEstado.mercancia.push({marcas:'',bultos:'',embalaje:'Palets',naturaleza:'',peso:'',volumen:''}); cpRenderForm()">＋ Añadir línea de mercancía</button>
+    </div>
+
+    <div class="refuel-card cp-card">
+      <div class="cp-tit" style="display:flex;justify-content:space-between;align-items:center">
+        <span>☢️ Mercancía peligrosa (ADR)</span>
+        <label class="cp-switch"><input type="checkbox" ${c.adr?'checked':''} onchange="cpEstado.adr=this.checked; if(cpEstado.adr && !cpEstado.adrLineas.length) cpEstado.adrLineas=[]; cpRenderForm()"> <span>${c.adr?'Sí, lleva ADR':'No lleva ADR'}</span></label>
+      </div>
+      ${c.adr ? `
+        <div class="cp-fila">
+          <div class="cp-campo" style="flex:1"><label>Buscar en la tabla ADR por nº ONU o por nombre</label>
+            <input id="cp-adr-busca" placeholder="Ej.: 1263 o PINTURA" oninput="cpBuscarAdrUI(this.value)" autocomplete="off"></div>
+        </div>
+        <div id="cp-adr-res" class="cp-adr-res"></div>
+        <div id="cp-adr-lineas">${c.adrLineas.map((l,i)=>cpHtmlAdr(l,i)).join('') || '<div style="font-size:13px;color:var(--text-muted)">Busca arriba y añade cada materia peligrosa que va en el camión.</div>'}</div>
+        <div id="cp-adr-puntos" class="cp-puntos"></div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:0.5rem">El DeCA no sustituye al documento de transporte ADR: la hoja ADR que se añade al PDF recoge los datos del 5.4.1, pero el conductor debe llevar además la documentación ADR que corresponda.</div>
+      ` : ''}
+    </div>
+
+    <details class="refuel-card cp-card cp-details">
+      <summary class="cp-tit">1, 2, 3, 4, 6, 8 y 15 · Cargador, destino, puntos intermedios y operador <span style="font-size:12px;color:var(--text-muted);font-weight:400">(vienen rellenos; tocar solo si cambian)</span></summary>
+      <div class="cp-sub">1 · Cargador o remitente</div>
+      <div class="cp-fila">
+        ${cpCampo('cp-c-nom','Nombre', c.cargador.nombre, {ruta:'cargador.nombre', ancho:'cp-c2'})}
+        ${cpCampo('cp-c-nif','NIF', c.cargador.nif, {ruta:'cargador.nif', ancho:'cp-c2'})}
+      </div>
+      <div class="cp-fila">
+        ${cpCampo('cp-c-dom','Domicilio', c.cargador.domicilio, {ruta:'cargador.domicilio', ancho:'cp-c2'})}
+        ${cpCampo('cp-c-cp','C.P.', c.cargador.cp, {ruta:'cargador.cp', ancho:'cp-c4'})}
+        ${cpCampo('cp-c-pob','Población', c.cargador.poblacion, {ruta:'cargador.poblacion', ancho:'cp-c4'})}
+      </div>
+      ${cpCampo('cp-exp','Expedidor, de no coincidir con el cargador', c.expedidor, {ruta:'expedidor'})}
+      <div class="cp-sub">2 y 3 · Puntos intermedios</div>
+      <div class="cp-fila">
+        ${cpCampo('cp-i1','2 · Punto intermedio 1', c.intermedio1, {ruta:'intermedio1', ancho:'cp-c2'})}
+        ${cpCampo('cp-i2','3 · Punto intermedio 2', c.intermedio2, {ruta:'intermedio2', ancho:'cp-c2'})}
+      </div>
+      <div class="cp-sub">4 y 6 · Destino</div>
+      <div class="cp-fila">
+        ${cpCampo('cp-d-nom','Nombre', c.destino.nombre, {ruta:'destino.nombre', ancho:'cp-c2'})}
+        ${cpCampo('cp-d-dom','Domicilio', c.destino.domicilio, {ruta:'destino.domicilio', ancho:'cp-c2'})}
+      </div>
+      <div class="cp-fila">
+        ${cpCampo('cp-d-cp','C.P.', c.destino.cp, {ruta:'destino.cp', ancho:'cp-c4'})}
+        ${cpCampo('cp-d-pob','Población', c.destino.poblacion, {ruta:'destino.poblacion', ancho:'cp-c2'})}
+      </div>
+      ${cpCampo('cp-lugar','6 · Lugar de destino de la expedición', c.lugarDestino, {ruta:'lugarDestino'})}
+      ${cpCampo('cp-anexos','8 · Documentos anexos (dato no obligatorio)', c.anexos, {ruta:'anexos', placeholder: c.adr ? 'Se añadirá "Mercancía ADR según documentación adjunta"' : ''})}
+      <div class="cp-sub">15 · Operador de transporte que ha intermediado</div>
+      <div class="cp-fila">
+        ${cpCampo('cp-o-nom','Nombre', c.operador.nombre, {ruta:'operador.nombre', ancho:'cp-c2'})}
+        ${cpCampo('cp-o-nif','NIF', c.operador.nif, {ruta:'operador.nif', ancho:'cp-c2'})}
+      </div>
+      <div class="cp-fila">
+        ${cpCampo('cp-o-dom','Domicilio', c.operador.domicilio, {ruta:'operador.domicilio', ancho:'cp-c2'})}
+        ${cpCampo('cp-o-cp','C.P.', c.operador.cp, {ruta:'operador.cp', ancho:'cp-c4'})}
+        ${cpCampo('cp-o-pob','Población', c.operador.poblacion, {ruta:'operador.poblacion', ancho:'cp-c4'})}
+      </div>
+      ${cpCampo('cp-o-tel','Teléfono', c.operador.telefono, {ruta:'operador.telefono', ancho:'cp-c2'})}
+      ${cpCampo('cp-obs','Observaciones', c.observaciones, {ruta:'observaciones', tipo:'area'})}
+    </details>
+
+    <div class="refuel-card cp-card" style="text-align:center">
+      <div id="cp-aviso" class="alert" style="margin-bottom:0.75rem"></div>
+      <button class="btn btn-primary" style="font-size:17px;padding:1rem" onclick="cpGenerar()">${c.id ? '🔄 Regenerar la carta (mismo QR)' : '📄 Generar carta de porte con QR'}</button>
+      ${c.id ? `<div style="font-size:12px;color:var(--text-muted);margin-top:0.5rem">Editando la carta ${cpEsc(c.id)}. Al regenerar, la dirección y el QR no cambian.</div>
+      <button class="btn btn-ghost" style="margin-top:0.5rem" onclick="cpEstado=cpNuevaCarta(); cpRenderForm()">Empezar una carta nueva</button>` : ''}
+    </div>`;
+  if (c.adr) { cpCargarAdr().then(() => cpPintarPuntos()); cpPintarPuntos(); }
+}
+function cpHtmlMerc(m, i) {
+  return `<div class="cp-merc">
+    <div class="cp-fila">
+      <div class="cp-campo cp-c4"><label>10 · Marcas</label><input value="${cpEsc(m.marcas)}" oninput="cpSetMerc(${i},'marcas',this.value)"></div>
+      <div class="cp-campo cp-c4"><label>10 · Nº bultos</label><input type="number" inputmode="numeric" value="${cpEsc(m.bultos)}" oninput="cpSetMerc(${i},'bultos',this.value)"></div>
+      <div class="cp-campo cp-c4"><label>11 · Embalaje</label><input list="cp-embalajes" value="${cpEsc(m.embalaje)}" oninput="cpSetMerc(${i},'embalaje',this.value)"></div>
+      <div class="cp-campo cp-c4"><label>13 · Peso bruto (kg)</label><input type="number" inputmode="decimal" value="${cpEsc(m.peso)}" oninput="cpSetMerc(${i},'peso',this.value)"></div>
+    </div>
+    <div class="cp-fila">
+      <div class="cp-campo" style="flex:2"><label>12 · Naturaleza de la mercancía</label><input value="${cpEsc(m.naturaleza)}" oninput="cpSetMerc(${i},'naturaleza',this.value)"></div>
+      <div class="cp-campo cp-c4"><label>14 · Volumen (m³) u otra magnitud</label><input value="${cpEsc(m.volumen)}" oninput="cpSetMerc(${i},'volumen',this.value)"></div>
+      ${cpEstado.mercancia.length>1 ? `<div class="cp-campo" style="flex:0;display:flex;align-items:flex-end"><button type="button" class="alm-quitar" onclick="cpEstado.mercancia.splice(${i},1); cpRenderForm()">✕</button></div>` : ''}
+    </div>
+  </div>`;
+}
+window.cpBuscarAdrUI = async (txt) => {
+  await cpCargarAdr();
+  const cont = document.getElementById('cp-adr-res');
+  if (!cont) return;
+  const res = cpBuscarAdr(txt);
+  cont.innerHTML = !txt.trim() ? '' : !cpAdr ? '<div style="color:var(--danger)">No se ha podido cargar la tabla ADR (falta el fichero adr.json junto a la app).</div>'
+    : !res.length ? '<div style="font-size:13px;color:var(--text-muted)">Sin resultados</div>'
+    : res.map((f,i) => `<div class="cp-adr-opt" onclick="cpAnadirAdr(${cpAdr.indexOf(f)})">
+        <span class="cp-un">UN ${f[0]}</span>
+        <span class="cp-adr-nom">${cpEsc(f[1].length>90?f[1].slice(0,90)+'…':f[1])}</span>
+        <span class="cp-adr-meta">Clase ${cpEsc(f[2])}${f[4]?' · GE '+cpEsc(f[4]):''}${f[5]?' · Etq. '+cpEsc(f[5]):''}${f[9]?' · Cat. '+cpEsc(f[9]):''}${f[10]?' · Túnel '+cpEsc(f[10]):''}</span>
+      </div>`).join('');
+};
+window.cpAnadirAdr = (idx) => {
+  const f = cpAdr[idx];
+  cpEstado.adrLineas.push({un:f[0], nombre:f[1], clase:f[2], codigo:f[3], ge:f[4], etiquetas:f[5], cl:f[7], cat:f[9], tunel:f[10], texto:cpLineaAdr(f), cantidad:'', unidad:'kg', bultos:'', embalaje:''});
+  const b = document.getElementById('cp-adr-busca'); if (b) b.value = '';
+  cpRenderForm();
+};
+function cpHtmlAdr(l, i) {
+  return `<div class="cp-adr-linea">
+    <div class="cp-adr-texto">${cpEsc(l.texto)}</div>
+    <div class="cp-fila">
+      <div class="cp-campo cp-c4"><label>Cantidad</label><input type="number" inputmode="decimal" value="${cpEsc(l.cantidad)}" oninput="cpSetAdr(${i},'cantidad',this.value)"></div>
+      <div class="cp-campo cp-c4"><label>Unidad</label><select onchange="cpSetAdr(${i},'unidad',this.value)">${['kg','L','kg neto explosivo'].map(u=>`<option ${l.unidad===u?'selected':''}>${u}</option>`).join('')}</select></div>
+      <div class="cp-campo cp-c4"><label>Nº bultos</label><input type="number" inputmode="numeric" value="${cpEsc(l.bultos)}" oninput="cpSetAdr(${i},'bultos',this.value)"></div>
+      <div class="cp-campo cp-c4"><label>Tipo de bulto</label><input value="${cpEsc(l.embalaje)}" placeholder="Bidones, cajas…" oninput="cpSetAdr(${i},'embalaje',this.value)"></div>
+      <div class="cp-campo" style="flex:0;display:flex;align-items:flex-end"><button type="button" class="alm-quitar" onclick="cpEstado.adrLineas.splice(${i},1); cpRenderForm()">✕</button></div>
+    </div>
+    <div class="cp-adr-meta">Categoría de transporte ${cpEsc(l.cat||'—')} · ${l.cl ? 'Cantidad limitada '+cpEsc(l.cl) : 'Sin cantidad limitada'} · Etiquetas ${cpEsc(l.etiquetas||'—')}</div>
+  </div>`;
+}
+function cpPintarPuntos() {
+  const el = document.getElementById('cp-adr-puntos');
+  if (!el || !cpEstado.adr) return;
+  if (!cpEstado.adrLineas.length) { el.innerHTML = ''; return; }
+  const {total, ilimitado} = cpPuntosAdr(cpEstado.adrLineas);
+  const exento = !ilimitado && total <= 1000;
+  el.innerHTML = `<div class="${exento?'alm-banner alm-banner-ok':'alm-banner alm-banner-mal'}" style="margin-top:0.75rem">
+    <strong>Puntos 1.1.3.6: ${cpNum(total,0)}</strong> ${ilimitado ? '· hay materias de categoría 0 (sin exención posible)' : exento ? '· ≤ 1.000: transporte en exención parcial (no exige paneles naranja ni ADR del conductor)' : '· > 1.000: transporte ADR completo (paneles naranja, conductor con ADR, equipamiento)'}
+  </div>`;
+}
+
+// ── Plantillas de transportista ──
+window.cpUsarTrans = (id) => {
+  const t = cpTrans.find(x => x.id === id);
+  if (!t) return;
+  cpEstado.transportista = {nombre:t.nombre||'', nif:t.nif||'', domicilio:t.domicilio||'', conductor:t.conductor||'', telefono:t.telefono||'', tractora:t.tractora||'', semirremolque:t.semirremolque||''};
+  cpRenderForm();
+  document.getElementById('cp-sel-trans').value = id;
+};
+window.cpGuardarTrans = async () => {
+  const t = cpEstado.transportista;
+  if (!t.nombre) { mostrarMensajeFlotante?.('Pon al menos el nombre del transportista'); return; }
+  try {
+    const ya = cpTrans.find(x => (x.nombre||'').toUpperCase() === t.nombre.toUpperCase() && (x.conductor||'').toUpperCase() === (t.conductor||'').toUpperCase());
+    if (ya) await updateDoc(doc(db,'cartasTransportistas',ya.id), {...t, ts:Date.now()});
+    else await addDoc(collection(db,'cartasTransportistas'), {...t, ts:Date.now()});
+    mostrarMensajeFlotante?.('💾 Transportista guardado');
+  } catch(e) { alert('No se ha podido guardar: ' + e.message); }
+};
+function cpRellenarSelectTrans() {
+  const sel = document.getElementById('cp-sel-trans');
+  if (!sel) return;
+  const v = sel.value;
+  sel.innerHTML = '<option value="">— Elegir transportista guardado —</option>' + cpTrans.map(t=>`<option value="${t.id}">${cpEsc(t.nombre)}${t.conductor?' · '+cpEsc(t.conductor):''}</option>`).join('');
+  sel.value = v;
+}
+function cpRenderTrans() {
+  const el = document.getElementById('cp-pane-trans');
+  if (!el) return;
+  el.innerHTML = !cpTrans.length ? `<div class="refuel-card"><div class="empty-state"><div class="empty-icon">🚛</div>Aún no hay transportistas guardados. Rellena uno en "Nueva carta" y pulsa "Guardar como plantilla".</div></div>`
+    : `<div class="refuel-card" style="padding:0">${cpTrans.map(t => `
+      <div class="gs-fila">
+        <div class="fl-ico">🚛</div>
+        <div class="gs-fila-info">
+          <div class="gs-tit">${cpEsc(t.nombre)}</div>
+          <div class="gs-sub">${cpEsc(t.nif||'')}${t.domicilio?' · '+cpEsc(t.domicilio):''}</div>
+          <div class="gs-chips">${t.conductor?`<span class="gs-chip">👤 ${cpEsc(t.conductor)}${t.telefono?' · '+cpEsc(t.telefono):''}</span>`:''}${t.tractora?`<span class="gs-chip">🚛 ${cpEsc(t.tractora)}</span>`:''}${t.semirremolque?`<span class="gs-chip">🔗 ${cpEsc(t.semirremolque)}</span>`:''}</div>
+        </div>
+        <div class="gs-acciones">
+          <button class="alm-accion alm-accion-ver" onclick="cpUsarTrans('${t.id}'); cpTab('nueva')">📄 Nueva carta</button>
+          <button class="alm-accion alm-accion-borrar" onclick="cpBorrarTrans('${t.id}')">🗑</button>
+        </div>
+      </div>`).join('')}</div>`;
+}
+window.cpBorrarTrans = async (id) => {
+  if (!confirm('¿Borrar esta plantilla de transportista?')) return;
+  try { await deleteDoc(doc(db,'cartasTransportistas',id)); } catch(e) { alert(e.message); }
+};
+
+// ── Lista de cartas emitidas ──
+function cpRenderLista() {
+  const el = document.getElementById('cp-pane-lista');
+  if (!el) return;
+  if (!cpCartas.length) { el.innerHTML = `<div class="refuel-card"><div class="empty-state"><div class="empty-icon">📄</div>Todavía no se ha emitido ninguna carta de porte.</div></div>`; return; }
+  el.innerHTML = `<div class="refuel-card" style="padding:0">${cpCartas.map(c => `
+    <div class="gs-fila">
+      <div class="fl-ico">${c.adr?'☢️':'📄'}</div>
+      <div class="gs-fila-info">
+        <div class="gs-tit">${cpEsc(c.transportista?.nombre||'—')} <span style="font-weight:500;color:var(--text-muted);font-size:13px">· ${cpEsc(c.transportista?.conductor||'')}</span></div>
+        <div class="gs-sub">📅 ${cpEsc(cpFecha(c.fecha))} · ${cpEsc(c.transportista?.tractora||'')}${c.transportista?.semirremolque?' + '+cpEsc(c.transportista.semirremolque):''} · → ${cpEsc(c.destino?.poblacion||'')}</div>
+        <div class="gs-chips">
+          <span class="gs-chip">${cpEsc(c.id)}</span>
+          ${c.pesoTotal?`<span class="gs-chip">⚖️ ${cpNum(c.pesoTotal,0)} kg</span>`:''}
+          ${c.adr?`<span class="gs-chip gs-chip-mal">☢️ ADR · ${cpNum(c.adrPuntos||0,0)} ptos</span>`:''}
+          ${c.version>1?`<span class="gs-chip">🔄 v${c.version}</span>`:''}
+        </div>
+      </div>
+      <div class="gs-acciones">
+        <button class="alm-accion alm-accion-ver" onclick="cpVer('${c.id}')">👁 Ver / QR</button>
+        <button class="alm-accion" onclick="cpEditar('${c.id}')">✏️ Corregir</button>
+      </div>
+    </div>`).join('')}</div>`;
+}
+window.cpEditar = (id) => {
+  const c = cpCartas.find(x => x.id === id);
+  if (!c) return;
+  cpEstado = JSON.parse(JSON.stringify(c));
+  delete cpEstado.ts; delete cpEstado.url;
+  cpTab('nueva');
+  window.scrollTo(0,0);
+};
+window.cpVer = async (id) => {
+  const c = cpCartas.find(x => x.id === id);
+  if (!c) return;
+  const url = c.url || cpUrlDe(c.id);
+  almAbrirModal('📄 Carta de porte', `
+    <div class="alm-ver-cab"><div><div class="alm-etq">Nº de documento</div><div class="alm-ver-exp alm-ver-txt" style="font-size:20px">${cpEsc(c.id)}</div></div>
+      <span class="alm-chip-ag">${cpEsc(cpFecha(c.fecha))}</span></div>
+    <div class="alm-ver-meta">🚛 ${cpEsc(c.transportista?.nombre||'')} · 👤 ${cpEsc(c.transportista?.conductor||'')} · ${cpEsc(c.transportista?.tractora||'')}${c.transportista?.semirremolque?' + '+cpEsc(c.transportista.semirremolque):''}</div>
+    <div style="text-align:center;margin:1rem 0"><div id="cp-qr-ver" class="cp-qr"></div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:0.4rem;word-break:break-all">${cpEsc(url)}</div></div>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center">
+      <a class="alm-accion" href="${url}" target="_blank" rel="noopener">👁 Abrir PDF</a>
+      <button class="alm-accion" onclick="cpCompartir('${c.id}')">📤 Compartir</button>
+      <button class="alm-accion" onclick="almCopiar('${url}','Enlace del DeCA')">📋 Copiar enlace</button>
+    </div>
+    ${c.adr ? `<div class="alm-sec-tit">☢️ ADR</div><div class="alm-datos">${(c.adrLineas||[]).map(l=>`<div style="grid-column:1/-1"><strong>${cpEsc(l.texto)}</strong><span>${cpEsc(l.cantidad)} ${cpEsc(l.unidad)} · ${cpEsc(l.bultos)} ${cpEsc(l.embalaje)}</span></div>`).join('')}</div>` : ''}
+    <div class="alm-sec-tit">Historial</div>
+    <div style="font-size:13px;color:var(--text-muted)">Emitida ${c.ts?new Date(c.ts).toLocaleString('es-ES'):''}${c.version>1?` · corregida ${c.version-1} ${c.version-1===1?'vez':'veces'}, última ${c.modTs?new Date(c.modTs).toLocaleString('es-ES'):''}`:''}${c.emitidaPor?' · por '+cpEsc(c.emitidaPor):''}</div>`,
+    `<button class="btn btn-primary" onclick="almCerrarModal(); cpEditar('${c.id}')">✏️ Corregir</button><button class="btn btn-ghost" onclick="almCerrarModal()">Cerrar</button>`);
+  cpPintarQr('cp-qr-ver', url, 180);
+};
+
+// ── QR ──
+function cpQrCanvas(texto, px) {
+  const qr = qrcode(0, 'M'); qr.addData(texto); qr.make();
+  const n = qr.getModuleCount(), cel = Math.floor(px / (n + 8)), tam = cel * (n + 8);
+  const c = document.createElement('canvas'); c.width = c.height = tam;
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0,0,tam,tam); g.fillStyle = '#000';
+  for (let r = 0; r < n; r++) for (let q = 0; q < n; q++) if (qr.isDark(r,q)) g.fillRect((q+4)*cel, (r+4)*cel, cel, cel);
+  return c;
+}
+function cpPintarQr(id, texto, px) {
+  const el = document.getElementById(id); if (!el) return;
+  el.innerHTML = ''; el.appendChild(cpQrCanvas(texto, px));
+}
+
+// ── Validación ──
+function cpValidar(c) {
+  const f = [];
+  if (!c.fecha) f.push('la fecha');
+  if (!c.transportista.nombre) f.push('la empresa transportista');
+  if (!c.transportista.tractora) f.push('la matrícula');
+  if (!c.mercancia.some(m => m.naturaleza || m.bultos || m.peso)) f.push('al menos una línea de mercancía');
+  if (c.adr) {
+    if (!c.adrLineas.length) f.push('las materias ADR (o quita el interruptor de ADR)');
+    c.adrLineas.forEach((l,i) => { if (!(parseFloat(l.cantidad) > 0)) f.push(`la cantidad de la materia ADR ${i+1}`); });
+  }
+  return f;
+}
+
+// ── Generar: PDF + subida + registro ──
+window.cpGenerar = async () => {
+  const c = cpEstado, aviso = document.getElementById('cp-aviso');
+  const faltan = cpValidar(c);
+  if (faltan.length) { showAlert(aviso, 'Falta: ' + faltan.join(', '), true); aviso.scrollIntoView({block:'center'}); return; }
+  const nuevo = !c.id;
+  if (nuevo) c.id = cpNuevoId();
+  c.url = cpUrlDe(c.id);
+  c.pesoTotal = c.mercancia.reduce((s,m) => s + (parseFloat(String(m.peso).replace(',','.'))||0), 0);
+  c.bultosTotal = c.mercancia.reduce((s,m) => s + (parseInt(m.bultos)||0), 0);
+  if (c.adr) { const p = cpPuntosAdr(c.adrLineas); c.adrPuntos = p.total; c.adrExento = !p.ilimitado && p.total <= 1000; }
+  c.version = (c.version || 0) + 1;
+  showAlert(aviso, '⏳ Generando el PDF…', false);
+  let bytes;
+  try { bytes = await cpConstruirPdf(c); }
+  catch(e) { console.error(e); showAlert(aviso, 'No se ha podido crear el PDF: ' + e.message, true); return; }
+  showAlert(aviso, '⏳ Subiendo el PDF (la inspección lo descargará desde el QR)…', false);
+  try {
+    const st = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js');
+    const storage = st.getStorage(undefined, `gs://${CP_BUCKET}`);
+    await st.uploadBytes(st.ref(storage, `${CP_CARPETA}/${c.id}.pdf`), bytes, {contentType:'application/pdf', cacheControl:'no-cache'});
+  } catch(e) {
+    console.error(e);
+    showAlert(aviso, 'El PDF se ha creado pero no se ha podido subir: ' + (e.code || e.message) + '. Hay que activar Firebase Storage y sus reglas (ver ⚙️).', true);
+    cpResultado = {id:c.id, url:c.url, bytes, subido:false};
+    cpMostrarResultado(c, bytes, false);
+    return;
+  }
+  try {
+    const datos = {...c, ts: c.ts || Date.now(), modTs: Date.now(), fechaStr: cpFecha(c.fecha).replace(/^0/,'').replace(/\/0/g,'/'), emitidaPor: (typeof currentUser!=='undefined' && currentUser?.name) || ''};
+    await setDoc(doc(db,'cartasPorte',c.id), datos);
+  } catch(e) { console.warn('Registro de la carta:', e); }
+  cpResultado = {id:c.id, url:c.url, bytes, subido:true};
+  cpMostrarResultado(c, bytes, true);
+};
+function cpMostrarResultado(c, bytes, subido) {
+  const el = document.getElementById('cp-pane-nueva');
+  const blob = new Blob([bytes], {type:'application/pdf'});
+  const local = URL.createObjectURL(blob);
+  el.innerHTML = `
+    <div class="refuel-card cp-card" style="text-align:center">
+      <div style="font-size:44px">${subido?'✅':'⚠️'}</div>
+      <div style="font-size:20px;font-weight:800;color:${subido?'var(--success)':'var(--warning)'}">${subido ? 'Carta de porte emitida' : 'PDF creado, pero sin subir'}</div>
+      <div style="font-family:monospace;color:var(--accent);font-size:16px;margin:0.3rem 0">${cpEsc(c.id)}</div>
+      <div style="font-size:14px;color:var(--text-muted)">${cpEsc(c.transportista.nombre)} · ${cpEsc(c.transportista.conductor)} · ${cpEsc(c.transportista.tractora)}${c.transportista.semirremolque?' + '+cpEsc(c.transportista.semirremolque):''}</div>
+      <div id="cp-qr-res" class="cp-qr" style="margin:1rem auto"></div>
+      <div style="font-size:12px;color:var(--text-muted);word-break:break-all">${cpEsc(c.url)}</div>
+      ${subido ? '' : '<div class="alm-banner alm-banner-mal" style="text-align:left">El QR apunta a esta dirección, pero el PDF no está allí todavía. Descárgalo ahora y vuelve a intentar la subida cuando Firebase Storage esté activado.</div>'}
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;margin-top:1rem">
+        <a class="btn btn-primary" style="width:auto;padding:0.8rem 1.2rem;text-decoration:none" href="${local}" download="${cpEsc(c.id)}.pdf">⬇ Descargar PDF</a>
+        <a class="btn btn-ghost" style="width:auto;padding:0.8rem 1.2rem;text-decoration:none" href="${local}" target="_blank" rel="noopener">🖨 Abrir / imprimir</a>
+        <button class="btn btn-ghost" style="width:auto;padding:0.8rem 1.2rem" onclick="cpCompartir('${c.id}')">📤 Compartir al conductor</button>
+        <button class="btn btn-ghost" style="width:auto;padding:0.8rem 1.2rem" onclick="almCopiar('${c.url}','Enlace del DeCA')">📋 Copiar enlace</button>
+      </div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;margin-top:1rem">
+        <button class="alm-accion" onclick="cpRenderForm()">✏️ Corregir esta carta</button>
+        <button class="alm-accion" onclick="cpEstado=cpNuevaCarta(); cpEstado.transportista={...(${JSON.stringify(c.transportista)})}; cpRenderForm()">📄 Otra carta, mismo transportista</button>
+        <button class="alm-accion" onclick="cpEstado=cpNuevaCarta(); cpRenderForm()">➕ Carta nueva</button>
+      </div>
+    </div>`;
+  cpPintarQr('cp-qr-res', c.url, 220);
+}
+window.cpCompartir = async (id) => {
+  const c = cpCartas.find(x => x.id === id) || cpEstado;
+  const url = (c && c.url) || cpUrlDe(id);
+  const texto = `Carta de porte ${id}\n${c?.transportista?.nombre||''} · ${c?.transportista?.tractora||''}\n${url}`;
+  try {
+    if (cpResultado?.id === id && navigator.canShare && navigator.canShare({files:[new File([cpResultado.bytes], `${id}.pdf`, {type:'application/pdf'})]})) {
+      await navigator.share({title:`Carta de porte ${id}`, text:texto, files:[new File([cpResultado.bytes], `${id}.pdf`, {type:'application/pdf'})]});
+    } else if (navigator.share) {
+      await navigator.share({title:`Carta de porte ${id}`, text:texto, url});
+    } else {
+      await almCopiar(texto, 'Texto para enviar');
+    }
+  } catch(e) { if (e.name !== 'AbortError') almCopiar(texto, 'Texto para enviar'); }
+};
+
+// ── PDF (pdf-lib) ──
+async function cpConstruirPdf(c) {
+  const {PDFDocument, StandardFonts, rgb} = PDFLib;
+  const pdf = await PDFDocument.create();
+  pdf.setTitle(`Documento de control de transporte ${c.id}`); pdf.setAuthor(c.cargador.nombre); pdf.setCreator('NexoFlota');
+  const fontR = await pdf.embedFont(StandardFonts.Helvetica), fontB = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const pag = pdf.addPage([595.28, 841.89]);
+  const W = 595.28, H = 841.89, M = 28;
+  const negro = rgb(0,0,0), gris = rgb(0.35,0.35,0.35), claro = rgb(0.93,0.93,0.93);
+  const txt = (s, x, y, o={}) => pag.drawText(String(s ?? ''), {x, y, size:o.size||8.5, font:o.bold?fontB:fontR, color:o.color||negro, maxWidth:o.maxWidth, lineHeight:(o.size||8.5)*1.25});
+  const ancho = (s, size, bold) => (bold?fontB:fontR).widthOfTextAtSize(String(s), size);
+  const partir = (s, size, maxW, bold=false) => {   // corta en líneas que caben
+    const out = [];
+    String(s||'').split('\n').forEach(parrafo => {
+      let linea = '';
+      parrafo.split(' ').forEach(p => {
+        const prueba = linea ? linea + ' ' + p : p;
+        if (ancho(prueba, size, bold) <= maxW) linea = prueba; else { if (linea) out.push(linea); linea = p; }
+      });
+      out.push(linea);
+    });
+    return out;
+  };
+  const caja = (x, y, w, h, titulo, lineas, o={}) => {
+    pag.drawRectangle({x, y, width:w, height:h, borderColor:negro, borderWidth:0.6});
+    let cy = y + h - 9;
+    if (titulo) { pag.drawRectangle({x, y:y+h-11, width:w, height:11, color:claro}); txt(titulo, x+3, cy, {size:6.5, bold:true, color:gris}); cy -= 11; }
+    const size = o.size || 8.5;
+    (Array.isArray(lineas) ? lineas : [lineas]).forEach(l => {
+      partir(l.t !== undefined ? l.t : l, size, w-6, l.b).forEach(ln => { if (cy > y+2) { txt(ln, x+3, cy-size+2, {size, bold:l.b}); cy -= size*1.3; } });
+    });
+    return y;
+  };
+
+  // Cabecera
+  pag.drawRectangle({x:M, y:H-M-30, width:W-2*M, height:30, color:rgb(0.12,0.16,0.23)});
+  txt('DOCUMENTO DE CONTROL DE TRANSPORTE DE MERCANCÍAS POR CARRETERA', M+8, H-M-13, {size:9.5, bold:true, color:rgb(1,1,1)});
+  txt(`DeCA · Orden FOM/2861/2012 · Resolución de 5 de junio de 2026      Nº ${c.id}`, M+8, H-M-25, {size:7.5, color:rgb(0.85,0.88,0.95)});
+
+  // QR arriba a la derecha
+  const qrPng = await new Promise(r => cpQrCanvas(c.url, 300).toBlob(b => b.arrayBuffer().then(r), 'image/png'));
+  const qrImg = await pdf.embedPng(qrPng);
+  const qrTam = 96;
+  pag.drawImage(qrImg, {x:W-M-qrTam, y:H-M-38-qrTam, width:qrTam, height:qrTam});
+  txt('Escanee para descargar', W-M-qrTam, H-M-38-qrTam-9, {size:6.5, color:gris});
+  txt('el documento original', W-M-qrTam, H-M-38-qrTam-17, {size:6.5, color:gris});
+
+  const colW = (W-2*M-qrTam-8)/2, xL = M, xR = M+colW+4, top = H-M-38;
+  const dir = d => [d.nombre, d.nif ? 'NIF ' + d.nif : null, d.domicilio, [d.cp, d.poblacion].filter(Boolean).join(' '), d.telefono ? 'Tel. ' + d.telefono : null].filter(Boolean);
+  // Fila 1
+  let y1 = top - 66;
+  caja(xL, y1, colW, 66, '1 · CARGADOR O REMITENTE (nombre o denominación social, NIF y domicilio)', [{t:c.cargador.nombre, b:true}, ...dir(c.cargador).slice(1)]);
+  caja(xR, y1, colW, 66, 'FECHA · PRECINTO · CONTRATO', [{t:`Fecha: ${cpFecha(c.fecha)}`, b:true}, `Precinto: ${c.precinto||'—'}`, `16 · Contrato / referencia: ${c.contrato||'—'}`]);
+  // Fila 2
+  let y2 = y1 - 44;
+  caja(xL, y2, colW, 40, 'EXPEDIDOR, de no coincidir con el cargador', [c.expedidor || '—']);
+  caja(xR, y2, colW, 40, '2 · PUNTO INTERMEDIO 1', [c.intermedio1 || '—']);
+  let y3 = y2 - 44;
+  caja(xL, y3, colW, 40, '3 · PUNTO INTERMEDIO 2', [c.intermedio2 || '—']);
+  caja(xR, y3, colW, 40, '6 · LUGAR DE DESTINO DE LA EXPEDICIÓN', [c.lugarDestino || '—']);
+  // Fila 3: destino / operador / transportista
+  const fullW = W-2*M;
+  let y4 = y3 - 76;
+  caja(xL, y4, colW, 72, '4 · DESTINO (nombre o denominación social y domicilio)', [{t:c.destino.nombre, b:true}, ...dir(c.destino).slice(1)]);
+  caja(xR, y4, fullW-colW-4, 72, '15 · OPERADOR DE TRANSPORTE QUE HA INTERMEDIADO', [{t:c.operador.nombre, b:true}, ...dir(c.operador).slice(1)]);
+  let y5 = y4 - 76;
+  caja(xL, y5, fullW, 72, '14 · EMPRESA TRANSPORTISTA (nombre, NIF y domicilio) · CONDUCTOR · 18 · MATRÍCULAS', [
+    {t:`${c.transportista.nombre}${c.transportista.nif?'   NIF/DNI '+c.transportista.nif:''}`, b:true},
+    c.transportista.domicilio || '',
+    `Conductor: ${c.transportista.conductor||'—'}${c.transportista.telefono?'   Tel. '+c.transportista.telefono:''}`,
+    {t:`Cabeza tractora: ${c.transportista.tractora||'—'}      Semirremolque: ${c.transportista.semirremolque||'—'}`, b:true},
+  ]);
+  // Mercancía (tabla)
+  const cols = [['10 · MARCAS',0.14],['10 · Nº BULTOS',0.10],['11 · EMBALAJE',0.12],['12 · NATURALEZA DE LA MERCANCÍA',0.40],['13 · PESO kg',0.12],['14 · VOLUMEN',0.12]];
+  const filas = c.mercancia.filter(m => m.naturaleza || m.bultos || m.peso || m.marcas);
+  const hTab = 14 + Math.max(4, filas.length + 1) * 13 + 6;
+  let y6 = y5 - hTab - 4;
+  pag.drawRectangle({x:xL, y:y6, width:fullW, height:hTab, borderColor:negro, borderWidth:0.6});
+  pag.drawRectangle({x:xL, y:y6+hTab-14, width:fullW, height:14, color:claro});
+  let cx = xL;
+  cols.forEach(([t,f]) => { txt(t, cx+3, y6+hTab-10, {size:6.3, bold:true, color:gris}); cx += f*fullW; pag.drawLine({start:{x:cx,y:y6},end:{x:cx,y:y6+hTab},thickness:0.4,color:gris}); });
+  let ry = y6 + hTab - 14 - 11;
+  filas.forEach(m => {
+    cx = xL;
+    [m.marcas, m.bultos, m.embalaje, m.naturaleza, m.peso ? cpNum(m.peso,0) : '', m.volumen].forEach((v,i) => { txt(String(v||''), cx+3, ry, {size:8, maxWidth: cols[i][1]*fullW-6}); cx += cols[i][1]*fullW; });
+    ry -= 13;
+  });
+  txt(`TOTAL: ${c.bultosTotal||0} bultos · ${cpNum(c.pesoTotal||0,0)} kg`, xL+3, y6+4, {size:8, bold:true});
+  // Anexos + observaciones
+  const anexos = [c.anexos, c.adr ? 'MERCANCÍA ADR SEGÚN DOCUMENTACIÓN ADJUNTA (ver hoja ADR)' : ''].filter(Boolean).join(' · ') || '—';
+  let y7 = y6 - 50;
+  caja(xL, y7, colW, 46, '8 · DOCUMENTOS ANEXOS (dato no obligatorio)', [anexos]);
+  caja(xR, y7, fullW-colW-4, 46, 'OBSERVACIONES', [c.observaciones || '—']);
+  // Textos legales
+  let y8 = y7 - 48;
+  caja(xL, y8, fullW, 44, '17 bis · SOMETIMIENTO A ARBITRAJE', ['Las partes se someten, para la resolución de cualquier controversia relativa a la interpretación y ejecución del contrato de transporte al que se refiere el presente documento, a la Junta Arbitral de Transporte que proceda conforme a lo establecido en la Ley 16/1987, de Ordenación de los Transportes Terrestres, y sus normas de desarrollo.'], {size:6.8});
+  // Firmas
+  let y9 = y8 - 72;
+  const fW = fullW/3;
+  ['Firma y sello del cargador','Empresa transportista','20 · Recibo de la mercancía · Firma y sello del consignatario'].forEach((t,i) => {
+    pag.drawRectangle({x:xL+i*fW, y:y9, width:fW, height:68, borderColor:negro, borderWidth:0.6});
+    txt(t, xL+i*fW+3, y9+59, {size:6.5, bold:true, color:gris});
+    if (i===2) txt('Lugar y fecha: ______________________', xL+i*fW+3, y9+6, {size:6.5, color:gris});
+  });
+  // Pie
+  txt('Documento electrónico de control administrativo (DeCA). El presente documento se elabora de conformidad con la Orden FOM/2861/2012. Original disponible en la dirección del código QR.', M, M+10, {size:6.3, color:gris, maxWidth:fullW});
+  txt(`Emitido con NexoFlota · ${new Date().toLocaleString('es-ES')} · versión ${c.version}`, M, M+2, {size:6.3, color:gris});
+
+  // Hoja ADR
+  if (c.adr && c.adrLineas.length) {
+    const p2 = pdf.addPage([595.28, 841.89]);
+    const t2 = (s, x, y, o={}) => p2.drawText(String(s ?? ''), {x, y, size:o.size||9, font:o.bold?fontB:fontR, color:o.color||negro, maxWidth:o.maxWidth, lineHeight:(o.size||9)*1.3});
+    p2.drawRectangle({x:M, y:H-M-24, width:W-2*M, height:24, color:rgb(0.75,0.1,0.1)});
+    t2('MERCANCÍAS PELIGROSAS · DATOS DEL DOCUMENTO DE TRANSPORTE (ADR 5.4.1)', M+8, H-M-17, {size:10.5, bold:true, color:rgb(1,1,1)});
+    t2(`Anexo a la carta de porte ${c.id} · ${cpFecha(c.fecha)}`, M, H-M-40, {size:9});
+    t2(`Expedidor: ${c.cargador.nombre} · Transportista: ${c.transportista.nombre} · Vehículo: ${c.transportista.tractora}${c.transportista.semirremolque?' + '+c.transportista.semirremolque:''}`, M, H-M-54, {size:8.5, maxWidth:W-2*M});
+    let ay = H-M-84;
+    p2.drawRectangle({x:M, y:ay-2, width:W-2*M, height:14, color:claro});
+    t2('Nº ONU · Designación oficial · Etiquetas · Grupo de embalaje · (Código túnel)', M+3, ay+2, {size:7, bold:true, color:gris});
+    t2('Cantidad', W-M-150, ay+2, {size:7, bold:true, color:gris}); t2('Bultos', W-M-70, ay+2, {size:7, bold:true, color:gris});
+    ay -= 20;
+    c.adrLineas.forEach(l => {
+      partir(l.texto, 9.5, W-2*M-160, true).forEach((ln,i) => { t2(ln, M+3, ay, {size:9.5, bold:true}); if (i===0) { t2(`${l.cantidad} ${l.unidad}`, W-M-150, ay, {size:9.5}); t2(`${l.bultos||'—'} ${l.embalaje||''}`, W-M-70, ay, {size:9}); } ay -= 13; });
+      t2(`Categoría de transporte ${l.cat||'—'}${l.cl?' · Cantidad limitada '+l.cl:''}${l.codigo?' · Código de clasificación '+l.codigo:''}`, M+3, ay, {size:7.5, color:gris});
+      ay -= 18;
+      p2.drawLine({start:{x:M,y:ay+8},end:{x:W-M,y:ay+8},thickness:0.3,color:gris});
+    });
+    ay -= 6;
+    const p = cpPuntosAdr(c.adrLineas), exento = !p.ilimitado && p.total <= 1000;
+    p2.drawRectangle({x:M, y:ay-40, width:W-2*M, height:44, borderColor: exento?rgb(0.1,0.55,0.25):rgb(0.75,0.1,0.1), borderWidth:1});
+    t2(`Puntos según 1.1.3.6 ADR: ${cpNum(p.total,0)}`, M+8, ay-12, {size:11, bold:true});
+    t2(exento ? 'Cantidad total por unidad de transporte ≤ 1.000 puntos: transporte acogido a la exención parcial del 1.1.3.6 (sin paneles naranja; conductor sin certificado ADR).'
+              : p.ilimitado ? 'Hay materias de categoría de transporte 0: no es aplicable la exención del 1.1.3.6. Transporte ADR completo.'
+              : 'Cantidad total por unidad de transporte > 1.000 puntos: transporte ADR completo (paneles naranja, conductor con certificado ADR, equipamiento y documentación ADR).',
+       M+8, ay-26, {size:8.2, maxWidth:W-2*M-16});
+    ay -= 60;
+    t2('Este anexo recoge los datos del ADR 5.4.1 con la información facilitada por el cargador. Quien cargue las mercancías es responsable de las instrucciones escritas y de la exactitud de las cantidades declaradas. Tabla ADR 2019.', M, ay, {size:7, color:gris, maxWidth:W-2*M});
+    t2(`Carta de porte ${c.id} · hoja 2 de 2 · original en la dirección del código QR de la hoja 1`, M, M+2, {size:6.3, color:gris});
+  }
+  return await pdf.save();
+}
+
+Object.assign(window, { cpTab, cpRenderForm, cpEntrar, cpNuevaCarta });
+// los botones del formulario tocan cpEstado directamente: se expone
+Object.defineProperty(window, 'cpEstado', { get: () => cpEstado, set: v => { cpEstado = v; } });
+Object.defineProperty(window, 'cpResultado', { get: () => cpResultado });
+
 // PEDIDO DE ROPA POR TEMPORADA
 // ════════════════════════════════════════════════════════════════════════════
 // Calcula cuánta ropa hay que pedir cada temporada según las tallas guardadas
@@ -4892,8 +5598,9 @@ async function initApp() {
       MODULO_CODIGOS.seguros = data.seguros || MODULO_CODIGOS.seguros;
       MODULO_CODIGOS.almacen = data.almacen || MODULO_CODIGOS.almacen;
       MODULO_CODIGOS.formacion = data.formacion || MODULO_CODIGOS.formacion;
+      MODULO_CODIGOS.cartas = data.cartas || MODULO_CODIGOS.cartas;
       // Si faltaba algún código nuevo, se guarda
-      if (!data.almacen || !data.formacion) await setDoc(doc(db,'configuracion','moduloCodigos'), MODULO_CODIGOS);
+      if (!data.almacen || !data.formacion || !data.cartas) await setDoc(doc(db,'configuracion','moduloCodigos'), MODULO_CODIGOS);
     } else {
       await setDoc(doc(db, 'configuracion', 'moduloCodigos'), MODULO_CODIGOS);
     }
@@ -5010,6 +5717,7 @@ async function initApp() {
   document.getElementById('home-btn-almacen').addEventListener('click', ()=>switchModule('almacen'));
   document.getElementById('home-btn-gestion').addEventListener('click', ()=>switchModule('gestion'));
   document.getElementById('home-btn-formacion').addEventListener('click', ()=>switchModule('formacion'));
+  document.getElementById('home-btn-cartas').addEventListener('click', ()=>switchModule('cartas'));
   document.getElementById('btn-cambiar-modulo').addEventListener('click', volverASeleccionModulo);
   document.getElementById('rtab-btn-entregar').addEventListener('click', ()=>switchRopaTab('entregar'));
   document.getElementById('rtab-btn-historial').addEventListener('click', ()=>switchRopaTab('historial'));
@@ -7405,8 +8113,9 @@ function switchModule(mod) {
   document.getElementById('module-almacen').style.display = mod==='almacen' ? 'block' : 'none';
   document.getElementById('module-gestion').style.display = mod==='gestion' ? 'block' : 'none';
   document.getElementById('module-formacion').style.display = mod==='formacion' ? 'block' : 'none';
+  document.getElementById('module-cartas').style.display = mod==='cartas' ? 'block' : 'none';
   document.getElementById('btn-cambiar-modulo').style.display = 'inline-block';
-  const titulos = {gasoil:'⛽ Gasoil', fleet:'🚛 Flota', ropa:'👔 Ropa', adrcap:'🪪 ADR/CAP', seguros:'🛡️ Seguros', almacen:'📦 Almacén', gestion:'⚙️ Configuración', formacion:'🎓 Formación'};
+  const titulos = {gasoil:'⛽ Gasoil', fleet:'🚛 Flota', ropa:'👔 Ropa', adrcap:'🪪 ADR/CAP', seguros:'🛡️ Seguros', almacen:'📦 Almacén', gestion:'⚙️ Configuración', formacion:'🎓 Formación', cartas:'📄 Cartas de porte'};
   document.getElementById('admin-topbar-title').textContent = titulos[mod]||'';
   if (mod==='gasoil') { renderAdminStats(); renderAdminRecords(); renderDeposito(); }
   if (mod==='fleet') { populateHistMatriculas(); renderHistorial(); renderMantenimiento(); updateFleetBadge(); populateHistMantMatriculas(); renderHistorialMant(); flRenderResumen(); }
@@ -7445,6 +8154,7 @@ function switchModule(mod) {
   }
   if (mod==='gestion') { switchGestionTab('conductores'); modAbrirListas(); }
   if (mod==='formacion') { populateCreditosSelects(); renderCreditosResumen(); renderCursosFormacionList(); }
+  if (mod==='cartas') { cpEntrar(); }
 }
 
 function volverASeleccionModulo() {
@@ -7468,7 +8178,7 @@ function volverASeleccionModulo() {
 }
 
 function pedirCodigoModulo(mod) {
-  const nombres = {gasoil:'⛽ Gasoil', fleet:'🚛 Flota', ropa:'👔 Ropa', adrcap:'🪪 ADR/CAP', seguros:'🛡️ Seguros', formacion:'🎓 Formación'};
+  const nombres = {gasoil:'⛽ Gasoil', fleet:'🚛 Flota', ropa:'👔 Ropa', adrcap:'🪪 ADR/CAP', seguros:'🛡️ Seguros', formacion:'🎓 Formación', cartas:'📄 Cartas de porte'};
   const modal = document.createElement('div');
   modal.id = 'codigo-modulo-modal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:999;display:flex;align-items:center;justify-content:center;padding:1rem;';
