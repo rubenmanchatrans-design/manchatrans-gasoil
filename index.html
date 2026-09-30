@@ -2336,7 +2336,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v82 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v85 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -5001,6 +5001,7 @@ function cpRenderForm() {
         ${cpCampo('cp-t-pob','Población', c.transportista.poblacion, {ruta:'transportista.poblacion', ancho:'cp-c2'})}
         ${cpCampo('cp-t-prov','Provincia', c.transportista.provincia, {ruta:'transportista.provincia', ancho:'cp-c4'})}
       </div>
+      <button type="button" class="alm-accion" onclick="cpGuardarEmpresa()">💾 Guardar empresa</button>
 
       <div class="cp-sub">👤 ¿Quién conduce?</div>
       <div class="cp-adr-elegir" style="margin-bottom:0.6rem">
@@ -5008,8 +5009,9 @@ function cpRenderForm() {
         <button type="button" class="${!c.transportista.autonomo ? 'on-no' : ''}" onclick="cpModoConductor(false)">🚛 Un conductor de la empresa</button>
       </div>
       ${c.transportista.autonomo ? `
-        <div style="font-size:13px;color:var(--text-muted);margin:-0.2rem 0 0.5rem">Conduce <strong>${cpEsc(c.transportista.nombre || 'el autónomo')}</strong>.</div>
+        <div style="font-size:13px;color:var(--text-muted);margin:-0.2rem 0 0.5rem">Conduce el mismo autónomo de arriba${c.transportista.nombre ? `: <strong>${cpEsc(c.transportista.nombre)}</strong>` : ''}.</div>
         <div class="cp-fila">${cpCampo('cp-t-tel','Teléfono del conductor', c.transportista.telefono, {ruta:'transportista.telefono', ancho:'cp-c2', tipo:'tel'})}</div>
+        <button type="button" class="alm-accion" onclick="cpGuardarConductor()">💾 Guardar autónomo</button>
       ` : `
         ${cpConductoresDe(c.transportista.nombre).length ? `<div class="cp-campo"><label>Conductor de ${cpEsc(c.transportista.nombre)} que ya ha venido</label>
           <select onchange="cpElegirConductor(this.value)">
@@ -5021,12 +5023,13 @@ function cpRenderForm() {
           ${cpCampo('cp-t-dni','DNI del conductor', c.transportista.conductorDni, {ruta:'transportista.conductorDni', ancho:'cp-c3'})}
           ${cpCampo('cp-t-tel','Teléfono del conductor', c.transportista.telefono, {ruta:'transportista.telefono', ancho:'cp-c3', tipo:'tel'})}
         </div>
+        <button type="button" class="alm-accion" onclick="cpGuardarConductor()">💾 Guardar conductor</button>
       `}
-      <div style="font-size:12px;color:var(--text-muted);margin:0 0 0.5rem">Si la empresa o el conductor son nuevos, rellena los datos: al generar la carta se guardan solos.</div>
+      <div style="font-size:12px;color:var(--text-muted);margin:0.5rem 0">Puedes guardarlos con los botones 💾, y si se te olvida, al generar la carta se guardan solos.</div>
       <div class="cp-fila">
         ${cpHtmlSelectMat('tractora', 'Matrícula cabeza tractora')}
         <div class="cp-campo cp-c2"><label>Matrícula semirremolque</label>
-          <input id="cp-t-semi" value="${cpEsc(c.transportista.semirremolque||'')}" placeholder="Escríbela (cada día puede ser uno)" autocomplete="off"
+          <input id="cp-t-semi" name="semi-${Date.now()}" value="${cpEsc(c.transportista.semirremolque||'')}" autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true"
             style="font-family:monospace;font-size:16px;font-weight:700;text-transform:uppercase" oninput="cpEstado.transportista.semirremolque=this.value.toUpperCase()"></div>
       </div>
     </div>
@@ -5598,7 +5601,7 @@ window.cpBorrarRemit = async (id) => {
 };
 // ── Plantillas de transportista ──
 // Empresas transportistas guardadas (agrupando las fichas por nombre de empresa)
-const cpEsAutonomo = t => t.autonomo !== undefined ? !!t.autonomo : (!t.conductor || cpNormNombre(t.conductor) === cpNormNombre(t.nombre));
+const cpEsAutonomo = t => t.autonomo !== undefined && t.autonomo !== null ? !!t.autonomo : (!t.conductor || cpNormNombre(t.conductor) === cpNormNombre(t.nombre));
 function cpEmpresas() {
   const m = new Map();
   cpTrans.forEach(t => {
@@ -5647,6 +5650,35 @@ window.cpModoConductor = (autonomo) => {
   cpRenderForm();
 };
 
+// Guardar solo la empresa (sin conductor todavía)
+window.cpGuardarEmpresa = async () => {
+  const t = cpEstado.transportista;
+  if (!(t.nombre||'').trim()) { mostrarMensajeFlotante?.('Pon el nombre de la empresa'); document.getElementById('cp-t-nombre')?.focus(); return; }
+  const empresa = {nombre:t.nombre.trim().toUpperCase(), nif:(t.nif||'').toUpperCase(), domicilio:t.domicilio||'', cp:t.cp||'', poblacion:(t.poblacion||'').toUpperCase(), provincia:(t.provincia||'').toUpperCase()};
+  Object.assign(t, empresa);
+  try {
+    const suyas = cpTrans.filter(x => cpNormNombre(x.nombre) === cpNormNombre(empresa.nombre));
+    if (suyas.length) await Promise.all(suyas.map(x => updateDoc(doc(db,'cartasTransportistas',x.id), {...empresa, ts: Date.now()})));
+    else await addDoc(collection(db,'cartasTransportistas'), {...empresa, autonomo: !!t.autonomo, conductor: t.autonomo ? empresa.nombre : '', conductorDni:'', telefono: t.autonomo ? (t.telefono||'') : '', tractora: t.tractora||'', tractoras: cpAnadirMatricula([], t.tractora), ts: Date.now()});
+    mostrarMensajeFlotante?.(suyas.length ? '💾 Empresa actualizada' : '💾 Empresa guardada');
+    setTimeout(cpRenderForm, 150);
+  } catch(e) { alert('No se ha podido guardar: ' + e.message); }
+};
+// Guardar el conductor (ligado a su empresa), o la ficha del autónomo
+window.cpGuardarConductor = async () => {
+  const t = cpEstado.transportista;
+  if (!(t.nombre||'').trim()) { mostrarMensajeFlotante?.('Primero pon la empresa transportista'); document.getElementById('cp-t-nombre')?.focus(); return; }
+  if (!t.autonomo && !(t.conductor||'').trim()) { mostrarMensajeFlotante?.('Pon el nombre del conductor'); document.getElementById('cp-t-cond')?.focus(); return; }
+  t.nombre = t.nombre.trim().toUpperCase();
+  if (!t.autonomo) t.conductor = t.conductor.trim().toUpperCase();
+  await cpGuardarTrans(true);
+  // si existía la empresa "sin conductor", ya no hace falta
+  const vacia = cpTrans.find(x => cpNormNombre(x.nombre) === cpNormNombre(t.nombre) && x.autonomo === false && !x.conductor);
+  if (vacia && !t.autonomo) { try { await deleteDoc(doc(db,'cartasTransportistas',vacia.id)); } catch(e) {} }
+  mostrarMensajeFlotante?.(t.autonomo ? '💾 Autónomo guardado' : `💾 Conductor guardado en ${t.nombre}`);
+  setTimeout(cpRenderForm, 150);
+};
+
 window.cpUsarTrans = (id) => {
   const t = cpTrans.find(x => x.id === id);
   if (!t) return;
@@ -5660,8 +5692,9 @@ window.cpGuardarTrans = async (silencioso = false) => {
     const conductor = t.autonomo ? t.nombre : (t.conductor||'');
     // misma empresa y mismo conductor = la misma ficha
     const ya = cpTrans.find(x => cpNormNombre(x.nombre) === cpNormNombre(t.nombre) && cpNormNombre(cpEsAutonomo(x) ? x.nombre : x.conductor) === cpNormNombre(conductor) && cpEsAutonomo(x) === !!t.autonomo);
+    Object.assign(t, {nombre:(t.nombre||'').trim().toUpperCase(), nif:(t.nif||'').toUpperCase(), domicilio:(t.domicilio||'').toUpperCase(), poblacion:(t.poblacion||'').toUpperCase(), provincia:(t.provincia||'').toUpperCase()});
     const datos = {nombre:t.nombre, nif:t.nif||'', domicilio:t.domicilio||'', cp:t.cp||'', poblacion:t.poblacion||'', provincia:t.provincia||'',
-      autonomo: !!t.autonomo, conductor, conductorDni: t.autonomo ? '' : (t.conductorDni||''), telefono:t.telefono||'', tractora:t.tractora||'',
+      autonomo: !!t.autonomo, conductor, conductorDni: t.autonomo ? '' : (t.conductorDni||'').toUpperCase(), telefono:t.telefono||'', tractora:t.tractora||'',
       tractoras: cpAnadirMatricula(cpAnadirMatricula(ya?.tractoras, ya?.tractora), t.tractora),
       ts: Date.now()};         // el semirremolque no se guarda: cada día puede ser uno distinto
     if (ya) await updateDoc(doc(db,'cartasTransportistas',ya.id), datos);
@@ -5688,9 +5721,9 @@ function cpRenderTrans() {
       <div class="gs-fila">
         <div class="fl-ico">🚛</div>
         <div class="gs-fila-info">
-          <div class="gs-tit">${cpEsc(t.nombre)} <span style="font-weight:500;font-size:12px;color:var(--text-muted)">${cpEsAutonomo(t) ? '· autónomo' : '· empresa'}</span></div>
+          <div class="gs-tit">${cpEsc(t.nombre)} <span style="font-weight:500;font-size:12px;color:var(--text-muted)">${cpEsAutonomo(t) ? '· autónomo' : (t.conductor ? '· empresa' : '· empresa (sin conductores todavía)')}</span></div>
           <div class="gs-sub">${cpEsc(t.nif||'')}${t.domicilio?' · '+cpEsc(cpDomicilioTexto(cpPartirDomicilio(t))):''}</div>
-          <div class="gs-chips">${t.conductor && !cpEsAutonomo(t) ? `<span class="gs-chip">👤 ${cpEsc(t.conductor)}${t.conductorDni?' · DNI '+cpEsc(t.conductorDni):''}${t.telefono?' · '+cpEsc(t.telefono):''}</span>` : (t.telefono ? `<span class="gs-chip">📞 ${cpEsc(t.telefono)}</span>` : '')}${cpAnadirMatricula(t.tractoras, t.tractora).map(m=>`<span class="gs-chip">🚛 ${cpEsc(m)}</span>`).join('')}${cpAnadirMatricula(t.semis, t.semirremolque).map(m=>`<span class="gs-chip">🔗 ${cpEsc(m)}</span>`).join('')}</div>
+          <div class="gs-chips">${t.conductor && !cpEsAutonomo(t) ? `<span class="gs-chip">👤 ${cpEsc(t.conductor)}${t.conductorDni?' · DNI '+cpEsc(t.conductorDni):''}${t.telefono?' · '+cpEsc(t.telefono):''}</span>` : (t.telefono ? `<span class="gs-chip">📞 ${cpEsc(t.telefono)}</span>` : '')}${cpAnadirMatricula(t.tractoras, t.tractora).map(m=>`<span class="gs-chip">🚛 ${cpEsc(m)}</span>`).join('')}</div>
         </div>
         <div class="gs-acciones">
           <button class="alm-accion alm-accion-ver" onclick="cpUsarTrans('${t.id}'); cpTab('nueva')">📄 Nueva carta</button>
