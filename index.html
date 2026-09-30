@@ -2330,7 +2330,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v77 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v78 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -4882,6 +4882,7 @@ function cpEntrar() {
     }).catch(()=>{});
     onSnapshot(collection(db,'cartasRemitentes'), snap => {
       cpRemit = snap.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b) => (a.nombre||'').localeCompare(b.nombre||''));
+      cpLimpiarRemitAntiguos();
       if (document.getElementById('cp-pane-remit')?.style.display !== 'none') cpRenderRemit();
       if (cpEstado?.adr && document.getElementById('cp-pane-nueva')?.style.display !== 'none' && !document.getElementById('alm-modal') && document.querySelector('.cp-adr-linea')) cpRenderForm();
     }, e => console.warn('cartasRemitentes', e));
@@ -5284,9 +5285,95 @@ window.cpGuardarFijos = async () => {
   catch(e) { alert('No se ha podido guardar: ' + e.message); }
 };
 
+// ── Municipios de España (datos abiertos del INE) ──
+// municipios.json: {"13063": {"nombre":"Piedrabuena","codigos_postales":["13100"]}, ...}
+const CP_MUNI_URL = 'https://cdn.jsdelivr.net/gh/regi-es/ds-codigos-postales-ine-es@2026-01/data/municipios.json';
+const CP_PROVINCIAS = {'01':'ÁLAVA','02':'ALBACETE','03':'ALICANTE','04':'ALMERÍA','05':'ÁVILA','06':'BADAJOZ','07':'ILLES BALEARS','08':'BARCELONA','09':'BURGOS','10':'CÁCERES',
+  '11':'CÁDIZ','12':'CASTELLÓN','13':'CIUDAD REAL','14':'CÓRDOBA','15':'A CORUÑA','16':'CUENCA','17':'GIRONA','18':'GRANADA','19':'GUADALAJARA','20':'GIPUZKOA',
+  '21':'HUELVA','22':'HUESCA','23':'JAÉN','24':'LEÓN','25':'LLEIDA','26':'LA RIOJA','27':'LUGO','28':'MADRID','29':'MÁLAGA','30':'MURCIA',
+  '31':'NAVARRA','32':'OURENSE','33':'ASTURIAS','34':'PALENCIA','35':'LAS PALMAS','36':'PONTEVEDRA','37':'SALAMANCA','38':'SANTA CRUZ DE TENERIFE','39':'CANTABRIA','40':'SEGOVIA',
+  '41':'SEVILLA','42':'SORIA','43':'TARRAGONA','44':'TERUEL','45':'TOLEDO','46':'VALENCIA','47':'VALLADOLID','48':'BIZKAIA','49':'ZAMORA','50':'ZARAGOZA','51':'CEUTA','52':'MELILLA'};
+let cpMuni = null, cpMuniCargando = null, cpMuniPorNombre = null, cpMuniPorCp = null;
+// "Solana, La" -> "LA SOLANA"; "Alacant/Alicante" -> dos nombres
+function cpNombresMuni(n) {
+  return String(n||'').split('/').map(x => {
+    const m = x.trim().match(/^(.*),\s*(El|La|Los|Las|L'|Lo|Les|Els|O|A|Os|As)$/i);
+    return m ? `${m[2]} ${m[1]}`.replace("L' ", "L'") : x.trim();
+  });
+}
+function cpCargarMuni() {
+  if (cpMuni || cpMuniCargando) return cpMuniCargando || Promise.resolve(cpMuni);
+  cpMuniCargando = fetch(CP_MUNI_URL).then(r => r.json()).then(j => {
+    cpMuni = []; cpMuniPorNombre = new Map(); cpMuniPorCp = new Map();
+    Object.entries(j).forEach(([ine, d]) => {
+      const cps = (d.codigos_postales || []).slice().sort();
+      cpNombresMuni(d.nombre).forEach(nom => {
+        const m = {nombre: nom.toUpperCase(), ine, cps, provincia: CP_PROVINCIAS[ine.slice(0,2)] || ''};
+        cpMuni.push(m);
+        const k = cpNormNombre(nom);
+        (cpMuniPorNombre.get(k) || cpMuniPorNombre.set(k, []).get(k)).push(m);
+      });
+      cps.forEach(cp => { const l = cpMuniPorCp.get(cp) || []; if (!l.some(x => x.ine === ine)) l.push({nombre: cpNombresMuni(d.nombre)[0].toUpperCase(), ine}); cpMuniPorCp.set(cp, l); });
+    });
+    cpMuni.sort((a,b) => a.nombre.localeCompare(b.nombre));
+    return cpMuni;
+  }).catch(e => { console.warn('Municipios:', e); cpMuniCargando = null; return null; });
+  return cpMuniCargando;
+}
+// Al escribir la población: sugerencias de municipios
+window.cpSugerirMuni = async (v) => {
+  const cont = document.getElementById('cp-muni-sug');
+  if (!cont) return;
+  const q = cpNormNombre(v);
+  if (q.length < 2) { cont.style.display = 'none'; return; }
+  await cpCargarMuni();
+  if (!cpMuni) { cont.style.display = 'none'; return; }
+  const emp = cpMuni.filter(m => cpNormNombre(m.nombre).startsWith(q));
+  const con = cpMuni.filter(m => !cpNormNombre(m.nombre).startsWith(q) && cpNormNombre(m.nombre).includes(q));
+  const lista = [...emp, ...con].slice(0, 10);
+  cont.innerHTML = lista.map((m,i) => `<div class="cp-sug-op" onmousedown="event.preventDefault(); cpElegirMuni('${m.ine}', '${m.nombre.replace(/'/g,"\\'")}')">
+    <strong>${cpEsc(m.nombre)}</strong><span>${cpEsc(m.provincia)} · ${m.cps.length === 1 ? 'CP ' + m.cps[0] : m.cps.length + ' códigos postales'}</span></div>`).join('');
+  cont.style.display = lista.length ? 'block' : 'none';
+};
+window.cpElegirMuni = (ine, nombre) => {
+  const m = cpMuni.find(x => x.ine === ine && x.nombre === nombre) || cpMuni.find(x => x.ine === ine);
+  if (!m) return;
+  document.getElementById('cp-r-poblacion').value = m.nombre;
+  document.getElementById('cp-r-provincia').value = m.provincia;
+  document.getElementById('cp-muni-sug').style.display = 'none';
+  const cpInp = document.getElementById('cp-r-cp'), elegir = document.getElementById('cp-cp-elegir');
+  if (m.cps.length === 1) { cpInp.value = m.cps[0]; elegir.innerHTML = ''; }
+  else {
+    if (!m.cps.includes(cpInp.value)) cpInp.value = m.cps[0];
+    elegir.innerHTML = `<div style="font-size:12px;color:var(--text-muted);margin:0.2rem 0">${cpEsc(m.nombre)} tiene ${m.cps.length} códigos postales. Toca el que corresponda:</div>
+      <div class="cp-mats">${m.cps.map(c => `<button type="button" class="${c===cpInp.value?'on':''}" onclick="document.getElementById('cp-r-cp').value='${c}'; this.parentNode.querySelectorAll('button').forEach(b=>b.classList.toggle('on', b===this))">${c}</button>`).join('')}</div>`;
+  }
+};
+// Al escribir el código postal: provincia siempre, y población si es de un solo municipio
+window.cpDesdeCp = async (v) => {
+  const cp = String(v||'').trim();
+  if (!/^\d{5}$/.test(cp)) return;
+  const prov = CP_PROVINCIAS[cp.slice(0,2)];
+  const provInp = document.getElementById('cp-r-provincia');
+  if (prov && !provInp.value) provInp.value = prov;
+  await cpCargarMuni();
+  const pobInp = document.getElementById('cp-r-poblacion');
+  const l = cpMuniPorCp && cpMuniPorCp.get(cp);
+  if (l && l.length === 1 && !pobInp.value) pobInp.value = l[0].nombre;
+};
+
 // ── Remitentes (clientes) ──
 // Solo los dados de alta a mano (los importados del Excel, si los hubo, no se usan)
-function cpRemitPropios() { return cpRemit.filter(r => r.origen !== 'excel'); }
+function cpRemitPropios() { return cpRemit.filter(r => r.origen !== 'excel' && ('domicilio' in r)); }
+// Los importados del Excel o guardados solos (sin ficha) en versiones anteriores se borran una vez
+let cpRemitLimpiado = false;
+function cpLimpiarRemitAntiguos() {
+  if (cpRemitLimpiado) return;
+  const sobran = cpRemit.filter(r => r.origen === 'excel' || !('domicilio' in r));
+  if (!sobran.length) return;
+  cpRemitLimpiado = true;
+  (async () => { for (let i = 0; i < sobran.length; i += 25) await Promise.all(sobran.slice(i, i+25).map(r => deleteDoc(doc(db,'cartasRemitentes',r.id)).catch(()=>{}))); })();
+}
 window.cpElegirRemitSel = (i, id) => {
   const l = cpEstado.adrLineas[i];
   const r = cpRemit.find(x => x.id === id);
@@ -5362,7 +5449,6 @@ function cpRenderRemit() {
       <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.6rem">Son los que salen en el desplegable del remitente de cada materia ADR. También se pueden crear desde la propia carta con "➕ Nuevo".</div>
       <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
         <button class="btn btn-primary" style="width:auto;padding:0.7rem 1rem" onclick="cpNuevoRemit()">➕ Nuevo remitente</button>
-        ${cpRemit.some(r => r.origen === 'excel') ? `<button class="btn btn-ghost" style="width:auto;padding:0.7rem 1rem;border-color:var(--danger);color:#ff8b80" onclick="cpQuitarImportados()">🗑 Quitar los ${cpRemit.filter(r => r.origen === 'excel').length} importados del Excel</button>` : ''}
       </div>
       <div id="cp-remit-aviso" style="font-size:13px;margin-top:0.5rem">${cpAvisoRemit}</div>
     </div>
@@ -5383,17 +5469,28 @@ window.cpNuevoRemit = (id, linea = null) => {
   const r = id ? cpRemit.find(x => x.id === id) || {} : {};
   const campo = (k, t, ph='') => `<div class="cp-campo"><label>${t}</label><input id="cp-r-${k}" value="${cpEsc(r[k]||'')}" placeholder="${ph}"></div>`;
   almAbrirModal(id ? '✏️ Remitente' : '➕ Nuevo remitente', `
-    ${campo('nombre','Nombre o razón social')}
-    <div class="cp-fila">${campo('nif','NIF / CIF')}${campo('cp','Código postal')}</div>
-    ${campo('domicilio','Domicilio')}
-    <div class="cp-fila">${campo('poblacion','Población')}${campo('provincia','Provincia')}</div>`,
+    ${campo('nombre','Nombre del remitente')}
+    ${campo('domicilio','Dirección')}
+    <div class="cp-campo" style="position:relative"><label>Población</label>
+      <input id="cp-r-poblacion" value="${cpEsc(r.poblacion||'')}" placeholder="Empieza a escribir el pueblo" autocomplete="off"
+        oninput="cpSugerirMuni(this.value)" onblur="setTimeout(()=>{const c=document.getElementById('cp-muni-sug'); if(c && document.activeElement?.id!=='cp-r-poblacion') c.style.display='none'},250)">
+      <div id="cp-muni-sug" class="cp-sug"></div></div>
+    <div class="cp-fila">
+      <div class="cp-campo"><label>Código postal</label><input id="cp-r-cp" value="${cpEsc(r.cp||'')}" inputmode="numeric" maxlength="5" oninput="cpDesdeCp(this.value)"></div>
+      ${campo('provincia','Provincia')}
+    </div>
+    <div id="cp-cp-elegir"></div>
+    <div style="font-size:12px;color:var(--text-muted)">Al elegir la población se rellenan solos el código postal y la provincia.</div>`,
     `<button class="btn btn-primary" onclick="cpGuardarRemit('${id||''}', ${linea === null ? 'null' : linea})">💾 Guardar${linea !== null ? ' y usar' : ''}</button><button class="btn btn-ghost" onclick="almCerrarModal()">Cancelar</button>`);
   setTimeout(() => document.getElementById('cp-r-nombre')?.focus(), 50);
+  cpCargarMuni();          // se va cargando la lista de municipios
 };
 window.cpGuardarRemit = async (id, linea = null) => {
   const v = k => (document.getElementById('cp-r-'+k)?.value || '').trim();
-  const datos = {nombre: v('nombre').toUpperCase(), nif: v('nif').toUpperCase(), domicilio: v('domicilio'), cp: v('cp'), poblacion: v('poblacion').toUpperCase(), provincia: v('provincia').toUpperCase(), ts: Date.now()};
+  const datos = {nombre: v('nombre').toUpperCase(), domicilio: v('domicilio').toUpperCase(), cp: v('cp'), poblacion: v('poblacion').toUpperCase(), provincia: v('provincia').toUpperCase(), ts: Date.now()};
   if (!datos.nombre) { document.getElementById('cp-r-nombre')?.focus(); return; }
+  const falta = [['domicilio','la dirección'],['cp','el código postal'],['poblacion','la población'],['provincia','la provincia']].filter(([k]) => !datos[k]);
+  if (falta.length && !confirm('Falta ' + falta.map(x=>x[1]).join(', ') + '. ¿Guardar igualmente?')) return;
   try {
     if (id) await updateDoc(doc(db,'cartasRemitentes',id), datos);
     else {
@@ -5405,7 +5502,7 @@ window.cpGuardarRemit = async (id, linea = null) => {
     if (linea !== null && cpEstado.adrLineas[linea]) {
       const {ts, ...d} = datos;
       cpEstado.adrLineas[linea].remitente = datos.nombre;
-      cpEstado.adrLineas[linea].remitenteDatos = d;
+      cpEstado.adrLineas[linea].remitenteDatos = {nif:'', ...d};
       setTimeout(cpRenderForm, 300);       // da tiempo a que llegue a la lista
     }
     mostrarMensajeFlotante?.('💾 Remitente guardado');
