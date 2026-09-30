@@ -2336,7 +2336,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v81 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v82 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -4864,7 +4864,7 @@ function cpNuevaCarta() {
     destinoTxt: f.destinoTxt || CP_DEFECTO.destinoTxt, lugarDestino: f.lugarDestino || CP_DEFECTO.lugarDestino,
     anexos: '', contrato: '', precinto: '', observaciones: '',
     operadorTxt: f.operadorTxt || CP_DEFECTO.operadorTxt,
-    transportista: {nombre:'', nif:'', domicilio:'', cp:'', poblacion:'', provincia:'', conductor:'', telefono:'', tractora:'', semirremolque:''},
+    transportista: {nombre:'', nif:'', domicilio:'', cp:'', poblacion:'', provincia:'', autonomo:true, conductor:'', conductorDni:'', telefono:'', tractora:'', semirremolque:''},
     mercancia: [{bultos:'', embalaje:'Palets y bultos', naturaleza: CP_DEFECTO.naturaleza, peso:'', volumen:''}],
     adr: false, adrLineas: [],
   };
@@ -4969,6 +4969,7 @@ function cpRenderForm() {
   const c = cpEstado, el = document.getElementById('cp-pane-nueva');
   if (!el) return;
   if (!c.id) cpMatriculasPorDefecto();
+  if (c.transportista.autonomo === undefined) c.transportista.autonomo = cpEsAutonomo(c.transportista);   // cartas antiguas
   const mats = [...new Set([...(vehiculosCache||[]).filter(v=>v.activo!==false).map(v=>v.matricula), ...cpTrans.flatMap(t=>[t.tractora,t.semirremolque])])].filter(Boolean).sort();
   el.innerHTML = `
     <datalist id="cp-mats">${mats.map(m=>`<option value="${cpEsc(m)}">`).join('')}</datalist>
@@ -4984,15 +4985,15 @@ function cpRenderForm() {
 
     <div class="refuel-card cp-card">
       <div class="cp-tit">Empresa transportista y conductor</div>
-      <div class="cp-campo"><label>👤 Conductor guardado (${cpTrans.length})</label>
-        <select id="cp-sel-trans" onchange="cpUsarTrans(this.value)" style="font-size:16px;font-weight:600">
-          <option value="">— Elegir conductor —</option>
-          ${cpTrans.map(t=>`<option value="${t.id}">${cpEsc(t.conductor||t.nombre)} · ${cpEsc(t.tractora||'')}${t.semirremolque?' + '+cpEsc(t.semirremolque):''}</option>`).join('')}
+      <div class="cp-sub" style="margin-top:0">🏢 Empresa transportista</div>
+      <div class="cp-campo"><label>Empresa guardada (${cpEmpresas().length})</label>
+        <select id="cp-sel-emp" onchange="cpElegirEmpresa(this.value)" style="font-size:16px;font-weight:600">
+          <option value="">— Elegir empresa, o rellenar una nueva abajo —</option>
+          ${cpEmpresas().map(e => `<option value="${cpEsc(e.clave)}" ${e.clave === cpNormNombre(c.transportista.nombre) ? 'selected' : ''}>${cpEsc(e.nombre)}${e.autonomo ? ' (autónomo)' : ''}</option>`).join('')}
         </select></div>
-      <div style="font-size:12px;color:var(--text-muted);margin:-0.2rem 0 0.6rem">Si el conductor es nuevo, rellena los datos: al generar la carta se guarda solo.</div>
       <div class="cp-fila">
-        ${cpCampo('cp-t-nombre','Empresa transportista / autónomo', c.transportista.nombre, {ruta:'transportista.nombre', ancho:'cp-c2'})}
-        ${cpCampo('cp-t-nif','DNI / NIF', c.transportista.nif, {ruta:'transportista.nif', ancho:'cp-c2'})}
+        ${cpCampo('cp-t-nombre','Nombre de la empresa o del autónomo', c.transportista.nombre, {ruta:'transportista.nombre', ancho:'cp-c2'})}
+        ${cpCampo('cp-t-nif', c.transportista.autonomo ? 'DNI' : 'NIF / CIF', c.transportista.nif, {ruta:'transportista.nif', ancho:'cp-c2'})}
       </div>
       ${cpCampo('cp-t-dom','Domicilio (calle y número)', c.transportista.domicilio, {ruta:'transportista.domicilio'})}
       <div class="cp-fila">
@@ -5000,10 +5001,28 @@ function cpRenderForm() {
         ${cpCampo('cp-t-pob','Población', c.transportista.poblacion, {ruta:'transportista.poblacion', ancho:'cp-c2'})}
         ${cpCampo('cp-t-prov','Provincia', c.transportista.provincia, {ruta:'transportista.provincia', ancho:'cp-c4'})}
       </div>
-      <div class="cp-fila">
-        ${cpCampo('cp-t-cond','Conductor', c.transportista.conductor, {ruta:'transportista.conductor', ancho:'cp-c2', placeholder:'Si es el mismo, se puede dejar vacío'})}
-        ${cpCampo('cp-t-tel','Teléfono del conductor', c.transportista.telefono, {ruta:'transportista.telefono', ancho:'cp-c2', tipo:'tel'})}
+
+      <div class="cp-sub">👤 ¿Quién conduce?</div>
+      <div class="cp-adr-elegir" style="margin-bottom:0.6rem">
+        <button type="button" class="${c.transportista.autonomo ? 'on-no' : ''}" onclick="cpModoConductor(true)">👤 El propio autónomo</button>
+        <button type="button" class="${!c.transportista.autonomo ? 'on-no' : ''}" onclick="cpModoConductor(false)">🚛 Un conductor de la empresa</button>
       </div>
+      ${c.transportista.autonomo ? `
+        <div style="font-size:13px;color:var(--text-muted);margin:-0.2rem 0 0.5rem">Conduce <strong>${cpEsc(c.transportista.nombre || 'el autónomo')}</strong>.</div>
+        <div class="cp-fila">${cpCampo('cp-t-tel','Teléfono del conductor', c.transportista.telefono, {ruta:'transportista.telefono', ancho:'cp-c2', tipo:'tel'})}</div>
+      ` : `
+        ${cpConductoresDe(c.transportista.nombre).length ? `<div class="cp-campo"><label>Conductor de ${cpEsc(c.transportista.nombre)} que ya ha venido</label>
+          <select onchange="cpElegirConductor(this.value)">
+            <option value="">— Elegir conductor, o rellenar uno nuevo abajo —</option>
+            ${cpConductoresDe(c.transportista.nombre).map(t => `<option value="${t.id}" ${cpNormNombre(t.conductor) === cpNormNombre(c.transportista.conductor) ? 'selected' : ''}>${cpEsc(t.conductor)}${t.telefono ? ' · ' + cpEsc(t.telefono) : ''}</option>`).join('')}
+          </select></div>` : ''}
+        <div class="cp-fila">
+          ${cpCampo('cp-t-cond','Nombre del conductor', c.transportista.conductor, {ruta:'transportista.conductor', ancho:'cp-c3'})}
+          ${cpCampo('cp-t-dni','DNI del conductor', c.transportista.conductorDni, {ruta:'transportista.conductorDni', ancho:'cp-c3'})}
+          ${cpCampo('cp-t-tel','Teléfono del conductor', c.transportista.telefono, {ruta:'transportista.telefono', ancho:'cp-c3', tipo:'tel'})}
+        </div>
+      `}
+      <div style="font-size:12px;color:var(--text-muted);margin:0 0 0.5rem">Si la empresa o el conductor son nuevos, rellena los datos: al generar la carta se guardan solos.</div>
       <div class="cp-fila">
         ${cpHtmlSelectMat('tractora', 'Matrícula cabeza tractora')}
         <div class="cp-campo cp-c2"><label>Matrícula semirremolque</label>
@@ -5578,37 +5597,88 @@ window.cpBorrarRemit = async (id) => {
   try { await deleteDoc(doc(db,'cartasRemitentes',id)); } catch(e) { alert(e.message); }
 };
 // ── Plantillas de transportista ──
+// Empresas transportistas guardadas (agrupando las fichas por nombre de empresa)
+const cpEsAutonomo = t => t.autonomo !== undefined ? !!t.autonomo : (!t.conductor || cpNormNombre(t.conductor) === cpNormNombre(t.nombre));
+function cpEmpresas() {
+  const m = new Map();
+  cpTrans.forEach(t => {
+    const k = cpNormNombre(t.nombre); if (!k) return;
+    const e = m.get(k);
+    if (!e || (t.ts||0) > (e.ult.ts||0)) m.set(k, {clave:k, nombre:t.nombre, ult:t, autonomo: cpEsAutonomo(t)});
+  });
+  return [...m.values()].sort((a,b) => a.nombre.localeCompare(b.nombre));
+}
+function cpConductoresDe(nombreEmpresa) {
+  const k = cpNormNombre(nombreEmpresa);
+  return cpTrans.filter(t => cpNormNombre(t.nombre) === k && !cpEsAutonomo(t) && t.conductor).sort((a,b) => (b.ts||0) - (a.ts||0));
+}
+// Rellena la carta con una ficha guardada (empresa + conductor)
+function cpRellenarDesde(t) {
+  const d = cpPartirDomicilio(t);
+  const tr = cpEstado.transportista;
+  Object.assign(tr, {nombre:d.nombre||'', nif:d.nif||'', domicilio:d.domicilio||'', cp:d.cp||'', poblacion:d.poblacion||'', provincia:d.provincia||'',
+    autonomo: cpEsAutonomo(d), conductor: cpEsAutonomo(d) ? (d.nombre||'') : (d.conductor||''), conductorDni: d.conductorDni||'', telefono:d.telefono||'',
+    tractora:d.tractora||'', semirremolque:'', tractoras: cpAnadirMatricula(d.tractoras, d.tractora), idGuardado: t.id});
+}
+window.cpElegirEmpresa = (clave) => {
+  const e = cpEmpresas().find(x => x.clave === clave);
+  if (e) cpRellenarDesde(e.ult);
+  else Object.assign(cpEstado.transportista, {nombre:'', nif:'', domicilio:'', cp:'', poblacion:'', provincia:'', autonomo:true, conductor:'', conductorDni:'', telefono:'', idGuardado:null});
+  cpRenderForm();
+};
+window.cpElegirConductor = (id) => {
+  const t = cpTrans.find(x => x.id === id);
+  const tr = cpEstado.transportista;
+  if (t) Object.assign(tr, {autonomo:false, conductor:t.conductor||'', conductorDni:t.conductorDni||'', telefono:t.telefono||'', tractora:t.tractora||tr.tractora,
+                            tractoras: cpAnadirMatricula(t.tractoras, t.tractora), idGuardado:t.id});
+  else Object.assign(tr, {conductor:'', conductorDni:'', telefono:'', idGuardado:null});
+  cpRenderForm();
+};
+window.cpModoConductor = (autonomo) => {
+  const tr = cpEstado.transportista;
+  if (!!tr.autonomo === autonomo) return;
+  tr.autonomo = autonomo;
+  if (autonomo) { tr.conductor = tr.nombre; tr.conductorDni = ''; }
+  else {
+    tr.conductor = ''; tr.conductorDni = ''; tr.telefono = ''; tr.idGuardado = null;
+    const ult = cpConductoresDe(tr.nombre)[0];      // el último conductor de esa empresa
+    if (ult) Object.assign(tr, {conductor:ult.conductor, conductorDni:ult.conductorDni||'', telefono:ult.telefono||'', idGuardado:ult.id});
+  }
+  cpRenderForm();
+};
+
 window.cpUsarTrans = (id) => {
   const t = cpTrans.find(x => x.id === id);
   if (!t) return;
-  const d = cpPartirDomicilio(t);
-  cpEstado.transportista = {nombre:d.nombre||'', nif:d.nif||'', domicilio:d.domicilio||'', cp:d.cp||'', poblacion:d.poblacion||'', provincia:d.provincia||'',
-    conductor:d.conductor||'', telefono:d.telefono||'', tractora:d.tractora||'', semirremolque:'',
-    tractoras: cpAnadirMatricula(d.tractoras, d.tractora), idGuardado: t.id};
+  cpRellenarDesde(t);
   cpRenderForm();
-  document.getElementById('cp-sel-trans').value = id;
 };
 window.cpGuardarTrans = async (silencioso = false) => {
   const t = cpEstado.transportista;
   if (!t.nombre) { if (!silencioso) mostrarMensajeFlotante?.('Pon al menos el nombre del transportista'); return; }
   try {
-    const ya = cpTrans.find(x => x.id === t.idGuardado) ||
-               cpTrans.find(x => (x.nombre||'').toUpperCase() === t.nombre.toUpperCase() && (x.conductor||'').toUpperCase() === (t.conductor||'').toUpperCase());
+    const conductor = t.autonomo ? t.nombre : (t.conductor||'');
+    // misma empresa y mismo conductor = la misma ficha
+    const ya = cpTrans.find(x => cpNormNombre(x.nombre) === cpNormNombre(t.nombre) && cpNormNombre(cpEsAutonomo(x) ? x.nombre : x.conductor) === cpNormNombre(conductor) && cpEsAutonomo(x) === !!t.autonomo);
     const datos = {nombre:t.nombre, nif:t.nif||'', domicilio:t.domicilio||'', cp:t.cp||'', poblacion:t.poblacion||'', provincia:t.provincia||'',
-      conductor:t.conductor||'', telefono:t.telefono||'', tractora:t.tractora||'',
+      autonomo: !!t.autonomo, conductor, conductorDni: t.autonomo ? '' : (t.conductorDni||''), telefono:t.telefono||'', tractora:t.tractora||'',
       tractoras: cpAnadirMatricula(cpAnadirMatricula(ya?.tractoras, ya?.tractora), t.tractora),
       ts: Date.now()};         // el semirremolque no se guarda: cada día puede ser uno distinto
     if (ya) await updateDoc(doc(db,'cartasTransportistas',ya.id), datos);
     else await addDoc(collection(db,'cartasTransportistas'), datos);
+    const empresa = {nif:datos.nif, domicilio:datos.domicilio, cp:datos.cp, poblacion:datos.poblacion, provincia:datos.provincia};
+    await Promise.all(cpTrans.filter(x => x.id !== ya?.id && cpNormNombre(x.nombre) === cpNormNombre(t.nombre))
+      .map(x => updateDoc(doc(db,'cartasTransportistas',x.id), empresa).catch(()=>{})));
     if (!silencioso) mostrarMensajeFlotante?.('💾 Conductor guardado');
   } catch(e) { alert('No se ha podido guardar: ' + e.message); }
 };
 function cpRellenarSelectTrans() {
-  const sel = document.getElementById('cp-sel-trans');
+  // al llegar la lista de empresas, se actualiza su desplegable sin tocar lo que se está escribiendo
+  const sel = document.getElementById('cp-sel-emp');
   if (!sel) return;
-  const v = sel.value;
-  sel.innerHTML = '<option value="">— Elegir transportista guardado —</option>' + cpTrans.map(t=>`<option value="${t.id}">${cpEsc(t.nombre)}${t.conductor?' · '+cpEsc(t.conductor):''}</option>`).join('');
-  sel.value = v;
+  const actual = cpNormNombre(cpEstado?.transportista?.nombre);
+  sel.innerHTML = '<option value="">— Elegir empresa, o rellenar una nueva abajo —</option>' +
+    cpEmpresas().map(e => `<option value="${cpEsc(e.clave)}" ${e.clave === actual ? 'selected' : ''}>${cpEsc(e.nombre)}${e.autonomo ? ' (autónomo)' : ''}</option>`).join('');
 }
 function cpRenderTrans() {
   const el = document.getElementById('cp-pane-trans');
@@ -5618,9 +5688,9 @@ function cpRenderTrans() {
       <div class="gs-fila">
         <div class="fl-ico">🚛</div>
         <div class="gs-fila-info">
-          <div class="gs-tit">${cpEsc(t.nombre)}</div>
+          <div class="gs-tit">${cpEsc(t.nombre)} <span style="font-weight:500;font-size:12px;color:var(--text-muted)">${cpEsAutonomo(t) ? '· autónomo' : '· empresa'}</span></div>
           <div class="gs-sub">${cpEsc(t.nif||'')}${t.domicilio?' · '+cpEsc(cpDomicilioTexto(cpPartirDomicilio(t))):''}</div>
-          <div class="gs-chips">${t.conductor?`<span class="gs-chip">👤 ${cpEsc(t.conductor)}${t.telefono?' · '+cpEsc(t.telefono):''}</span>`:''}${cpAnadirMatricula(t.tractoras, t.tractora).map(m=>`<span class="gs-chip">🚛 ${cpEsc(m)}</span>`).join('')}${cpAnadirMatricula(t.semis, t.semirremolque).map(m=>`<span class="gs-chip">🔗 ${cpEsc(m)}</span>`).join('')}</div>
+          <div class="gs-chips">${t.conductor && !cpEsAutonomo(t) ? `<span class="gs-chip">👤 ${cpEsc(t.conductor)}${t.conductorDni?' · DNI '+cpEsc(t.conductorDni):''}${t.telefono?' · '+cpEsc(t.telefono):''}</span>` : (t.telefono ? `<span class="gs-chip">📞 ${cpEsc(t.telefono)}</span>` : '')}${cpAnadirMatricula(t.tractoras, t.tractora).map(m=>`<span class="gs-chip">🚛 ${cpEsc(m)}</span>`).join('')}${cpAnadirMatricula(t.semis, t.semirremolque).map(m=>`<span class="gs-chip">🔗 ${cpEsc(m)}</span>`).join('')}</div>
         </div>
         <div class="gs-acciones">
           <button class="alm-accion alm-accion-ver" onclick="cpUsarTrans('${t.id}'); cpTab('nueva')">📄 Nueva carta</button>
@@ -5726,6 +5796,8 @@ function cpValidar(c) {
   const f = [];
   if (!c.fecha) f.push('la fecha');
   if (!c.transportista.nombre) f.push('la empresa transportista');
+  if (!c.transportista.autonomo && !(c.transportista.conductor||'').trim()) f.push('el nombre del conductor');
+  if (c.transportista.autonomo) c.transportista.conductor = c.transportista.nombre;
   if (!c.transportista.tractora) f.push('la matrícula');
   if (!c.mercancia.some(m => m.naturaleza || m.bultos || m.peso)) f.push('al menos una línea de mercancía');
   if (c.adr) {
@@ -6023,9 +6095,11 @@ async function cpConstruirPdf(c) {
   };
   const tr = c.transportista;
   const lineasTrans = [
-    {t:`${tr.nombre}${tr.nif ? '   DNI ' + tr.nif : ''}`, b:true},
+    {t:`${tr.nombre}${tr.nif ? `   ${cpEsAutonomo(tr) ? 'DNI' : 'NIF'} ` + tr.nif : ''}`, b:true},
     cpDomicilioTexto(cpPartirDomicilio(tr)) || '',
-    `CONDUCTOR:  ${tr.conductor || tr.nombre}${tr.telefono ? '     TFNO ' + tr.telefono : ''}`,
+    cpEsAutonomo(tr)
+      ? `CONDUCTOR:  ${tr.nombre} (autónomo)${tr.telefono ? '     TFNO ' + tr.telefono : ''}`
+      : `CONDUCTOR:  ${tr.conductor}${tr.conductorDni ? '   DNI ' + tr.conductorDni : ''}${tr.telefono ? '     TFNO ' + tr.telefono : ''}`,
     {t:`Matrícula cabeza tractora:  ${tr.tractora || '—'}          Semirremolque:  ${tr.semirremolque || '—'}`, b:true},
   ];
   // QR dibujado en vectorial (cuadradito a cuadradito): nítido en pantalla y al imprimir
