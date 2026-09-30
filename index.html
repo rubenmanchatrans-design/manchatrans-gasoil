@@ -2298,7 +2298,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v65 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v66 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -4824,6 +4824,7 @@ function cpEntrar() {
     cpUnsub = onSnapshot(query(collection(db,'cartasPorte'), orderBy('ts','desc')), snap => {
       cpCartas = snap.docs.map(d => ({id:d.id, ...d.data()}));
       const n = document.getElementById('cp-n'); if (n) n.textContent = cpCartas.length;
+      if (cpEstado && !cpEstado.id && !cpEstado.transportista.tractora && document.getElementById('cp-pane-nueva')?.style.display !== 'none') cpRenderForm();
       if (document.getElementById('cp-pane-lista')?.style.display !== 'none') cpRenderLista();
       const hi = document.getElementById('home-info-cartas');
       if (hi) { const hoy = new Date().toLocaleDateString('es-ES'); const h = cpCartas.filter(c => c.fechaStr === hoy).length; hi.innerHTML = `📄 <strong>${h}</strong> carta${h===1?'':'s'} hoy`; }
@@ -4896,10 +4897,6 @@ function cpCampo(id, etiqueta, valor, opts = {}) {
 }
 window.cpSet = (ruta, valor) => {
   cpEstado.tocado = true;
-  if (ruta === 'transportista.tractora' || ruta === 'transportista.semirremolque') {
-    const inp = document.getElementById(ruta.endsWith('tractora') ? 'cp-t-trac' : 'cp-t-semi');
-    inp?.closest('.cp-c2')?.querySelectorAll('.cp-mats button').forEach(b => b.classList.toggle('on', b.textContent.trim().toUpperCase().endsWith(' ' + String(valor).trim().toUpperCase()) && !!String(valor).trim()));
-  }
   const p = ruta.split('.'); let o = cpEstado;
   for (let i = 0; i < p.length-1; i++) o = o[p[i]];
   o[p[p.length-1]] = valor;
@@ -4910,6 +4907,7 @@ window.cpSetAdr = (i, k, v) => { cpEstado.adrLineas[i][k] = v; cpPintarPuntos();
 function cpRenderForm() {
   const c = cpEstado, el = document.getElementById('cp-pane-nueva');
   if (!el) return;
+  if (!c.id) cpMatriculasPorDefecto();
   const mats = [...new Set([...(vehiculosCache||[]).filter(v=>v.activo!==false).map(v=>v.matricula), ...cpTrans.flatMap(t=>[t.tractora,t.semirremolque])])].filter(Boolean).sort();
   el.innerHTML = `
     <datalist id="cp-mats">${mats.map(m=>`<option value="${cpEsc(m)}">`).join('')}</datalist>
@@ -4930,7 +4928,7 @@ function cpRenderForm() {
           <option value="">— Elegir conductor —</option>
           ${cpTrans.map(t=>`<option value="${t.id}">${cpEsc(t.conductor||t.nombre)} · ${cpEsc(t.tractora||'')}${t.semirremolque?' + '+cpEsc(t.semirremolque):''}</option>`).join('')}
         </select></div>
-      <div style="font-size:12px;color:var(--text-muted);margin:-0.2rem 0 0.6rem">Si el conductor es nuevo, rellena los datos: al generar la carta se guarda solo. Si hoy lleva otro camión, toca su matrícula debajo de las casillas o escríbela: queda guardada para la próxima.</div>
+      <div style="font-size:12px;color:var(--text-muted);margin:-0.2rem 0 0.6rem">Si el conductor es nuevo, rellena los datos: al generar la carta se guarda solo.</div>
       <div class="cp-fila">
         ${cpCampo('cp-t-nombre','Empresa transportista / autónomo', c.transportista.nombre, {ruta:'transportista.nombre', ancho:'cp-c2'})}
         ${cpCampo('cp-t-nif','DNI / NIF', c.transportista.nif, {ruta:'transportista.nif', ancho:'cp-c2'})}
@@ -4946,14 +4944,8 @@ function cpRenderForm() {
         ${cpCampo('cp-t-tel','Teléfono del conductor', c.transportista.telefono, {ruta:'transportista.telefono', ancho:'cp-c2', tipo:'tel'})}
       </div>
       <div class="cp-fila">
-        <div class="cp-c2" style="min-width:0">
-          ${cpCampo('cp-t-trac','18 · Matrícula cabeza tractora', c.transportista.tractora, {ruta:'transportista.tractora', list:'cp-mats'})}
-          ${cpHtmlMatriculas('tractora', c.transportista.tractoras)}
-        </div>
-        <div class="cp-c2" style="min-width:0">
-          ${cpCampo('cp-t-semi','18 · Matrícula semirremolque', c.transportista.semirremolque, {ruta:'transportista.semirremolque', list:'cp-mats'})}
-          ${cpHtmlMatriculas('semirremolque', c.transportista.semis)}
-        </div>
+        ${cpHtmlSelectMat('tractora', '18 · Matrícula cabeza tractora')}
+        ${cpHtmlSelectMat('semirremolque', '18 · Matrícula semirremolque')}
       </div>
     </div>
 
@@ -5014,18 +5006,45 @@ function cpRenderForm() {
     </div>`;
   if (c.adr) { cpCargarAdr().then(() => cpPintarPuntos()); cpPintarPuntos(); }
 }
-// Botones con las matrículas que ha llevado este conductor
-function cpHtmlMatriculas(campo, lista) {
-  if (!lista || !lista.length) return '';
-  const actual = (cpEstado.transportista[campo] || '').toUpperCase();
-  return `<div class="cp-mats">${lista.map(m => `<button type="button" class="${m.toUpperCase()===actual?'on':''}" onclick="cpPonerMatricula('${campo}','${cpEsc(m)}')">${campo==='tractora'?'🚛':'🔗'} ${cpEsc(m)}</button>`).join('')}</div>`;
+// Desplegable de matrículas: todas las usadas en cartas + las de la flota.
+// Por defecto sale la última con la que se generó una carta (del conductor, o la última en general).
+function cpTodasMatriculas(campo) {
+  const set = new Map();
+  const add = m => { m = String(m||'').trim(); if (m && !set.has(m.toUpperCase())) set.set(m.toUpperCase(), m); };
+  const lista = campo === 'tractora' ? 'tractoras' : 'semis';
+  cpCartas.forEach(c => add(c.transportista?.[campo]));
+  cpTrans.forEach(t => { add(t[campo]); (t[lista]||[]).forEach(add); });
+  (typeof vehiculosCache !== 'undefined' ? vehiculosCache : []).filter(v => v.activo !== false).forEach(v => add(v.matricula));
+  (cpEstado?.transportista?.[lista] || []).forEach(add);
+  return [...set.values()].sort((a,b) => a.localeCompare(b));
 }
-window.cpPonerMatricula = (campo, m) => {
-  cpEstado.transportista[campo] = m;
-  const inp = document.getElementById(campo === 'tractora' ? 'cp-t-trac' : 'cp-t-semi');
-  if (inp) inp.value = m;
-  inp?.closest('.cp-c2')?.querySelectorAll('.cp-mats button').forEach(b => b.classList.toggle('on', b.textContent.trim().endsWith(m)));
+function cpHtmlSelectMat(campo, etiqueta) {
+  const actual = cpEstado.transportista[campo] || '';
+  const todas = cpTodasMatriculas(campo);
+  if (actual && !todas.some(m => m.toUpperCase() === actual.toUpperCase())) todas.unshift(actual);
+  return `<div class="cp-campo cp-c2"><label>${etiqueta}</label>
+    <select id="cp-t-${campo==='tractora'?'trac':'semi'}" onchange="cpElegirMatricula('${campo}', this)" style="font-family:monospace;font-size:16px;font-weight:700">
+      <option value="">— Elegir —</option>
+      ${todas.map(m => `<option ${m.toUpperCase()===actual.toUpperCase()?'selected':''}>${cpEsc(m)}</option>`).join('')}
+      <option value="__otra__">➕ Otra matrícula…</option>
+    </select></div>`;
+}
+window.cpElegirMatricula = (campo, sel) => {
+  if (sel.value === '__otra__') {
+    const m = (prompt(campo === 'tractora' ? 'Matrícula de la cabeza tractora:' : 'Matrícula del semirremolque:') || '').trim().toUpperCase();
+    if (m) cpEstado.transportista[campo] = m;
+    cpRenderForm();
+    return;
+  }
+  cpEstado.transportista[campo] = sel.value;
 };
+// Si no hay matrícula puesta, la de la última carta generada
+function cpMatriculasPorDefecto() {
+  const t = cpEstado.transportista, ult = cpCartas[0]?.transportista;
+  if (!ult) return;
+  if (!t.tractora) t.tractora = ult.tractora || '';
+  if (!t.semirremolque) t.semirremolque = ult.semirremolque || '';
+}
 
 function cpHtmlMerc(m, i) {
   return `<div class="cp-merc">
