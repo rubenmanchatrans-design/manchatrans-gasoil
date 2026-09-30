@@ -684,6 +684,10 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .cp-adr-elegir button.on-si { border-color: var(--danger); background: rgba(231,76,60,0.15); color: #ff8b80; }
 .cp-seg3 { grid-template-columns: 1fr 1fr 1fr; }
 .cp-seg3 button { font-size: 13px; padding: 0.6rem 0.2rem; }
+
+.cp-mats { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: -0.2rem 0 0.5rem; }
+.cp-mats button { background: var(--navy-light); border: 1px solid var(--card-border); color: var(--text); border-radius: 16px; padding: 0.35rem 0.7rem; font-size: 13px; font-weight: 700; cursor: pointer; font-family: monospace; }
+.cp-mats button.on { border-color: var(--accent); color: var(--accent); background: rgba(245,166,35,0.12); }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2294,7 +2298,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v64 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v65 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -4753,8 +4757,27 @@ const CP_DEFECTO = {
 };
 let cpFijos = null;   // los guardados en Firebase (configuracion/cartasPorte), si los hay
 // Transportista que suele venir: se crea solo la primera vez
-const CP_TRANS_INICIAL = {nombre:'JOSE ALBERTO GIVICA DIAZ', nif:'5684441-Z', domicilio:'C/ PERIBAÑEZ 8   13429 EL CRISTO DEL ESPIRITU SANTO  ( C.REAL )',
-  conductor:'JOSE ALBERTO GIVICA DIAZ', telefono:'650198512', tractora:'6732 LDT', semirremolque:'R-4317-BDR'};
+const CP_TRANS_INICIAL = {nombre:'JOSE ALBERTO GIVICA DIAZ', nif:'5684441-Z', domicilio:'C/ PERIBAÑEZ 8', cp:'13429', poblacion:'EL CRISTO DEL ESPIRITU SANTO', provincia:'C.REAL',
+  conductor:'JOSE ALBERTO GIVICA DIAZ', telefono:'650198512', tractora:'6732 LDT', semirremolque:'R-4317-BDR', tractoras:['6732 LDT'], semis:['R-4317-BDR']};
+
+// Separa un domicilio escrito todo junto ("C/ PERIBAÑEZ 8   13429 EL CRISTO…  ( C.REAL )")
+function cpPartirDomicilio(t) {
+  if (!t || t.cp || t.poblacion || t.provincia) return t;
+  const m = String(t.domicilio||'').match(/^(.*?)[\s,]+(\d{5})\s*-?\s*(.*?)\s*(?:\(\s*([^)]*?)\s*\))?\s*$/);
+  if (!m) return t;
+  return {...t, domicilio:m[1].trim(), cp:m[2], poblacion:(m[3]||'').trim(), provincia:(m[4]||'').trim()};
+}
+// Línea de domicilio completa para el PDF
+function cpDomicilioTexto(t) {
+  const lugar = [t.cp, t.poblacion].filter(Boolean).join(' ');
+  return [t.domicilio, lugar].filter(Boolean).join('   ') + (t.provincia ? `  ( ${t.provincia} )` : '');
+}
+// Matrículas que ha llevado un conductor (las últimas primero)
+function cpAnadirMatricula(lista, m) {
+  m = (m||'').trim().toUpperCase();
+  if (!m) return lista || [];
+  return [m, ...(lista||[]).filter(x => x.toUpperCase() !== m)].slice(0, 8);
+}
 // Tipos de bulto para ADR (con su código de embalaje de la ONU)
 const CP_BULTOS_ADR = [
   'GRG (IBC)', 'Jerrican', 'Caja', 'Bidón', 'Saco', 'Embalaje combinado', 'Botella / garrafa',
@@ -4787,7 +4810,7 @@ function cpNuevaCarta() {
     destinoTxt: f.destinoTxt || CP_DEFECTO.destinoTxt, lugarDestino: f.lugarDestino || CP_DEFECTO.lugarDestino,
     anexos: '', contrato: '', precinto: '', observaciones: '',
     operadorTxt: f.operadorTxt || CP_DEFECTO.operadorTxt,
-    transportista: {nombre:'', nif:'', domicilio:'', conductor:'', telefono:'', tractora:'', semirremolque:''},
+    transportista: {nombre:'', nif:'', domicilio:'', cp:'', poblacion:'', provincia:'', conductor:'', telefono:'', tractora:'', semirremolque:''},
     mercancia: [{bultos:'', embalaje:'Palets', naturaleza: CP_DEFECTO.naturaleza, peso:'', volumen:''}],
     adr: false, adrLineas: [],
   };
@@ -4873,6 +4896,10 @@ function cpCampo(id, etiqueta, valor, opts = {}) {
 }
 window.cpSet = (ruta, valor) => {
   cpEstado.tocado = true;
+  if (ruta === 'transportista.tractora' || ruta === 'transportista.semirremolque') {
+    const inp = document.getElementById(ruta.endsWith('tractora') ? 'cp-t-trac' : 'cp-t-semi');
+    inp?.closest('.cp-c2')?.querySelectorAll('.cp-mats button').forEach(b => b.classList.toggle('on', b.textContent.trim().toUpperCase().endsWith(' ' + String(valor).trim().toUpperCase()) && !!String(valor).trim()));
+  }
   const p = ruta.split('.'); let o = cpEstado;
   for (let i = 0; i < p.length-1; i++) o = o[p[i]];
   o[p[p.length-1]] = valor;
@@ -4903,19 +4930,30 @@ function cpRenderForm() {
           <option value="">— Elegir conductor —</option>
           ${cpTrans.map(t=>`<option value="${t.id}">${cpEsc(t.conductor||t.nombre)} · ${cpEsc(t.tractora||'')}${t.semirremolque?' + '+cpEsc(t.semirremolque):''}</option>`).join('')}
         </select></div>
-      <div style="font-size:12px;color:var(--text-muted);margin:-0.2rem 0 0.6rem">Si el conductor es nuevo, rellena los datos: al generar la carta se guarda solo para la próxima vez.</div>
+      <div style="font-size:12px;color:var(--text-muted);margin:-0.2rem 0 0.6rem">Si el conductor es nuevo, rellena los datos: al generar la carta se guarda solo. Si hoy lleva otro camión, toca su matrícula debajo de las casillas o escríbela: queda guardada para la próxima.</div>
       <div class="cp-fila">
         ${cpCampo('cp-t-nombre','Empresa transportista / autónomo', c.transportista.nombre, {ruta:'transportista.nombre', ancho:'cp-c2'})}
         ${cpCampo('cp-t-nif','DNI / NIF', c.transportista.nif, {ruta:'transportista.nif', ancho:'cp-c2'})}
       </div>
-      ${cpCampo('cp-t-dom','Domicilio', c.transportista.domicilio, {ruta:'transportista.domicilio'})}
+      ${cpCampo('cp-t-dom','Domicilio (calle y número)', c.transportista.domicilio, {ruta:'transportista.domicilio'})}
+      <div class="cp-fila">
+        ${cpCampo('cp-t-cp','Código postal', c.transportista.cp, {ruta:'transportista.cp', ancho:'cp-c4'})}
+        ${cpCampo('cp-t-pob','Población', c.transportista.poblacion, {ruta:'transportista.poblacion', ancho:'cp-c2'})}
+        ${cpCampo('cp-t-prov','Provincia', c.transportista.provincia, {ruta:'transportista.provincia', ancho:'cp-c4'})}
+      </div>
       <div class="cp-fila">
         ${cpCampo('cp-t-cond','Conductor', c.transportista.conductor, {ruta:'transportista.conductor', ancho:'cp-c2', placeholder:'Si es el mismo, se puede dejar vacío'})}
         ${cpCampo('cp-t-tel','Teléfono del conductor', c.transportista.telefono, {ruta:'transportista.telefono', ancho:'cp-c2', tipo:'tel'})}
       </div>
       <div class="cp-fila">
-        ${cpCampo('cp-t-trac','18 · Matrícula cabeza tractora', c.transportista.tractora, {ruta:'transportista.tractora', ancho:'cp-c2', list:'cp-mats'})}
-        ${cpCampo('cp-t-semi','18 · Matrícula semirremolque', c.transportista.semirremolque, {ruta:'transportista.semirremolque', ancho:'cp-c2', list:'cp-mats'})}
+        <div class="cp-c2" style="min-width:0">
+          ${cpCampo('cp-t-trac','18 · Matrícula cabeza tractora', c.transportista.tractora, {ruta:'transportista.tractora', list:'cp-mats'})}
+          ${cpHtmlMatriculas('tractora', c.transportista.tractoras)}
+        </div>
+        <div class="cp-c2" style="min-width:0">
+          ${cpCampo('cp-t-semi','18 · Matrícula semirremolque', c.transportista.semirremolque, {ruta:'transportista.semirremolque', list:'cp-mats'})}
+          ${cpHtmlMatriculas('semirremolque', c.transportista.semis)}
+        </div>
       </div>
     </div>
 
@@ -4976,6 +5014,19 @@ function cpRenderForm() {
     </div>`;
   if (c.adr) { cpCargarAdr().then(() => cpPintarPuntos()); cpPintarPuntos(); }
 }
+// Botones con las matrículas que ha llevado este conductor
+function cpHtmlMatriculas(campo, lista) {
+  if (!lista || !lista.length) return '';
+  const actual = (cpEstado.transportista[campo] || '').toUpperCase();
+  return `<div class="cp-mats">${lista.map(m => `<button type="button" class="${m.toUpperCase()===actual?'on':''}" onclick="cpPonerMatricula('${campo}','${cpEsc(m)}')">${campo==='tractora'?'🚛':'🔗'} ${cpEsc(m)}</button>`).join('')}</div>`;
+}
+window.cpPonerMatricula = (campo, m) => {
+  cpEstado.transportista[campo] = m;
+  const inp = document.getElementById(campo === 'tractora' ? 'cp-t-trac' : 'cp-t-semi');
+  if (inp) inp.value = m;
+  inp?.closest('.cp-c2')?.querySelectorAll('.cp-mats button').forEach(b => b.classList.toggle('on', b.textContent.trim().endsWith(m)));
+};
+
 function cpHtmlMerc(m, i) {
   return `<div class="cp-merc">
     <div class="cp-fila">
@@ -5074,7 +5125,10 @@ window.cpGuardarFijos = async () => {
 window.cpUsarTrans = (id) => {
   const t = cpTrans.find(x => x.id === id);
   if (!t) return;
-  cpEstado.transportista = {nombre:t.nombre||'', nif:t.nif||'', domicilio:t.domicilio||'', conductor:t.conductor||'', telefono:t.telefono||'', tractora:t.tractora||'', semirremolque:t.semirremolque||''};
+  const d = cpPartirDomicilio(t);
+  cpEstado.transportista = {nombre:d.nombre||'', nif:d.nif||'', domicilio:d.domicilio||'', cp:d.cp||'', poblacion:d.poblacion||'', provincia:d.provincia||'',
+    conductor:d.conductor||'', telefono:d.telefono||'', tractora:d.tractora||'', semirremolque:d.semirremolque||'',
+    tractoras: cpAnadirMatricula(d.tractoras, d.tractora), semis: cpAnadirMatricula(d.semis, d.semirremolque), idGuardado: t.id};
   cpRenderForm();
   document.getElementById('cp-sel-trans').value = id;
 };
@@ -5082,9 +5136,14 @@ window.cpGuardarTrans = async (silencioso = false) => {
   const t = cpEstado.transportista;
   if (!t.nombre) { if (!silencioso) mostrarMensajeFlotante?.('Pon al menos el nombre del transportista'); return; }
   try {
-    const ya = cpTrans.find(x => (x.nombre||'').toUpperCase() === t.nombre.toUpperCase() && (x.conductor||'').toUpperCase() === (t.conductor||'').toUpperCase());
-    if (ya) await updateDoc(doc(db,'cartasTransportistas',ya.id), {...t, ts:Date.now()});
-    else await addDoc(collection(db,'cartasTransportistas'), {...t, ts:Date.now()});
+    const ya = cpTrans.find(x => x.id === t.idGuardado) ||
+               cpTrans.find(x => (x.nombre||'').toUpperCase() === t.nombre.toUpperCase() && (x.conductor||'').toUpperCase() === (t.conductor||'').toUpperCase());
+    const datos = {nombre:t.nombre, nif:t.nif||'', domicilio:t.domicilio||'', cp:t.cp||'', poblacion:t.poblacion||'', provincia:t.provincia||'',
+      conductor:t.conductor||'', telefono:t.telefono||'', tractora:t.tractora||'', semirremolque:t.semirremolque||'',
+      tractoras: cpAnadirMatricula(cpAnadirMatricula(ya?.tractoras, ya?.tractora), t.tractora),
+      semis: cpAnadirMatricula(cpAnadirMatricula(ya?.semis, ya?.semirremolque), t.semirremolque), ts: Date.now()};
+    if (ya) await updateDoc(doc(db,'cartasTransportistas',ya.id), datos);
+    else await addDoc(collection(db,'cartasTransportistas'), datos);
     if (!silencioso) mostrarMensajeFlotante?.('💾 Conductor guardado');
   } catch(e) { alert('No se ha podido guardar: ' + e.message); }
 };
@@ -5104,8 +5163,8 @@ function cpRenderTrans() {
         <div class="fl-ico">🚛</div>
         <div class="gs-fila-info">
           <div class="gs-tit">${cpEsc(t.nombre)}</div>
-          <div class="gs-sub">${cpEsc(t.nif||'')}${t.domicilio?' · '+cpEsc(t.domicilio):''}</div>
-          <div class="gs-chips">${t.conductor?`<span class="gs-chip">👤 ${cpEsc(t.conductor)}${t.telefono?' · '+cpEsc(t.telefono):''}</span>`:''}${t.tractora?`<span class="gs-chip">🚛 ${cpEsc(t.tractora)}</span>`:''}${t.semirremolque?`<span class="gs-chip">🔗 ${cpEsc(t.semirremolque)}</span>`:''}</div>
+          <div class="gs-sub">${cpEsc(t.nif||'')}${t.domicilio?' · '+cpEsc(cpDomicilioTexto(cpPartirDomicilio(t))):''}</div>
+          <div class="gs-chips">${t.conductor?`<span class="gs-chip">👤 ${cpEsc(t.conductor)}${t.telefono?' · '+cpEsc(t.telefono):''}</span>`:''}${cpAnadirMatricula(t.tractoras, t.tractora).map(m=>`<span class="gs-chip">🚛 ${cpEsc(m)}</span>`).join('')}${cpAnadirMatricula(t.semis, t.semirremolque).map(m=>`<span class="gs-chip">🔗 ${cpEsc(m)}</span>`).join('')}</div>
         </div>
         <div class="gs-acciones">
           <button class="alm-accion alm-accion-ver" onclick="cpUsarTrans('${t.id}'); cpTab('nueva')">📄 Nueva carta</button>
@@ -5231,6 +5290,7 @@ window.cpGenerar = async () => {
     const datos = {...c, ts: c.ts || Date.now(), modTs: Date.now(), fechaStr: cpFecha(c.fecha).replace(/^0/,'').replace(/\/0/g,'/'),
                    emitidaPor: (typeof currentUser!=='undefined' && currentUser?.name) || '', errorSubida: subida.ok ? '' : subida.motivo};
     delete datos.tocado;
+    if (datos.transportista) { datos.transportista = {...datos.transportista}; delete datos.transportista.tractoras; delete datos.transportista.semis; delete datos.transportista.idGuardado; }
     await setDoc(doc(db,'cartasPorte',c.id), datos);
     c.ts = datos.ts;
   } catch(e) { console.warn('Registro de la carta:', e); }
@@ -5403,7 +5463,7 @@ async function cpConstruirPdf(c) {
   const tr = c.transportista;
   const lineasTrans = [
     {t:`${tr.nombre}${tr.nif ? '   DNI ' + tr.nif : ''}`, b:true},
-    tr.domicilio || '',
+    cpDomicilioTexto(cpPartirDomicilio(tr)) || '',
     `CONDUCTOR:  ${tr.conductor || tr.nombre}${tr.telefono ? '     TFNO ' + tr.telefono : ''}`,
     {t:`18. Matrícula cabeza tractora:  ${tr.tractora || '—'}          Semirremolque:  ${tr.semirremolque || '—'}`, b:true},
   ];
