@@ -2330,7 +2330,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v76 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v77 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -4883,7 +4883,7 @@ function cpEntrar() {
     onSnapshot(collection(db,'cartasRemitentes'), snap => {
       cpRemit = snap.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b) => (a.nombre||'').localeCompare(b.nombre||''));
       if (document.getElementById('cp-pane-remit')?.style.display !== 'none') cpRenderRemit();
-      cpRellenarDatalistRemit();
+      if (cpEstado?.adr && document.getElementById('cp-pane-nueva')?.style.display !== 'none' && !document.getElementById('alm-modal') && document.querySelector('.cp-adr-linea')) cpRenderForm();
     }, e => console.warn('cartasRemitentes', e));
     let cpSembrado = false;
     onSnapshot(collection(db,'cartasTransportistas'), snap => {
@@ -4965,7 +4965,6 @@ function cpRenderForm() {
   const mats = [...new Set([...(vehiculosCache||[]).filter(v=>v.activo!==false).map(v=>v.matricula), ...cpTrans.flatMap(t=>[t.tractora,t.semirremolque])])].filter(Boolean).sort();
   el.innerHTML = `
     <datalist id="cp-mats">${mats.map(m=>`<option value="${cpEsc(m)}">`).join('')}</datalist>
-    <datalist id="cp-remitentes">${cpRemit.map(r=>`<option value="${cpEsc(r.nombre)}">${cpEsc([r.poblacion, r.nif].filter(Boolean).join(' · '))}</option>`).join('')}</datalist>
     <datalist id="cp-embalajes">${['Palets','Cajas','Bultos','Bidones','Sacos','Rollos','Jaulas','Contenedor'].map(m=>`<option value="${m}">`).join('')}</datalist>
 
     <div class="refuel-card cp-card">
@@ -5151,9 +5150,7 @@ window.cpBuscarAdrUI = async (txt) => {
 };
 window.cpAnadirAdr = (idx) => {
   const f = cpAdr[idx];
-  const ant = cpEstado.adrLineas[cpEstado.adrLineas.length-1] || {};
-  const remAnt = ant.remitente || '';
-  cpEstado.adrLineas.push({remitente: remAnt, remitenteDatos: ant.remitenteDatos, un:f[0], nombre:f[1], clase:f[2], codigo:f[3], ge:f[4], etiquetas:f[5], disposiciones:f[6], cl:f[7], cat:f[9], tunel:f[10], texto:cpLineaAdr(f), tecnico:'', cantidad:'', unidad:'kg', bultos:'', embalaje:''});
+  cpEstado.adrLineas.push({remitente: '', un:f[0], nombre:f[1], clase:f[2], codigo:f[3], ge:f[4], etiquetas:f[5], disposiciones:f[6], cl:f[7], cat:f[9], tunel:f[10], texto:cpLineaAdr(f), tecnico:'', cantidad:'', unidad:'kg', bultos:'', embalaje:''});
   const b = document.getElementById('cp-adr-busca'); if (b) b.value = '';
   cpRenderForm();
 };
@@ -5165,9 +5162,7 @@ function cpEsNep(l) { return !l.vacio && (cpEsNepTabla(l) || !!l.conTecnico); }
 const CP_COD_VACIOS = '0000';
 const CP_TXT_VACIOS = 'ENVASES Y EMBALAJES VACÍOS SIN LIMPIAR';
 window.cpAnadirVacio = () => {
-  const ant = cpEstado.adrLineas[cpEstado.adrLineas.length-1] || {};
-  const remAnt = ant.remitente || '';
-  cpEstado.adrLineas.push({remitente: remAnt, remitenteDatos: ant.remitenteDatos, vacio:true, etiquetas:'', cat:'4', cantidad:'', unidad:'kg', bultos:'', embalaje:''});
+  cpEstado.adrLineas.push({remitente: '', vacio:true, etiquetas:'', cat:'4', cantidad:'', unidad:'kg', bultos:'', embalaje:''});
   const b = document.getElementById('cp-adr-busca'); if (b) b.value = '';
   cpRenderForm();
 };
@@ -5199,10 +5194,12 @@ function cpHtmlVacio(l, i) {
       <button type="button" class="cp-adr-quitar" onclick="cpEstado.adrLineas.splice(${i},1); cpRenderForm()" aria-label="Quitar">✕ Quitar</button>
     </div>
     <div class="cp-campo cp-remitente"><label>🏢 Remitente de esta mercancía</label>
-      <div style="position:relative">
-        <input id="cp-rem-${i}" value="${cpEsc(l.remitente||'')}" placeholder="Escribe el nombre del cliente" autocomplete="off"
-          oninput="cpEscribirRemit(${i}, this.value)" onfocus="cpSugerirRemit(${i}, this.value)" onblur="setTimeout(() => cpOcultarSug(${i}), 250)">
-        <div id="cp-sug-${i}" class="cp-sug"></div>
+      <div style="display:flex;gap:0.4rem">
+        <select style="flex:1;min-width:0" onchange="cpElegirRemitSel(${i}, this.value)">
+          <option value="">— Elegir remitente —</option>
+          ${cpRemitPropios().map(r => `<option value="${r.id}" ${cpNormNombre(r.nombre)===cpNormNombre(l.remitente)?'selected':''}>${cpEsc(r.nombre)}${r.poblacion?' · '+cpEsc(r.poblacion):''}</option>`).join('')}
+        </select>
+        <button type="button" class="alm-accion" style="flex-shrink:0" onclick="cpNuevoRemit('', ${i})">➕ Nuevo</button>
       </div>
       <div id="cp-remdat-${i}" class="cp-remdat">${cpHtmlFichaRemit(l)}</div></div>
     <div class="cp-fila">
@@ -5222,10 +5219,12 @@ function cpHtmlAdr(l, i) {
       <button type="button" class="cp-adr-quitar" onclick="cpEstado.adrLineas.splice(${i},1); cpRenderForm()" aria-label="Quitar esta materia">✕ Quitar</button>
     </div>
     <div class="cp-campo cp-remitente"><label>🏢 Remitente de esta mercancía</label>
-      <div style="position:relative">
-        <input id="cp-rem-${i}" value="${cpEsc(l.remitente||'')}" placeholder="Escribe el nombre del cliente" autocomplete="off"
-          oninput="cpEscribirRemit(${i}, this.value)" onfocus="cpSugerirRemit(${i}, this.value)" onblur="setTimeout(() => cpOcultarSug(${i}), 250)">
-        <div id="cp-sug-${i}" class="cp-sug"></div>
+      <div style="display:flex;gap:0.4rem">
+        <select style="flex:1;min-width:0" onchange="cpElegirRemitSel(${i}, this.value)">
+          <option value="">— Elegir remitente —</option>
+          ${cpRemitPropios().map(r => `<option value="${r.id}" ${cpNormNombre(r.nombre)===cpNormNombre(l.remitente)?'selected':''}>${cpEsc(r.nombre)}${r.poblacion?' · '+cpEsc(r.poblacion):''}</option>`).join('')}
+        </select>
+        <button type="button" class="alm-accion" style="flex-shrink:0" onclick="cpNuevoRemit('', ${i})">➕ Nuevo</button>
       </div>
       <div id="cp-remdat-${i}" class="cp-remdat">${cpHtmlFichaRemit(l)}</div></div>
     ${!nep ? `<button type="button" class="cp-tecnico-btn" onclick="cpEstado.adrLineas[${i}].conTecnico=true; cpRenderForm()">➕ Añadir nombre técnico (N.E.P.)</button>` : ''}
@@ -5286,12 +5285,21 @@ window.cpGuardarFijos = async () => {
 };
 
 // ── Remitentes (clientes) ──
+// Solo los dados de alta a mano (los importados del Excel, si los hubo, no se usan)
+function cpRemitPropios() { return cpRemit.filter(r => r.origen !== 'excel'); }
+window.cpElegirRemitSel = (i, id) => {
+  const l = cpEstado.adrLineas[i];
+  const r = cpRemit.find(x => x.id === id);
+  if (!r) { l.remitente = ''; delete l.remitenteDatos; }
+  else { l.remitente = r.nombre; l.remitenteDatos = {nombre:r.nombre, nif:r.nif||'', domicilio:r.domicilio||'', cp:r.cp||'', poblacion:r.poblacion||'', provincia:r.provincia||''}; }
+  const f = document.getElementById(`cp-remdat-${i}`); if (f) f.innerHTML = cpHtmlFichaRemit(l);
+};
 // Ficha del remitente elegido (o aviso de que es nuevo)
 function cpHtmlFichaRemit(l) {
   const nombre = (l.remitente || '').trim();
   if (!nombre) return '';
   const d = cpDatosRemit(nombre, l);
-  return d.enLista ? `✓ ${cpEsc(d.linea || 'Sin dirección en la lista')}` : `<span style="color:var(--warning)">Remitente nuevo: se guardará en la lista al generar la carta</span>`;
+  return `✓ ${cpEsc(d.linea || 'Sin dirección: puedes completarla en la pestaña Remitentes')}`;
 }
 window.cpEscribirRemit = (i, v) => {
   const l = cpEstado.adrLineas[i];
@@ -5347,19 +5355,19 @@ function cpRenderRemit() {
   const el = document.getElementById('cp-pane-remit');
   if (!el) return;
   const q = cpNormNombre(cpBusRemit);
-  const lista = q ? cpRemit.filter(r => cpNormNombre([r.nombre, r.poblacion, r.nif].join(' ')).includes(q)) : cpRemit;
+  const lista = q ? cpRemitPropios().filter(r => cpNormNombre([r.nombre, r.poblacion, r.nif].join(' ')).includes(q)) : cpRemitPropios();
   el.innerHTML = `
     <div class="refuel-card cp-card">
-      <div class="cp-tit">🏢 Remitentes (${cpRemit.length})</div>
-      <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.6rem">Son los clientes que salen como sugerencia en el remitente de cada materia ADR. Los que se escriben a mano en una carta se guardan aquí solos.</div>
+      <div class="cp-tit">🏢 Remitentes (${cpRemitPropios().length})</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.6rem">Son los que salen en el desplegable del remitente de cada materia ADR. También se pueden crear desde la propia carta con "➕ Nuevo".</div>
       <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
-        <label class="btn btn-primary" style="width:auto;padding:0.7rem 1rem;cursor:pointer">📥 Importar Excel de clientes<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="cpImportarRemit(this)"></label>
-        <button class="btn btn-ghost" style="width:auto;padding:0.7rem 1rem" onclick="cpNuevoRemit()">➕ Añadir a mano</button>
+        <button class="btn btn-primary" style="width:auto;padding:0.7rem 1rem" onclick="cpNuevoRemit()">➕ Nuevo remitente</button>
+        ${cpRemit.some(r => r.origen === 'excel') ? `<button class="btn btn-ghost" style="width:auto;padding:0.7rem 1rem;border-color:var(--danger);color:#ff8b80" onclick="cpQuitarImportados()">🗑 Quitar los ${cpRemit.filter(r => r.origen === 'excel').length} importados del Excel</button>` : ''}
       </div>
       <div id="cp-remit-aviso" style="font-size:13px;margin-top:0.5rem">${cpAvisoRemit}</div>
     </div>
     <div class="refuel-card" style="margin-bottom:0.6rem"><input id="cp-bus-remit" class="form-input" placeholder="🔎 Buscar remitente" value="${cpEsc(cpBusRemit)}" oninput="cpBusRemit=this.value; cpRenderRemit(); const b=document.getElementById('cp-bus-remit'); b.focus(); b.setSelectionRange(b.value.length,b.value.length)"></div>
-    ${!lista.length ? `<div class="refuel-card"><div class="empty-state"><div class="empty-icon">🏢</div>${cpRemit.length ? 'Ningún remitente coincide.' : 'Aún no hay remitentes. Importa vuestro Excel de clientes o añádelos a mano.'}</div></div>`
+    ${!lista.length ? `<div class="refuel-card"><div class="empty-state"><div class="empty-icon">🏢</div>${cpRemitPropios().length ? 'Ningún remitente coincide.' : 'Aún no hay remitentes. Créalos con "➕ Nuevo remitente" o desde la propia carta.'}</div></div>`
     : `<div class="refuel-card" style="padding:0">${lista.slice(0,300).map(r => `
       <div class="gs-fila">
         <div class="fl-ico">🏢</div>
@@ -5371,7 +5379,7 @@ function cpRenderRemit() {
         </div>
       </div>`).join('')}${lista.length>300?`<div style="padding:0.75rem;font-size:13px;color:var(--text-muted)">… y ${lista.length-300} más. Usa el buscador.</div>`:''}</div>`}`;
 }
-window.cpNuevoRemit = (id) => {
+window.cpNuevoRemit = (id, linea = null) => {
   const r = id ? cpRemit.find(x => x.id === id) || {} : {};
   const campo = (k, t, ph='') => `<div class="cp-campo"><label>${t}</label><input id="cp-r-${k}" value="${cpEsc(r[k]||'')}" placeholder="${ph}"></div>`;
   almAbrirModal(id ? '✏️ Remitente' : '➕ Nuevo remitente', `
@@ -5379,90 +5387,46 @@ window.cpNuevoRemit = (id) => {
     <div class="cp-fila">${campo('nif','NIF / CIF')}${campo('cp','Código postal')}</div>
     ${campo('domicilio','Domicilio')}
     <div class="cp-fila">${campo('poblacion','Población')}${campo('provincia','Provincia')}</div>`,
-    `<button class="btn btn-primary" onclick="cpGuardarRemit('${id||''}')">💾 Guardar</button><button class="btn btn-ghost" onclick="almCerrarModal()">Cancelar</button>`);
+    `<button class="btn btn-primary" onclick="cpGuardarRemit('${id||''}', ${linea === null ? 'null' : linea})">💾 Guardar${linea !== null ? ' y usar' : ''}</button><button class="btn btn-ghost" onclick="almCerrarModal()">Cancelar</button>`);
   setTimeout(() => document.getElementById('cp-r-nombre')?.focus(), 50);
 };
-window.cpGuardarRemit = async (id) => {
+window.cpGuardarRemit = async (id, linea = null) => {
   const v = k => (document.getElementById('cp-r-'+k)?.value || '').trim();
   const datos = {nombre: v('nombre').toUpperCase(), nif: v('nif').toUpperCase(), domicilio: v('domicilio'), cp: v('cp'), poblacion: v('poblacion').toUpperCase(), provincia: v('provincia').toUpperCase(), ts: Date.now()};
   if (!datos.nombre) { document.getElementById('cp-r-nombre')?.focus(); return; }
-  try { if (id) await updateDoc(doc(db,'cartasRemitentes',id), datos); else await addDoc(collection(db,'cartasRemitentes'), {...datos, origen:'manual'}); almCerrarModal(); mostrarMensajeFlotante?.('💾 Remitente guardado'); }
+  try {
+    if (id) await updateDoc(doc(db,'cartasRemitentes',id), datos);
+    else {
+      const ya = cpRemitPropios().find(r => cpNormNombre(r.nombre) === cpNormNombre(datos.nombre));
+      if (ya) { if (!confirm(`Ya hay un remitente llamado ${ya.nombre}. ¿Guardar otro igualmente?`)) return; }
+      await addDoc(collection(db,'cartasRemitentes'), {...datos, origen:'manual'});
+    }
+    almCerrarModal();
+    if (linea !== null && cpEstado.adrLineas[linea]) {
+      const {ts, ...d} = datos;
+      cpEstado.adrLineas[linea].remitente = datos.nombre;
+      cpEstado.adrLineas[linea].remitenteDatos = d;
+      setTimeout(cpRenderForm, 300);       // da tiempo a que llegue a la lista
+    }
+    mostrarMensajeFlotante?.('💾 Remitente guardado');
+  }
   catch(e) { alert('No se ha podido guardar: ' + e.message); }
+};
+window.cpQuitarImportados = async () => {
+  const imp = cpRemit.filter(r => r.origen === 'excel');
+  if (!imp.length || !confirm(`¿Quitar los ${imp.length} clientes importados del Excel? Los creados a mano no se tocan.`)) return;
+  cpAvisoRemit = `⏳ Quitando… 0 de ${imp.length}`; cpRenderRemit();
+  for (let i = 0; i < imp.length; i += 25) {
+    await Promise.all(imp.slice(i, i+25).map(r => deleteDoc(doc(db,'cartasRemitentes',r.id)).catch(()=>{})));
+    cpAvisoRemit = `⏳ Quitando… ${Math.min(i+25, imp.length)} de ${imp.length}`;
+    const a = document.getElementById('cp-remit-aviso'); if (a) a.innerHTML = cpAvisoRemit;
+  }
+  cpAvisoRemit = `✅ Quitados ${imp.length} clientes importados.`; cpRenderRemit();
 };
 window.cpBorrarRemit = async (id) => {
   if (!confirm('¿Borrar este remitente de la lista?')) return;
   try { await deleteDoc(doc(db,'cartasRemitentes',id)); } catch(e) { alert(e.message); }
 };
-// Limpia el nombre de un cliente del maestro: quita notas internas (***CONTADO***,
-// * OJO FORMA DE PAGO…) y descarta los que no hay que usar (NO TRABAJAR, MOROSO…).
-// Devuelve null si el cliente no se debe importar.
-function cpLimpiarCliente(nombre) {
-  let n = String(nombre || '').replace(/\s+/g, ' ').trim();
-  const U = n.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  if (/NO\s*TRABAJ|NOO\s*TRABAJ|NO\s*U[L]?TILIZ|NO\s*FACTUR|YA\s*NO\s*TRABAJ|MOROSO|INCOBRABLE|BLOQUEAD|\bNULO\b|CAMBIO\s*RAZON|CAMBIADO\s*DE\s*NOMBRE/.test(U)) return null;
-  if (/^(MANCHATRANS|TRADIMAN)\b/.test(U)) return null;                       // cuentas internas
-  n = n.replace(/\*+[^*]*\*+/g, ' ')                                           // ***CONTADO***, *CONTADO*…
-       .replace(/["“”]\s*OJO[^"“”]*["“”]/gi, ' ')                             // "OJO FORMA DE PAGO"
-       .replace(/\*\s*OJO.*$/i, ' ')                                           // * OJO FORMA DE PAGO
-       .replace(/!+[^!]*!+/g, ' ')
-       .replace(/\*+/g, ' ')                                                   // asteriscos sueltos
-       .replace(/\s+/g, ' ').trim().replace(/^[-.,\s]+|[-,\s]+$/g, '');
-  return n.length >= 2 ? n.toUpperCase() : null;
-}
-
-// Importa el Excel de clientes: busca la fila de títulos y reconoce las columnas
-// (nombre/cliente, NIF/CIF, dirección, CP, población, provincia)
-window.cpImportarRemit = async (inp) => {
-  const f = inp.files && inp.files[0]; inp.value = '';
-  const avisoEl = () => document.getElementById('cp-remit-aviso');
-  const aviso = { set textContent(t) { cpAvisoRemit = cpEsc(t); if (avisoEl()) avisoEl().innerHTML = cpAvisoRemit; }, set innerHTML(h) { cpAvisoRemit = h; if (avisoEl()) avisoEl().innerHTML = h; } };
-  if (!f) return;
-  aviso.textContent = '⏳ Leyendo el Excel…';
-  try {
-    const XLSX = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm');
-    const wb = XLSX.read(await f.arrayBuffer(), {type:'array'});
-    const tabla = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, defval:''});
-    const n = t => cpNormNombre(t);
-    // fila de títulos: la primera que tenga una columna de nombre/cliente
-    const iCab = tabla.findIndex(fila => fila.some(c => /^(CLIENTE|NOMBRE|RAZON SOCIAL|DENOMINACION)/.test(n(c))));
-    if (iCab < 0) { aviso.textContent = 'No encuentro la columna del nombre del cliente (Cliente, Nombre o Razón social).'; return; }
-    const cab = tabla[iCab].map(n);
-    const col = (...claves) => { const i = cab.findIndex(c => claves.some(k => c === k || c.startsWith(k))); return i < 0 ? null : i; };
-    const cNom = col('RAZON SOCIAL','CLIENTE','NOMBRE','DENOMINACION');
-    const cNif = col('CIF','NIF','C I F','DNI');
-    const cDom = col('DIRECCION','DOMICILIO','CALLE');
-    const cCp  = col('CP','C P','COD POSTAL','CODIGO POSTAL');
-    const cPob = col('POBLACION','LOCALIDAD','MUNICIPIO');
-    const cPro = col('PROVINCIA');
-    const val = (fila, i) => i === null ? '' : String(fila[i] ?? '').trim();
-    const vistos = new Set(cpRemit.map(r => cpNormNombre(r.nombre)));
-    const lote = []; let descartados = 0, repetidos = 0;
-    tabla.slice(iCab + 1).forEach(fila => {
-      const bruto = val(fila, cNom);
-      if (!bruto) return;
-      const nombre = cpLimpiarCliente(bruto);
-      if (!nombre) { descartados++; return; }
-      const k = cpNormNombre(nombre);
-      if (vistos.has(k)) { repetidos++; return; }
-      vistos.add(k);
-      // el CP a veces va dentro de la dirección o de la población
-      let cp = val(fila, cCp); const dom = val(fila, cDom);
-      if (!cp) { const m = (dom + ' ' + val(fila, cPob)).match(/\b(\d{5})\b/); if (m) cp = m[1]; }
-      lote.push({nombre, nif: val(fila, cNif).toUpperCase(), domicilio: dom, cp,
-                 poblacion: val(fila, cPob).toUpperCase(), provincia: val(fila, cPro).toUpperCase(), ts: Date.now(), origen:'excel'});
-    });
-    let hechos = 0;
-    for (let i = 0; i < lote.length; i += 25) {
-      await Promise.all(lote.slice(i, i+25).map(d => addDoc(collection(db,'cartasRemitentes'), d)));
-      hechos += Math.min(25, lote.length - i);
-      aviso.textContent = `⏳ Guardando… ${hechos} de ${lote.length}`;
-    }
-    aviso.innerHTML = `✅ Importados <strong>${hechos}</strong> remitentes`
-      + (repetidos ? ` · ${repetidos} ya estaban` : '')
-      + (descartados ? ` · ${descartados} no importados (marcados como NO TRABAJAR, MOROSO, NO UTILIZAR… o cuentas internas)` : '') + '.';
-  } catch(e) { console.error(e); aviso.textContent = '❌ No se ha podido leer el Excel: ' + e.message; }
-};
-
 // ── Plantillas de transportista ──
 window.cpUsarTrans = (id) => {
   const t = cpTrans.find(x => x.id === id);
@@ -5658,7 +5622,6 @@ window.cpGenerar = async () => {
   cpResultado = {id:c.id, url:c.url, bytes, subido:false};
   cpMostrarResultado(c, bytes, 'subiendo');
   cpGuardarTrans(true);         // el conductor queda guardado para la próxima vez
-  if (c.adr) cpGuardarRemitNuevos(c);
   // 2) La carta se guarda SIEMPRE, para poder reintentar la subida con el mismo QR
   const guardar = async (extra) => {
     try {
