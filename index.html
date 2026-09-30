@@ -2298,7 +2298,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v70 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v71 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -5573,8 +5573,21 @@ async function cpConstruirPdf(c) {
     `CONDUCTOR:  ${tr.conductor || tr.nombre}${tr.telefono ? '     TFNO ' + tr.telefono : ''}`,
     {t:`18. Matrícula cabeza tractora:  ${tr.tractora || '—'}          Semirremolque:  ${tr.semirremolque || '—'}`, b:true},
   ];
-  const qrPng = await new Promise(r => cpQrCanvas(c.url, 360).toBlob(b => b.arrayBuffer().then(r), 'image/png'));
-  const qrImg = await pdf.embedPng(qrPng);
+  // QR dibujado en vectorial (cuadradito a cuadradito): nítido en pantalla y al imprimir
+  const qrM = (() => { const q = qrcode(0, 'M'); q.addData(c.url); q.make(); return q; })();
+  const dibujarQr = (pag, x, y, tam) => {
+    const n = qrM.getModuleCount(), celda = tam / (n + 8);          // 4 módulos de margen blanco por lado
+    pag.drawRectangle({x, y, width:tam, height:tam, color:blanco});
+    for (let r = 0; r < n; r++) {
+      let q = 0;
+      while (q < n) {                                                // agrupa módulos negros seguidos en una fila
+        if (!qrM.isDark(r, q)) { q++; continue; }
+        let fin = q; while (fin + 1 < n && qrM.isDark(r, fin + 1)) fin++;
+        pag.drawRectangle({x: x + (q + 4) * celda, y: y + tam - (r + 5) * celda, width: (fin - q + 1) * celda + 0.05, height: celda + 0.05, color: negro});
+        q = fin + 1;
+      }
+    }
+  };
   const totalHojas = (c.adr && c.adrLineas.length) ? 2 : 1;
 
   // Dibuja una carta de porte completa. modo: 'normal' (mercancía) o 'adr' (materias peligrosas)
@@ -5589,20 +5602,20 @@ async function cpConstruirPdf(c) {
     const num = `Nº ${c.id}`;
     escribir(p, num, M+FW-10-anchoDe(num, 9, true), yCab+10, {size:9, bold:true, color:blanco});
 
-    const qrCol = 118, izqW = FW - qrCol - G, mitad = (izqW - G) / 2, mitadFull = (FW - G) / 2;
+    const qrCol = 138, izqW = FW - qrCol - G, mitad = (izqW - G) / 2, mitadFull = (FW - G) / 2;
     let y = yCab - G;
     const fila = h => { y -= h; const y0 = y; y -= G; return y0; };
 
-    const hA = 74, yA = fila(hA);
+    const hA = 84, yA = fila(hA);
     caja(p, M, yA, mitad, hA, esAdr ? '1 · CARGADOR · EXPEDIDOR ADR' : '1 · CARGADOR O REMITENTE', bloque(c.cargadorTxt, c.cargador));
     caja(p, M+mitad+G, yA, mitad, hA, 'FECHA · PRECINTO', [{t:`Fecha:  ${cpFecha(c.fecha)}`, b:true}, `Precinto:  ${c.precinto||'—'}`]);
-    const hB = 48, yB = fila(hB);
+    const hB = 56, yB = fila(hB);
     caja(p, M, yB, mitad, hB, 'EXPEDIDOR (de no coincidir con el cargador)', [c.expedidor || '—']);
     caja(p, M+mitad+G, yB, mitad, hB, '2 · PUNTO INTERMEDIO 1', [c.intermedio1 || '—']);
-    const qrX = M + FW - qrCol, qrAlto = hA + G + hB, qrTam = qrCol - 16;
+    const qrX = M + FW - qrCol, qrAlto = hA + G + hB, qrTam = Math.min(qrCol - 8, qrAlto - 24);
     p.drawRectangle({x:qrX, y:yB, width:qrCol, height:qrAlto, borderColor:negro, borderWidth:0.6});
-    p.drawImage(qrImg, {x:qrX+8, y:yB+qrAlto-8-qrTam, width:qrTam, height:qrTam});
-    ['Escanee para descargar', 'el documento original'].forEach((t,i) => escribir(p, t, qrX + (qrCol-anchoDe(t,6.6,false))/2, yB+14-i*8, {size:6.6, color:gris}));
+    dibujarQr(p, qrX + (qrCol - qrTam) / 2, yB + qrAlto - 4 - qrTam, qrTam);
+    ['Escanee para descargar', 'el documento original'].forEach((t,i) => escribir(p, t, qrX + (qrCol-anchoDe(t,6.6,false))/2, yB+12-i*8, {size:6.6, color:gris}));
 
     const hC = 48, yC = fila(hC);
     caja(p, M, yC, mitadFull, hC, '3 · PUNTO INTERMEDIO 2', [c.intermedio2 || '—']);
