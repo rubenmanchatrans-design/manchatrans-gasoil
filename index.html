@@ -2298,7 +2298,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v69 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v70 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -4795,13 +4795,27 @@ let cpResultado = null;       // {id, url, pdfBytes}
 const cpEsc = almEsc, cpNum = almNum;
 const cpHoy = () => new Date().toISOString().slice(0,10);
 const cpFecha = iso => { if (!iso) return ''; const [a,m,d] = iso.split('-'); return `${d}/${m}/${a}`; };
-const cpUrlDe = id => `${CP_WEB}${id}.pdf`;
-const cpNuevoId = () => {
-  const d = new Date();
-  const f = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-  const r = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())).replace(/-/g,'').slice(0,10).toUpperCase();
-  return `CP-${f}-${r}`;
+// Dirección del PDF: número de carta + 6 letras al azar (para que no se puedan adivinar)
+const cpArchivoDe = c => c.archivo || c.id;
+const cpUrlDe = c => `${CP_WEB}${cpArchivoDe(typeof c === 'string' ? {id:c} : c)}.pdf`;
+const cpAzar = (n = 6) => {
+  const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', r = crypto.getRandomValues(new Uint8Array(n));
+  return [...r].map(x => abc[x % abc.length]).join('');
 };
+// Número correlativo por año: CP-2026-00001, CP-2026-00002… (contador en Firebase, sin repetidos)
+async function cpNuevoNumero() {
+  const {runTransaction} = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+  const anio = new Date().getFullYear();
+  const ref = doc(db, 'configuracion', 'contadorCartasPorte');
+  const n = await runTransaction(db, async t => {
+    const d = await t.get(ref);
+    const dat = d.exists() ? d.data() : {};
+    const sig = dat.anio === anio ? (dat.n || 0) + 1 : 1;
+    t.set(ref, {anio, n: sig});
+    return sig;
+  });
+  return `CP-${anio}-${String(n).padStart(5, '0')}`;
+}
 
 function cpNuevaCarta() {
   const f = cpFijos || {};
@@ -5215,11 +5229,27 @@ window.cpBorrarTrans = async (id) => {
 };
 
 // ── Lista de cartas emitidas ──
+let cpBusqueda = '';
+window.cpBuscar = (v) => { cpBusqueda = v; cpRenderLista(); const b = document.getElementById('cp-buscar'); if (b) { b.focus(); b.setSelectionRange(v.length, v.length); } };
 function cpRenderLista() {
   const el = document.getElementById('cp-pane-lista');
   if (!el) return;
   if (!cpCartas.length) { el.innerHTML = `<div class="refuel-card"><div class="empty-state"><div class="empty-icon">📄</div>Todavía no se ha emitido ninguna carta de porte.</div></div>`; return; }
-  el.innerHTML = `<div class="refuel-card" style="padding:0">${cpCartas.map(c => `
+  const q = cpBusqueda.trim().toUpperCase().replace(/\s+/g,' ');
+  const qNum = q.replace(/[^0-9]/g,'');
+  const lista = !q ? cpCartas : cpCartas.filter(c => {
+    const t = [c.id, c.transportista?.nombre, c.transportista?.conductor, c.transportista?.tractora, c.transportista?.semirremolque, cpFecha(c.fecha), c.precinto].join(' ').toUpperCase();
+    // "15" encuentra CP-2026-00015; también vale buscar por nombre, matrícula, fecha o precinto
+    if (/^\d{1,5}$/.test(q)) return String(c.id||'').endsWith('-' + q.padStart(5,'0'));   // solo un número: nº de carta
+    return t.includes(q);
+  });
+  el.innerHTML = `
+    <div class="refuel-card" style="margin-bottom:0.6rem">
+      <input id="cp-buscar" class="form-input" placeholder="🔎 Buscar por nº de carta (ej.: 15), conductor, matrícula o fecha" value="${cpEsc(cpBusqueda)}" oninput="cpBuscar(this.value)" autocomplete="off">
+      ${q ? `<div style="font-size:12px;color:var(--text-muted);margin-top:0.4rem">${lista.length} de ${cpCartas.length} cartas</div>` : ''}
+    </div>
+    ${!lista.length ? `<div class="refuel-card"><div class="empty-state"><div class="empty-icon">🔎</div>Ninguna carta coincide con la búsqueda.</div></div>` : ''}
+    <div class="refuel-card" style="padding:0">${lista.map(c => `
     <div class="gs-fila">
       <div class="fl-ico">${c.adr?'☢️':'📄'}</div>
       <div class="gs-fila-info">
@@ -5252,7 +5282,7 @@ window.cpEditar = (id) => {
 window.cpVer = async (id) => {
   const c = cpCartas.find(x => x.id === id);
   if (!c) return;
-  const url = c.url || cpUrlDe(c.id);
+  const url = c.url || cpUrlDe(c);
   almAbrirModal('📄 Carta de porte', `
     <div class="alm-ver-cab"><div><div class="alm-etq">Nº de documento</div><div class="alm-ver-exp alm-ver-txt" style="font-size:20px">${cpEsc(c.id)}</div></div>
       <span class="alm-chip-ag">${cpEsc(cpFecha(c.fecha))}</span></div>
@@ -5310,8 +5340,13 @@ window.cpGenerar = async () => {
   const faltan = cpValidar(c);
   if (faltan.length) { showAlert(aviso, 'Falta: ' + faltan.join(', '), true); aviso.scrollIntoView({block:'center'}); return; }
   const nuevo = !c.id;
-  if (nuevo) c.id = cpNuevoId();
-  c.url = cpUrlDe(c.id);
+  if (nuevo) {
+    showAlert(aviso, '⏳ Asignando número de carta…', false);
+    try { c.id = await cpNuevoNumero(); }
+    catch(e) { showAlert(aviso, 'No se ha podido obtener el número de carta (¿sin conexión?): ' + e.message, true); return; }
+    c.archivo = `${c.id}-${cpAzar()}`;
+  }
+  c.url = cpUrlDe(c);
   c.pesoTotal = c.mercancia.reduce((s,m) => s + (parseFloat(String(m.peso).replace(',','.'))||0), 0);
   c.bultosTotal = c.mercancia.reduce((s,m) => s + (parseInt(m.bultos)||0), 0);
   if (c.adr) { const p = cpPuntosAdr(c.adrLineas); c.adrPuntos = p.total; c.adrExento = !p.ilimitado && p.total <= 1000; }
@@ -5349,7 +5384,7 @@ window.cpGenerar = async () => {
 async function cpSubirPdf(c, bytes) {
   const datos = new FormData();
   datos.append('clave', CP_WEB_CLAVE);
-  datos.append('id', c.id);
+  datos.append('id', cpArchivoDe(c));
   datos.append('pdf', new Blob([bytes], {type:'application/pdf'}), `${c.id}.pdf`);
   const ctrl = new AbortController();
   const reloj = setTimeout(() => ctrl.abort(), 30000);
@@ -5386,7 +5421,8 @@ window.cpBorrarConfirmado = async (id) => {
   let avisoWeb = '';
   try {
     const datos = new FormData();
-    datos.append('clave', CP_WEB_CLAVE); datos.append('id', id); datos.append('accion', 'borrar');
+    const carta = cpCartas.find(x => x.id === id) || {id};
+    datos.append('clave', CP_WEB_CLAVE); datos.append('id', cpArchivoDe(carta)); datos.append('accion', 'borrar');
     const r = await fetch(CP_WEB_SUBIR, {method:'POST', body:datos});
     const j = await r.json().catch(() => null);
     if (!(r.ok && j && j.ok)) avisoWeb = ' (el PDF no se ha podido quitar de la web)';
@@ -5404,8 +5440,8 @@ window.cpResubir = async (id) => {
   if (!c) return;
   mostrarMensajeFlotante?.('⏳ Regenerando y subiendo la carta…');
   const copia = JSON.parse(JSON.stringify(c));
-  const cambiaQr = copia.url !== cpUrlDe(copia.id);
-  copia.url = cpUrlDe(copia.id);
+  const cambiaQr = copia.url !== cpUrlDe(copia);
+  copia.url = cpUrlDe(copia);
   let bytes;
   try { bytes = await cpConstruirPdf(copia); } catch(e) { alert('No se ha podido crear el PDF: ' + e.message); return; }
   const subida = await cpSubirPdf(copia, bytes);
@@ -5453,7 +5489,7 @@ function cpEstadoSubida(estado, motivo = '') {
 }
 window.cpCompartir = async (id) => {
   const c = cpCartas.find(x => x.id === id) || cpEstado;
-  const url = (c && c.url) || cpUrlDe(id);
+  const url = (c && c.url) || cpUrlDe(c || id);
   const texto = `Carta de porte ${id}\n${c?.transportista?.nombre||''} · ${c?.transportista?.tractora||''}\n${url}`;
   try {
     if (cpResultado?.id === id && navigator.canShare && navigator.canShare({files:[new File([cpResultado.bytes], `${id}.pdf`, {type:'application/pdf'})]})) {
