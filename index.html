@@ -694,6 +694,12 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .cp-tecnico-btn:hover { color: var(--accent); border-color: var(--accent); }
 .cp-campo label a { color: var(--accent); text-transform: none; }
 .cp-adr-opt-vacio { border: 1px dashed var(--accent); }
+
+.home-seccion { font-size: 12px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; color: var(--text-muted); margin: 1.1rem 0 0.5rem 0.2rem; }
+#modulo-home-screen .home-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
+#modulo-home-screen .home-grid-3 .home-card { min-height: 150px; }
+@media (max-width: 800px) { #modulo-home-screen .home-grid-3 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { #modulo-home-screen .home-grid-3 { grid-template-columns: 1fr; } }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -859,7 +865,8 @@ html.giro-fijo #screen-chat { height: 100% !important; }
         </div>
       </div>
       <div id="home-hoy" class="home-hoy"></div>
-      <div class="home-grid home-grid-4">
+      <div class="home-seccion">Día a día</div>
+      <div class="home-grid home-grid-3">
         <button class="home-card" id="home-btn-gasoil">
           <span class="hc-icon" style="background:rgba(245,166,35,0.15);">⛽</span>
           <span class="hc-name">Gasoil</span>
@@ -867,23 +874,12 @@ html.giro-fijo #screen-chat { height: 100% !important; }
           <span id="home-info-gasoil" class="hc-info"></span>
           <span id="home-badge-gasoil" class="hc-badge"></span>
         </button>
-        <button class="home-card" id="home-btn-fleet">
-          <span class="hc-icon" style="background:rgba(46,204,113,0.15);">🚛</span>
-          <span class="hc-name">Flota</span>
-          <span class="hc-desc">ITV · Tacógrafo · Reparaciones · Limpieza</span>
-          <span id="home-badge-flota" class="hc-badge"></span>
-        </button>
-        <button class="home-card" id="home-btn-ropa">
-          <span class="hc-icon" style="background:rgba(59,130,246,0.15);">👔</span>
-          <span class="hc-name">Ropa</span>
-          <span class="hc-desc">Entregas · Inventario · Pedido anual</span>
-          <span id="home-badge-ropa" class="hc-badge"></span>
-        </button>
-        <button class="home-card" id="home-btn-adrcap">
-          <span class="hc-icon" style="background:rgba(168,85,247,0.15);">🪪</span>
-          <span class="hc-name">ADR / CAP</span>
-          <span class="hc-desc">Vencimientos · Renovaciones</span>
-          <span id="home-badge-adrcap" class="hc-badge"></span>
+        <button class="home-card" id="home-btn-almacen">
+          <span class="hc-icon" style="background:rgba(245,166,35,0.15);">📦</span>
+          <span class="hc-name">Almacén</span>
+          <span class="hc-desc">Expediciones · Volúmenes · Pesos</span>
+          <span id="home-info-almacen" class="hc-info"></span>
+          <span id="home-badge-almacen" class="hc-badge"></span>
         </button>
         <button class="home-card" id="home-btn-cartas">
           <span class="hc-icon" style="background:rgba(14,165,233,0.15);">📄</span>
@@ -891,26 +887,41 @@ html.giro-fijo #screen-chat { height: 100% !important; }
           <span class="hc-desc">DeCA con QR · ADR · Transportistas</span>
           <span id="home-info-cartas" class="hc-info"></span>
         </button>
-        <button class="home-card" id="home-btn-formacion">
-          <span class="hc-icon" style="background:rgba(34,197,94,0.15);">🎓</span>
-          <span class="hc-name">Formación</span>
-          <span class="hc-desc">Créditos · Cursos · Gasto por empresa</span>
-          <span id="home-info-formacion" class="hc-info"></span>
-        </button>
       </div>
+      <div class="home-seccion">Vehículos y conductores</div>
       <div class="home-grid home-grid-3">
+        <button class="home-card" id="home-btn-fleet">
+          <span class="hc-icon" style="background:rgba(46,204,113,0.15);">🚛</span>
+          <span class="hc-name">Flota</span>
+          <span class="hc-desc">ITV · Tacógrafo · Reparaciones · Limpieza</span>
+          <span id="home-badge-flota" class="hc-badge"></span>
+        </button>
         <button class="home-card" id="home-btn-seguros">
           <span class="hc-icon" style="background:rgba(231,76,60,0.15);">🛡️</span>
           <span class="hc-name">Seguros</span>
           <span class="hc-desc">Vehículos · Pólizas · Comparativa</span>
           <span id="home-badge-seguros" class="hc-badge"></span>
         </button>
-        <button class="home-card" id="home-btn-almacen">
-          <span class="hc-icon" style="background:rgba(245,166,35,0.15);">📦</span>
-          <span class="hc-name">Almacén</span>
-          <span class="hc-desc">Expediciones · Volúmenes · Pesos</span>
-          <span id="home-info-almacen" class="hc-info"></span>
-          <span id="home-badge-almacen" class="hc-badge"></span>
+        <button class="home-card" id="home-btn-adrcap">
+          <span class="hc-icon" style="background:rgba(168,85,247,0.15);">🪪</span>
+          <span class="hc-name">ADR / CAP</span>
+          <span class="hc-desc">Vencimientos · Renovaciones</span>
+          <span id="home-badge-adrcap" class="hc-badge"></span>
+        </button>
+      </div>
+      <div class="home-seccion">Personal y administración</div>
+      <div class="home-grid home-grid-3">
+        <button class="home-card" id="home-btn-ropa">
+          <span class="hc-icon" style="background:rgba(59,130,246,0.15);">👔</span>
+          <span class="hc-name">Ropa</span>
+          <span class="hc-desc">Entregas · Inventario · Pedido anual</span>
+          <span id="home-badge-ropa" class="hc-badge"></span>
+        </button>
+        <button class="home-card" id="home-btn-formacion">
+          <span class="hc-icon" style="background:rgba(34,197,94,0.15);">🎓</span>
+          <span class="hc-name">Formación</span>
+          <span class="hc-desc">Créditos · Cursos · Gasto por empresa</span>
+          <span id="home-info-formacion" class="hc-info"></span>
         </button>
         <button class="home-card" id="home-btn-gestion">
           <span class="hc-icon" style="background:rgba(143,163,188,0.15);">⚙️</span>
