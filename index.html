@@ -713,6 +713,12 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .alm-sheet.cp-sheet-visor { max-width: 920px; width: 96vw; }
 .cp-visor { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; background: #525659; border-radius: 10px; padding: 0.5rem; min-height: 200px; }
 .cp-visor canvas { background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.4); border-radius: 2px; max-width: 100%; }
+
+.cp-grupo { border: 1px solid rgba(245,166,35,0.45); border-radius: 14px; padding: 0.75rem; margin-bottom: 0.75rem; background: rgba(245,166,35,0.04); }
+.cp-grupo-cab { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
+.cp-grupo-cab > span { font-weight: 800; font-size: 15px; color: var(--accent); }
+.cp-grupo .cp-adr-linea { margin-top: 0.5rem; }
+.cp-otro-cliente { border-color: var(--accent) !important; color: var(--accent) !important; font-weight: 800; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2330,7 +2336,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v79 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v80 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -5018,13 +5024,8 @@ function cpRenderForm() {
       </div>
       ${c.adr ? '<div style="font-size:12px;color:var(--text-muted);margin:0.5rem 0 0.75rem">Se generará una hoja más: la carta de porte de ADR, con todos los datos del conductor y las materias peligrosas.</div>' : ''}
       ${c.adr ? `
-        <div class="cp-fila">
-          <div class="cp-campo" style="flex:1"><label>Buscar en la tabla ADR por nº ONU o por nombre</label>
-            <input id="cp-adr-busca" placeholder="Ej.: 1263, PINTURA o 0000 (envases vacíos)" oninput="cpBuscarAdrUI(this.value)" autocomplete="off"></div>
-        </div>
-        <div id="cp-adr-res" class="cp-adr-res"></div>
-
-        <div id="cp-adr-lineas">${c.adrLineas.map((l,i)=> l.vacio ? cpHtmlVacio(l,i) : cpHtmlAdr(l,i)).join('') || '<div style="font-size:13px;color:var(--text-muted)">Busca arriba y añade cada materia peligrosa que va en el camión.</div>'}</div>
+        <div id="cp-adr-lineas">${cpGruposAdr().map((gr, g) => cpHtmlGrupo(gr, g)).join('')}</div>
+        <button type="button" class="alm-anadir cp-otro-cliente" onclick="cpAnadirGrupo()">➕ Añadir ADR de otro cliente</button>
         <div id="cp-adr-puntos" class="cp-puntos"></div>
         <div style="font-size:12px;color:var(--text-muted);margin-top:0.5rem">El DeCA no sustituye al documento de transporte ADR: la hoja ADR que se añade al PDF recoge los datos del 5.4.1, pero el conductor debe llevar además la documentación ADR que corresponda.</div>
       ` : ''}
@@ -5133,26 +5134,89 @@ function cpHtmlMerc(m, i) {
     </div>
   </div>`;
 }
-window.cpBuscarAdrUI = async (txt) => {
+// ── ADR agrupado por cliente (remitente) ──
+// cpEstado.adrGrupos = [{remitente, remitenteDatos}], y cada materia lleva g = nº de su grupo
+function cpGruposAdr() {
+  const c = cpEstado;
+  if (!Array.isArray(c.adrGrupos)) {
+    // cartas antiguas: se agrupan por el remitente que tuviera cada materia
+    c.adrGrupos = [];
+    c.adrLineas.forEach(l => {
+      const k = (l.remitente||'').trim();
+      let g = c.adrGrupos.findIndex(x => (x.remitente||'').trim() === k);
+      if (g < 0) { c.adrGrupos.push({remitente: k, remitenteDatos: l.remitenteDatos}); g = c.adrGrupos.length - 1; }
+      l.g = g;
+    });
+  }
+  if (!c.adrGrupos.length) c.adrGrupos.push({remitente:'', remitenteDatos:null});
+  // cada materia hereda el remitente de su cliente
+  c.adrLineas.forEach(l => { if (!(l.g >= 0 && l.g < c.adrGrupos.length)) l.g = 0; const gr = c.adrGrupos[l.g]; l.remitente = gr.remitente || ''; l.remitenteDatos = gr.remitenteDatos || null; });
+  return c.adrGrupos;
+}
+function cpHtmlGrupo(gr, g) {
+  const lineas = cpEstado.adrLineas.map((l,i) => ({l,i})).filter(x => x.l.g === g);
+  const varios = cpEstado.adrGrupos.length > 1;
+  return `<div class="cp-grupo">
+    <div class="cp-grupo-cab">
+      <span>🏢 ${varios ? `Cliente ${g+1}` : 'Cliente'}</span>
+      ${varios ? `<button type="button" class="cp-adr-quitar" onclick="cpQuitarGrupo(${g})">✕ Quitar este cliente</button>` : ''}
+    </div>
+    <div class="cp-campo cp-remitente"><label>Remitente</label>
+      <div style="display:flex;gap:0.4rem">
+        <select style="flex:1;min-width:0" onchange="cpElegirRemitGrupo(${g}, this.value)">
+          <option value="">— Elegir remitente —</option>
+          ${cpRemitPropios().map(r => `<option value="${r.id}" ${cpNormNombre(r.nombre)===cpNormNombre(gr.remitente)?'selected':''}>${cpEsc(r.nombre)}${r.poblacion?' · '+cpEsc(r.poblacion):''}</option>`).join('')}
+        </select>
+        <button type="button" class="alm-accion" style="flex-shrink:0" onclick="cpNuevoRemit('', null, ${g})">➕ Nuevo</button>
+      </div>
+      <div id="cp-remdat-g${g}" class="cp-remdat">${cpHtmlFichaRemit(gr)}</div></div>
+    ${lineas.map(x => x.l.vacio ? cpHtmlVacio(x.l, x.i) : cpHtmlAdr(x.l, x.i)).join('')}
+    <div class="cp-campo" style="margin-top:0.4rem"><label>${lineas.length ? 'Añadir otra mercancía ADR de este cliente' : 'Mercancía ADR de este cliente'} · nº ONU, nombre o 0000 (envases vacíos)</label>
+      <input id="cp-adr-busca-${g}" placeholder="Ej.: 1263, PINTURA o 0000" oninput="cpBuscarAdrUI(this.value, ${g})" autocomplete="off"></div>
+    <div id="cp-adr-res-${g}" class="cp-adr-res"></div>
+  </div>`;
+}
+window.cpAnadirGrupo = () => {
+  cpGruposAdr();
+  cpEstado.adrGrupos.push({remitente:'', remitenteDatos:null});
+  cpRenderForm();
+  setTimeout(() => { const g = cpEstado.adrGrupos.length - 1; document.querySelectorAll('.cp-grupo')[g]?.scrollIntoView({block:'center', behavior:'smooth'}); }, 50);
+};
+window.cpQuitarGrupo = (g) => {
+  const n = cpEstado.adrLineas.filter(l => l.g === g).length;
+  if (n && !confirm(`¿Quitar este cliente y sus ${n} mercancías ADR?`)) return;
+  cpEstado.adrLineas = cpEstado.adrLineas.filter(l => l.g !== g).map(l => ({...l, g: l.g > g ? l.g - 1 : l.g}));
+  cpEstado.adrGrupos.splice(g, 1);
+  cpRenderForm();
+};
+window.cpElegirRemitGrupo = (g, id) => {
+  const gr = cpEstado.adrGrupos[g];
+  const r = cpRemit.find(x => x.id === id);
+  gr.remitente = r ? r.nombre : '';
+  gr.remitenteDatos = r ? {nombre:r.nombre, nif:r.nif||'', domicilio:r.domicilio||'', cp:r.cp||'', poblacion:r.poblacion||'', provincia:r.provincia||''} : null;
+  cpGruposAdr();
+  const f = document.getElementById(`cp-remdat-g${g}`); if (f) f.innerHTML = cpHtmlFichaRemit(gr);
+};
+
+window.cpBuscarAdrUI = async (txt, g = 0) => {
   await cpCargarAdr();
-  const cont = document.getElementById('cp-adr-res');
+  const cont = document.getElementById(`cp-adr-res-${g}`);
   if (!cont) return;
   const res = cpBuscarAdr(txt);
   const q = txt.trim().toUpperCase();
   const vacios = q && (CP_COD_VACIOS.startsWith(q) || /^VAC|^ENVASE|^EMBALAJE/.test(q.normalize('NFD').replace(/[\u0300-\u036f]/g,'')))
-    ? `<div class="cp-adr-opt cp-adr-opt-vacio" onclick="cpAnadirVacio()"><span class="cp-un">${CP_COD_VACIOS}</span><span class="cp-adr-nom">${CP_TXT_VACIOS}</span><span class="cp-adr-meta">Sin nº ONU · pones bultos, tipo de bulto y kilos · no cuentan para las placas</span></div>` : '';
+    ? `<div class="cp-adr-opt cp-adr-opt-vacio" onclick="cpAnadirVacio(${g})"><span class="cp-un">${CP_COD_VACIOS}</span><span class="cp-adr-nom">${CP_TXT_VACIOS}</span><span class="cp-adr-meta">Sin nº ONU · pones bultos, tipo de bulto y kilos · no cuentan para las placas</span></div>` : '';
   cont.innerHTML = !txt.trim() ? '' : !cpAdr ? '<div style="color:var(--danger)">No se ha podido cargar la tabla ADR (falta el fichero adr.json junto a la app).</div>'
     : (!res.length && !vacios) ? '<div style="font-size:13px;color:var(--text-muted)">Sin resultados</div>'
-    : vacios + res.map((f,i) => `<div class="cp-adr-opt" onclick="cpAnadirAdr(${cpAdr.indexOf(f)})">
+    : vacios + res.map((f,i) => `<div class="cp-adr-opt" onclick="cpAnadirAdr(${cpAdr.indexOf(f)}, ${g})">
         <span class="cp-un">UN ${f[0]}</span>
         <span class="cp-adr-nom">${cpEsc(f[1].length>90?f[1].slice(0,90)+'…':f[1])}</span>
         <span class="cp-adr-meta">Clase ${cpEsc(f[2])}${f[4]?' · GE '+cpEsc(f[4]):''}${f[5]?' · Etq. '+cpEsc(f[5]):''}${f[9]?' · Cat. '+cpEsc(f[9]):''}${f[10]?' · Túnel '+cpEsc(f[10]):''}</span>
       </div>`).join('');
 };
-window.cpAnadirAdr = (idx) => {
+window.cpAnadirAdr = (idx, g = 0) => {
   const f = cpAdr[idx];
-  cpEstado.adrLineas.push({remitente: '', un:f[0], nombre:f[1], clase:f[2], codigo:f[3], ge:f[4], etiquetas:f[5], disposiciones:f[6], cl:f[7], cat:f[9], tunel:f[10], texto:cpLineaAdr(f), tecnico:'', cantidad:'', unidad:'kg', bultos:'', embalaje:''});
-  const b = document.getElementById('cp-adr-busca'); if (b) b.value = '';
+  cpEstado.adrLineas.push({g, remitente: '', un:f[0], nombre:f[1], clase:f[2], codigo:f[3], ge:f[4], etiquetas:f[5], disposiciones:f[6], cl:f[7], cat:f[9], tunel:f[10], texto:cpLineaAdr(f), tecnico:'', cantidad:'', unidad:'kg', bultos:'', embalaje:''});
   cpRenderForm();
 };
 function cpEsNepTabla(l) { return /N\.E\.P\./i.test(l.nombre || '') || String(l.disposiciones||'').split(/\s+/).includes('274'); }
@@ -5162,9 +5226,8 @@ function cpEsNep(l) { return !l.vacio && (cpEsNepTabla(l) || !!l.conTecnico); }
 // Código propio para buscarlos en la tabla ADR (no tienen nº ONU)
 const CP_COD_VACIOS = '0000';
 const CP_TXT_VACIOS = 'ENVASES Y EMBALAJES VACÍOS SIN LIMPIAR';
-window.cpAnadirVacio = () => {
-  cpEstado.adrLineas.push({remitente: '', vacio:true, etiquetas:'', cat:'4', cantidad:'', unidad:'kg', bultos:'', embalaje:''});
-  const b = document.getElementById('cp-adr-busca'); if (b) b.value = '';
+window.cpAnadirVacio = (g = 0) => {
+  cpEstado.adrLineas.push({g, remitente: '', vacio:true, etiquetas:'', cat:'4', cantidad:'', unidad:'kg', bultos:'', embalaje:''});
   cpRenderForm();
 };
 window.cpBuscarUltimaUI = async (i, txt) => {
@@ -5194,15 +5257,6 @@ function cpHtmlVacio(l, i) {
       <div class="cp-adr-texto"><span class="cp-un">${CP_COD_VACIOS}</span> ${cpEsc(cpTextoVacio(l))}</div>
       <button type="button" class="cp-adr-quitar" onclick="cpEstado.adrLineas.splice(${i},1); cpRenderForm()" aria-label="Quitar">✕ Quitar</button>
     </div>
-    <div class="cp-campo cp-remitente"><label>🏢 Remitente de esta mercancía</label>
-      <div style="display:flex;gap:0.4rem">
-        <select style="flex:1;min-width:0" onchange="cpElegirRemitSel(${i}, this.value)">
-          <option value="">— Elegir remitente —</option>
-          ${cpRemitPropios().map(r => `<option value="${r.id}" ${cpNormNombre(r.nombre)===cpNormNombre(l.remitente)?'selected':''}>${cpEsc(r.nombre)}${r.poblacion?' · '+cpEsc(r.poblacion):''}</option>`).join('')}
-        </select>
-        <button type="button" class="alm-accion" style="flex-shrink:0" onclick="cpNuevoRemit('', ${i})">➕ Nuevo</button>
-      </div>
-      <div id="cp-remdat-${i}" class="cp-remdat">${cpHtmlFichaRemit(l)}</div></div>
     <div class="cp-fila">
       <div class="cp-campo cp-c3"><label>Nº de bultos</label><input type="number" inputmode="numeric" value="${cpEsc(l.bultos)}" oninput="cpSetAdr(${i},'bultos',this.value)"></div>
       <div class="cp-campo cp-c3"><label>Tipo de bulto</label>
@@ -5219,15 +5273,6 @@ function cpHtmlAdr(l, i) {
       <div class="cp-adr-texto">${cpEsc(cpTextoAdr(l))}</div>
       <button type="button" class="cp-adr-quitar" onclick="cpEstado.adrLineas.splice(${i},1); cpRenderForm()" aria-label="Quitar esta materia">✕ Quitar</button>
     </div>
-    <div class="cp-campo cp-remitente"><label>🏢 Remitente de esta mercancía</label>
-      <div style="display:flex;gap:0.4rem">
-        <select style="flex:1;min-width:0" onchange="cpElegirRemitSel(${i}, this.value)">
-          <option value="">— Elegir remitente —</option>
-          ${cpRemitPropios().map(r => `<option value="${r.id}" ${cpNormNombre(r.nombre)===cpNormNombre(l.remitente)?'selected':''}>${cpEsc(r.nombre)}${r.poblacion?' · '+cpEsc(r.poblacion):''}</option>`).join('')}
-        </select>
-        <button type="button" class="alm-accion" style="flex-shrink:0" onclick="cpNuevoRemit('', ${i})">➕ Nuevo</button>
-      </div>
-      <div id="cp-remdat-${i}" class="cp-remdat">${cpHtmlFichaRemit(l)}</div></div>
     ${!nep ? `<button type="button" class="cp-tecnico-btn" onclick="cpEstado.adrLineas[${i}].conTecnico=true; cpRenderForm()">➕ Añadir nombre técnico (N.E.P.)</button>` : ''}
     ${nep ? `<div class="cp-campo"><label>Nombre técnico (N.E.P.: poner qué lleva, ADR 3.1.2.8)${!cpEsNepTabla(l) ? ` · <a href="#" onclick="event.preventDefault(); cpEstado.adrLineas[${i}].conTecnico=false; cpEstado.adrLineas[${i}].tecnico=''; cpRenderForm()">quitar</a>` : ''}</label>
       <input value="${cpEsc(l.tecnico||'')}" placeholder="Ej.: contiene tolueno y etanol" oninput="cpSetAdr(${i},'tecnico',this.value); this.closest('.cp-adr-linea').querySelector('.cp-adr-texto').textContent = cpTextoAdr(cpEstado.adrLineas[${i}])"></div>` : ''}
@@ -5383,6 +5428,7 @@ window.cpElegirRemitSel = (i, id) => {
 };
 // Ficha del remitente elegido (o aviso de que es nuevo)
 function cpHtmlFichaRemit(l) {
+  if (!l) return '';
   const nombre = (l.remitente || '').trim();
   if (!nombre) return '';
   const d = cpDatosRemit(nombre, l);
@@ -5465,7 +5511,7 @@ function cpRenderRemit() {
         </div>
       </div>`).join('')}${lista.length>300?`<div style="padding:0.75rem;font-size:13px;color:var(--text-muted)">… y ${lista.length-300} más. Usa el buscador.</div>`:''}</div>`}`;
 }
-window.cpNuevoRemit = (id, linea = null) => {
+window.cpNuevoRemit = (id, linea = null, grupo = null) => {
   const r = id ? cpRemit.find(x => x.id === id) || {} : {};
   const campo = (k, t, ph='') => `<div class="cp-campo"><label>${t}</label><input id="cp-r-${k}" value="${cpEsc(r[k]||'')}" placeholder="${ph}"></div>`;
   almAbrirModal(id ? '✏️ Remitente' : '➕ Nuevo remitente', `
@@ -5481,11 +5527,11 @@ window.cpNuevoRemit = (id, linea = null) => {
     </div>
     <div id="cp-cp-elegir"></div>
     <div style="font-size:12px;color:var(--text-muted)">Al elegir la población se rellenan solos el código postal y la provincia.</div>`,
-    `<button class="btn btn-primary" onclick="cpGuardarRemit('${id||''}', ${linea === null ? 'null' : linea})">💾 Guardar${linea !== null ? ' y usar' : ''}</button><button class="btn btn-ghost" onclick="almCerrarModal()">Cancelar</button>`);
+    `<button class="btn btn-primary" onclick="cpGuardarRemit('${id||''}', ${linea === null ? 'null' : linea}, ${grupo === null ? 'null' : grupo})">💾 Guardar${(linea !== null || grupo !== null) ? ' y usar' : ''}</button><button class="btn btn-ghost" onclick="almCerrarModal()">Cancelar</button>`);
   setTimeout(() => document.getElementById('cp-r-nombre')?.focus(), 50);
   cpCargarMuni();          // se va cargando la lista de municipios
 };
-window.cpGuardarRemit = async (id, linea = null) => {
+window.cpGuardarRemit = async (id, linea = null, grupo = null) => {
   const v = k => (document.getElementById('cp-r-'+k)?.value || '').trim();
   const datos = {nombre: v('nombre').toUpperCase(), domicilio: v('domicilio').toUpperCase(), cp: v('cp'), poblacion: v('poblacion').toUpperCase(), provincia: v('provincia').toUpperCase(), ts: Date.now()};
   if (!datos.nombre) { document.getElementById('cp-r-nombre')?.focus(); return; }
@@ -5499,6 +5545,12 @@ window.cpGuardarRemit = async (id, linea = null) => {
       await addDoc(collection(db,'cartasRemitentes'), {...datos, origen:'manual'});
     }
     almCerrarModal();
+    if (grupo !== null && cpEstado.adrGrupos && cpEstado.adrGrupos[grupo]) {
+      const {ts, ...d} = datos;
+      cpEstado.adrGrupos[grupo].remitente = datos.nombre;
+      cpEstado.adrGrupos[grupo].remitenteDatos = {nif:'', ...d};
+      setTimeout(cpRenderForm, 300);
+    }
     if (linea !== null && cpEstado.adrLineas[linea]) {
       const {ts, ...d} = datos;
       cpEstado.adrLineas[linea].remitente = datos.nombre;
@@ -5677,8 +5729,12 @@ function cpValidar(c) {
   if (!c.mercancia.some(m => m.naturaleza || m.bultos || m.peso)) f.push('al menos una línea de mercancía');
   if (c.adr) {
     if (!c.adrLineas.length) f.push('las materias ADR (o quita el interruptor de ADR)');
+    cpGruposAdr().forEach((gr, g) => {
+      const n = c.adrLineas.filter(l => l.g === g).length;
+      if (n && !(gr.remitente||'').trim()) f.push(`el remitente del cliente ${g+1}`);
+      if (!n && c.adrGrupos.length > 1) f.push(`alguna mercancía ADR del cliente ${g+1} (o quítalo)`);
+    });
     c.adrLineas.forEach((l,i) => {
-      if (!(l.remitente||'').trim()) f.push(`el remitente de la línea ADR ${i+1}`);
       if (l.vacio) {
         if (!(parseInt(l.bultos) > 0)) f.push(`el nº de bultos de los envases vacíos (línea ADR ${i+1})`);
         if (!l.embalaje) f.push(`el tipo de bulto de los envases vacíos (línea ADR ${i+1})`);
