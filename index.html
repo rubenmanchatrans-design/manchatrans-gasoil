@@ -2298,7 +2298,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v68 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v69 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -5237,6 +5237,7 @@ function cpRenderLista() {
         ${c.subido === false ? `<button class="alm-accion" style="border-color:var(--danger);color:#ff8b80" onclick="cpResubir('${c.id}')">☁️ Subir de nuevo</button>` : ''}
         <button class="alm-accion alm-accion-ver" onclick="cpVer('${c.id}')">👁 Ver / QR</button>
         <button class="alm-accion" onclick="cpEditar('${c.id}')">✏️ Corregir</button>
+        <button class="alm-accion alm-accion-borrar" onclick="cpBorrar('${c.id}')" aria-label="Borrar carta">🗑</button>
       </div>
     </div>`).join('')}</div>`;
 }
@@ -5368,6 +5369,34 @@ async function cpSubirPdf(c, bytes) {
   if (r.status === 403) return {ok:false, motivo:'La web ha rechazado la clave. La clave de subir.php y la de NexoFlota tienen que ser la misma.'};
   return {ok:false, motivo: (j && j.error) ? `La web dice: ${j.error}` : `La web ha respondido ${r.status}. ¿Admite PHP el alojamiento?`};
 }
+
+// Borrar una carta emitida por error: se quita de la lista y su PDF de la web
+window.cpBorrar = async (id) => {
+  const c = cpCartas.find(x => x.id === id);
+  if (!c) return;
+  almAbrirModal('🗑 Borrar carta de porte', `
+    <div style="font-size:15px;margin-bottom:0.5rem"><strong>${cpEsc(id)}</strong></div>
+    <div style="font-size:14px;color:var(--text-muted);margin-bottom:0.75rem">${cpEsc(cpFecha(c.fecha))} · ${cpEsc(c.transportista?.nombre||'')} · ${cpEsc(c.transportista?.tractora||'')}</div>
+    <div class="alm-banner alm-banner-mal" style="text-align:left">Se borrará de la lista y se quitará el PDF de la web: <strong>su QR dejará de funcionar</strong>. Si el conductor ya la lleva, hazle una carta nueva.</div>`,
+    `<button class="btn btn-primary" style="background:var(--danger);border-color:var(--danger);color:#fff" onclick="cpBorrarConfirmado('${id}')">🗑 Sí, borrar</button>
+     <button class="btn btn-ghost" onclick="almCerrarModal()">Cancelar</button>`);
+};
+window.cpBorrarConfirmado = async (id) => {
+  almCerrarModal();
+  let avisoWeb = '';
+  try {
+    const datos = new FormData();
+    datos.append('clave', CP_WEB_CLAVE); datos.append('id', id); datos.append('accion', 'borrar');
+    const r = await fetch(CP_WEB_SUBIR, {method:'POST', body:datos});
+    const j = await r.json().catch(() => null);
+    if (!(r.ok && j && j.ok)) avisoWeb = ' (el PDF no se ha podido quitar de la web)';
+  } catch(e) { avisoWeb = ' (sin conexión con la web: el PDF sigue allí)'; }
+  try {
+    await deleteDoc(doc(db,'cartasPorte',id));
+    if (cpEstado?.id === id) { cpEstado = cpNuevaCarta(); }
+    mostrarMensajeFlotante?.('🗑 Carta borrada' + avisoWeb);
+  } catch(e) { alert('No se ha podido borrar: ' + e.message); }
+};
 
 // Volver a subir una carta ya emitida (mismo número y mismo QR)
 window.cpResubir = async (id) => {
