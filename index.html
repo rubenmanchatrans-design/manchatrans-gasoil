@@ -2279,7 +2279,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v60 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v61 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -4728,13 +4728,23 @@ Object.assign(window, {
 // ════════════════════════════════════════════════════════════════════════════
 const CP_BUCKET = firebaseConfigGasoil.storageBucket;
 const CP_CARPETA = 'deca';
+// Datos fijos, tal cual la plantilla de Excel. Se pueden cambiar y guardar desde el formulario.
 const CP_DEFECTO = {
-  cargador: {nombre:'MANCHEGA DE TRANSPORTES, S.L.', nif:'B13101647', domicilio:'CTRA. DE CARRIÓN, KM. 311,300', cp:'13005', poblacion:'CIUDAD REAL'},
-  operador: {nombre:'XPO TRANSPORT SOLUTIONS SPAIN, S.L.', nif:'B78503406', domicilio:'Bº DE SAN MARTÍN, S/N', cp:'39011', poblacion:'SANTANDER', telefono:'942 35 23 52'},
-  destino:  {nombre:'XPO LOGISTICS', domicilio:'C/ SEVERO OCHOA, 34', cp:'28906', poblacion:'GETAFE (MADRID)'},
-  lugarDestino: 'Varios destinos. Mercancía en régimen de carga fraccionada.',
-  naturaleza: 'Paletería industrial',
+  cargadorTxt: 'MANCHEGA DE TRANSPORTES, S.L. B13101647\nCTRA. DE CARRION, KM. 311,300\n13005-CIUDAD REAL',
+  destinoTxt:  'XPO LOGISTICS\nC/ SEVERO OCHOA 34\nGETAFE ( MADRID )',
+  operadorTxt: 'XPO TRANSPORT SOLUTION SPAIN S.L.\nBº DE SAN MARTIN SN         NIF B78503406\nTELEF. 942 35 23 52\n39011 SANTANDER',
+  lugarDestino: 'Varios destinos. Mercancía en régimen de carga fraccionada',
+  naturaleza: 'Paletería Industrial',
 };
+let cpFijos = null;   // los guardados en Firebase (configuracion/cartasPorte), si los hay
+// Transportista que suele venir: se crea solo la primera vez
+const CP_TRANS_INICIAL = {nombre:'JOSE ALBERTO GIVICA DIAZ', nif:'5684441-Z', domicilio:'C/ PERIBAÑEZ 8   13429 EL CRISTO DEL ESPIRITU SANTO  ( C.REAL )',
+  conductor:'JOSE ALBERTO GIVICA DIAZ', telefono:'650198512', tractora:'6732 LDT', semirremolque:'R-4317-BDR'};
+// Tipos de bulto para ADR (con su código de embalaje de la ONU)
+const CP_BULTOS_ADR = [
+  'GRG (IBC)', 'Jerrican', 'Caja', 'Bidón', 'Saco', 'Embalaje combinado', 'Botella / garrafa',
+  'Gran embalaje', 'Aerosoles (en caja)', 'Cartuchos de gas (en caja)', 'Cisterna', 'Granel', 'Otro',
+];
 // Factores del 1.1.3.6 ADR (exención por cantidades transportadas por unidad de transporte)
 const CP_FACTOR_CAT = {'0': null, '1': 50, '2': 3, '3': 1, '4': 0};
 
@@ -4754,13 +4764,14 @@ const cpNuevoId = () => {
 };
 
 function cpNuevaCarta() {
+  const f = cpFijos || {};
   return {
     fecha: cpHoy(),
-    cargador: {...CP_DEFECTO.cargador}, expedidor: '',
+    cargadorTxt: f.cargadorTxt || CP_DEFECTO.cargadorTxt, expedidor: '',
     intermedio1: '', intermedio2: '',
-    destino: {...CP_DEFECTO.destino}, lugarDestino: CP_DEFECTO.lugarDestino,
+    destinoTxt: f.destinoTxt || CP_DEFECTO.destinoTxt, lugarDestino: f.lugarDestino || CP_DEFECTO.lugarDestino,
     anexos: '', contrato: '', precinto: '', observaciones: '',
-    operador: {...CP_DEFECTO.operador},
+    operadorTxt: f.operadorTxt || CP_DEFECTO.operadorTxt,
     transportista: {nombre:'', nif:'', domicilio:'', conductor:'', telefono:'', tractora:'', semirremolque:''},
     mercancia: [{marcas:'', bultos:'', embalaje:'Palets', naturaleza: CP_DEFECTO.naturaleza, peso:'', volumen:''}],
     adr: false, adrLineas: [],
@@ -4779,8 +4790,13 @@ function cpEntrar() {
       const hi = document.getElementById('home-info-cartas');
       if (hi) { const hoy = new Date().toLocaleDateString('es-ES'); const h = cpCartas.filter(c => c.fechaStr === hoy).length; hi.innerHTML = `📄 <strong>${h}</strong> carta${h===1?'':'s'} hoy`; }
     }, e => console.warn('cartasPorte', e));
+    getDoc(doc(db,'configuracion','cartasPorte')).then(d => {
+      if (d.exists()) { cpFijos = d.data(); if (cpEstado && !cpEstado.id && !cpEstado.tocado) { cpEstado = cpNuevaCarta(); cpRenderForm(); } }
+    }).catch(()=>{});
+    let cpSembrado = false;
     onSnapshot(collection(db,'cartasTransportistas'), snap => {
-      cpTrans = snap.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b) => (a.nombre||'').localeCompare(b.nombre||''));
+      cpTrans = snap.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b) => (a.conductor||a.nombre||'').localeCompare(b.conductor||b.nombre||''));
+      if (!cpTrans.length && !cpSembrado) { cpSembrado = true; addDoc(collection(db,'cartasTransportistas'), {...CP_TRANS_INICIAL, ts:Date.now()}).catch(()=>{}); }
       if (document.getElementById('cp-pane-trans')?.style.display !== 'none') cpRenderTrans();
       cpRellenarSelectTrans();
     }, e => console.warn('cartasTransportistas', e));
@@ -4841,6 +4857,7 @@ function cpCampo(id, etiqueta, valor, opts = {}) {
   </div>`;
 }
 window.cpSet = (ruta, valor) => {
+  cpEstado.tocado = true;
   const p = ruta.split('.'); let o = cpEstado;
   for (let i = 0; i < p.length-1; i++) o = o[p[i]];
   o[p[p.length-1]] = valor;
@@ -4867,19 +4884,19 @@ function cpRenderForm() {
 
     <div class="refuel-card cp-card">
       <div class="cp-tit">14 · Empresa transportista y conductor</div>
+      <div class="cp-campo"><label>👤 Conductor guardado (${cpTrans.length})</label>
+        <select id="cp-sel-trans" onchange="cpUsarTrans(this.value)" style="font-size:16px;font-weight:600">
+          <option value="">— Elegir conductor —</option>
+          ${cpTrans.map(t=>`<option value="${t.id}">${cpEsc(t.conductor||t.nombre)} · ${cpEsc(t.tractora||'')}${t.semirremolque?' + '+cpEsc(t.semirremolque):''}</option>`).join('')}
+        </select></div>
+      <div style="font-size:12px;color:var(--text-muted);margin:-0.2rem 0 0.6rem">Si el conductor es nuevo, rellena los datos: al generar la carta se guarda solo para la próxima vez.</div>
       <div class="cp-fila">
-        <div class="cp-campo cp-c2"><label>Plantilla guardada</label>
-          <select id="cp-sel-trans" onchange="cpUsarTrans(this.value)"><option value="">— Elegir transportista guardado —</option>
-            ${cpTrans.map(t=>`<option value="${t.id}">${cpEsc(t.nombre)}${t.conductor?' · '+cpEsc(t.conductor):''}</option>`).join('')}</select></div>
-        <div class="cp-campo cp-c2" style="display:flex;align-items:flex-end"><button type="button" class="alm-accion" style="width:100%" onclick="cpGuardarTrans()">💾 Guardar como plantilla</button></div>
-      </div>
-      <div class="cp-fila">
-        ${cpCampo('cp-t-nombre','Empresa / autónomo', c.transportista.nombre, {ruta:'transportista.nombre', ancho:'cp-c2'})}
-        ${cpCampo('cp-t-nif','NIF / DNI', c.transportista.nif, {ruta:'transportista.nif', ancho:'cp-c2'})}
+        ${cpCampo('cp-t-nombre','Empresa transportista / autónomo', c.transportista.nombre, {ruta:'transportista.nombre', ancho:'cp-c2'})}
+        ${cpCampo('cp-t-nif','DNI / NIF', c.transportista.nif, {ruta:'transportista.nif', ancho:'cp-c2'})}
       </div>
       ${cpCampo('cp-t-dom','Domicilio', c.transportista.domicilio, {ruta:'transportista.domicilio'})}
       <div class="cp-fila">
-        ${cpCampo('cp-t-cond','Conductor', c.transportista.conductor, {ruta:'transportista.conductor', ancho:'cp-c2'})}
+        ${cpCampo('cp-t-cond','Conductor', c.transportista.conductor, {ruta:'transportista.conductor', ancho:'cp-c2', placeholder:'Si es el mismo, se puede dejar vacío'})}
         ${cpCampo('cp-t-tel','Teléfono del conductor', c.transportista.telefono, {ruta:'transportista.telefono', ancho:'cp-c2', tipo:'tel'})}
       </div>
       <div class="cp-fila">
@@ -4911,48 +4928,29 @@ function cpRenderForm() {
       ` : ''}
     </div>
 
-    <details class="refuel-card cp-card cp-details">
-      <summary class="cp-tit">1, 2, 3, 4, 6, 8 y 15 · Cargador, destino, puntos intermedios y operador <span style="font-size:12px;color:var(--text-muted);font-weight:400">(vienen rellenos; tocar solo si cambian)</span></summary>
-      <div class="cp-sub">1 · Cargador o remitente</div>
+    <div class="refuel-card cp-card">
+      <div class="cp-tit">Datos fijos de la carta</div>
+      <div style="font-size:12px;color:var(--text-muted);margin:-0.3rem 0 0.6rem">Salen así en el PDF, línea a línea. Si cambian para siempre, edítalos y pulsa "Guardar como fijos".</div>
       <div class="cp-fila">
-        ${cpCampo('cp-c-nom','Nombre', c.cargador.nombre, {ruta:'cargador.nombre', ancho:'cp-c2'})}
-        ${cpCampo('cp-c-nif','NIF', c.cargador.nif, {ruta:'cargador.nif', ancho:'cp-c2'})}
+        ${cpCampo('cp-cargador','1 · Cargador o remitente', c.cargadorTxt, {ruta:'cargadorTxt', tipo:'area', filas:3, ancho:'cp-c2'})}
+        ${cpCampo('cp-destino','4 · Destino', c.destinoTxt, {ruta:'destinoTxt', tipo:'area', filas:3, ancho:'cp-c2'})}
       </div>
       <div class="cp-fila">
-        ${cpCampo('cp-c-dom','Domicilio', c.cargador.domicilio, {ruta:'cargador.domicilio', ancho:'cp-c2'})}
-        ${cpCampo('cp-c-cp','C.P.', c.cargador.cp, {ruta:'cargador.cp', ancho:'cp-c4'})}
-        ${cpCampo('cp-c-pob','Población', c.cargador.poblacion, {ruta:'cargador.poblacion', ancho:'cp-c4'})}
+        ${cpCampo('cp-operador','15 · Operador de transporte', c.operadorTxt, {ruta:'operadorTxt', tipo:'area', filas:4, ancho:'cp-c2'})}
+        ${cpCampo('cp-lugar','6 · Lugar de destino de la expedición', c.lugarDestino, {ruta:'lugarDestino', tipo:'area', filas:4, ancho:'cp-c2'})}
       </div>
-      ${cpCampo('cp-exp','Expedidor, de no coincidir con el cargador', c.expedidor, {ruta:'expedidor'})}
-      <div class="cp-sub">2 y 3 · Puntos intermedios</div>
-      <div class="cp-fila">
-        ${cpCampo('cp-i1','2 · Punto intermedio 1', c.intermedio1, {ruta:'intermedio1', ancho:'cp-c2'})}
-        ${cpCampo('cp-i2','3 · Punto intermedio 2', c.intermedio2, {ruta:'intermedio2', ancho:'cp-c2'})}
-      </div>
-      <div class="cp-sub">4 y 6 · Destino</div>
-      <div class="cp-fila">
-        ${cpCampo('cp-d-nom','Nombre', c.destino.nombre, {ruta:'destino.nombre', ancho:'cp-c2'})}
-        ${cpCampo('cp-d-dom','Domicilio', c.destino.domicilio, {ruta:'destino.domicilio', ancho:'cp-c2'})}
-      </div>
-      <div class="cp-fila">
-        ${cpCampo('cp-d-cp','C.P.', c.destino.cp, {ruta:'destino.cp', ancho:'cp-c4'})}
-        ${cpCampo('cp-d-pob','Población', c.destino.poblacion, {ruta:'destino.poblacion', ancho:'cp-c2'})}
-      </div>
-      ${cpCampo('cp-lugar','6 · Lugar de destino de la expedición', c.lugarDestino, {ruta:'lugarDestino'})}
-      ${cpCampo('cp-anexos','8 · Documentos anexos (dato no obligatorio)', c.anexos, {ruta:'anexos', placeholder: c.adr ? 'Se añadirá "Mercancía ADR según documentación adjunta"' : ''})}
-      <div class="cp-sub">15 · Operador de transporte que ha intermediado</div>
-      <div class="cp-fila">
-        ${cpCampo('cp-o-nom','Nombre', c.operador.nombre, {ruta:'operador.nombre', ancho:'cp-c2'})}
-        ${cpCampo('cp-o-nif','NIF', c.operador.nif, {ruta:'operador.nif', ancho:'cp-c2'})}
-      </div>
-      <div class="cp-fila">
-        ${cpCampo('cp-o-dom','Domicilio', c.operador.domicilio, {ruta:'operador.domicilio', ancho:'cp-c2'})}
-        ${cpCampo('cp-o-cp','C.P.', c.operador.cp, {ruta:'operador.cp', ancho:'cp-c4'})}
-        ${cpCampo('cp-o-pob','Población', c.operador.poblacion, {ruta:'operador.poblacion', ancho:'cp-c4'})}
-      </div>
-      ${cpCampo('cp-o-tel','Teléfono', c.operador.telefono, {ruta:'operador.telefono', ancho:'cp-c2'})}
-      ${cpCampo('cp-obs','Observaciones', c.observaciones, {ruta:'observaciones', tipo:'area'})}
-    </details>
+      <button type="button" class="alm-accion" onclick="cpGuardarFijos()">💾 Guardar como fijos</button>
+      <details class="cp-details" style="margin-top:0.75rem">
+        <summary class="cp-sub" style="cursor:pointer">Más datos (expedidor, puntos intermedios, anexos, observaciones)</summary>
+        ${cpCampo('cp-exp','Expedidor, de no coincidir con el cargador', c.expedidor, {ruta:'expedidor'})}
+        <div class="cp-fila">
+          ${cpCampo('cp-i1','2 · Punto intermedio 1', c.intermedio1, {ruta:'intermedio1', ancho:'cp-c2'})}
+          ${cpCampo('cp-i2','3 · Punto intermedio 2', c.intermedio2, {ruta:'intermedio2', ancho:'cp-c2'})}
+        </div>
+        ${cpCampo('cp-anexos','8 · Documentos anexos (dato no obligatorio)', c.anexos, {ruta:'anexos', placeholder: c.adr ? 'Se añadirá "Mercancía ADR según documentación adjunta"' : ''})}
+        ${cpCampo('cp-obs','Observaciones', c.observaciones, {ruta:'observaciones', tipo:'area'})}
+      </details>
+    </div>
 
     <div class="refuel-card cp-card" style="text-align:center">
       <div id="cp-aviso" class="alert" style="margin-bottom:0.75rem"></div>
@@ -5003,7 +5001,13 @@ function cpHtmlAdr(l, i) {
       <div class="cp-campo cp-c4"><label>Cantidad</label><input type="number" inputmode="decimal" value="${cpEsc(l.cantidad)}" oninput="cpSetAdr(${i},'cantidad',this.value)"></div>
       <div class="cp-campo cp-c4"><label>Unidad</label><select onchange="cpSetAdr(${i},'unidad',this.value)">${['kg','L','kg neto explosivo'].map(u=>`<option ${l.unidad===u?'selected':''}>${u}</option>`).join('')}</select></div>
       <div class="cp-campo cp-c4"><label>Nº bultos</label><input type="number" inputmode="numeric" value="${cpEsc(l.bultos)}" oninput="cpSetAdr(${i},'bultos',this.value)"></div>
-      <div class="cp-campo cp-c4"><label>Tipo de bulto</label><input value="${cpEsc(l.embalaje)}" placeholder="Bidones, cajas…" oninput="cpSetAdr(${i},'embalaje',this.value)"></div>
+      <div class="cp-campo cp-c4"><label>Tipo de bulto</label>
+        <select onchange="cpSetAdr(${i},'embalaje',this.value); if(this.value==='Otro'){ cpRenderForm(); }">
+          <option value="">— Elegir —</option>
+          ${CP_BULTOS_ADR.map(b=>`<option ${l.embalaje===b || (b==='Otro' && l.embalaje && !CP_BULTOS_ADR.includes(l.embalaje))?'selected':''}>${b}</option>`).join('')}
+        </select>
+        ${l.embalaje==='Otro' || (l.embalaje && !CP_BULTOS_ADR.includes(l.embalaje)) ? `<input style="margin-top:4px" placeholder="Escribe el tipo de bulto" value="${cpEsc(l.embalaje==='Otro'?'':l.embalaje)}" oninput="cpSetAdr(${i},'embalaje',this.value||'Otro')">` : ''}
+      </div>
       <div class="cp-campo" style="flex:0;display:flex;align-items:flex-end"><button type="button" class="alm-quitar" onclick="cpEstado.adrLineas.splice(${i},1); cpRenderForm()">✕</button></div>
     </div>
     <div class="cp-adr-meta">Categoría de transporte ${cpEsc(l.cat||'—')} · ${l.cl ? 'Cantidad limitada '+cpEsc(l.cl) : 'Sin cantidad limitada'} · Etiquetas ${cpEsc(l.etiquetas||'—')}</div>
@@ -5020,6 +5024,12 @@ function cpPintarPuntos() {
   </div>`;
 }
 
+window.cpGuardarFijos = async () => {
+  const f = {cargadorTxt: cpEstado.cargadorTxt, destinoTxt: cpEstado.destinoTxt, operadorTxt: cpEstado.operadorTxt, lugarDestino: cpEstado.lugarDestino};
+  try { await setDoc(doc(db,'configuracion','cartasPorte'), f); cpFijos = f; mostrarMensajeFlotante?.('💾 Datos fijos guardados'); }
+  catch(e) { alert('No se ha podido guardar: ' + e.message); }
+};
+
 // ── Plantillas de transportista ──
 window.cpUsarTrans = (id) => {
   const t = cpTrans.find(x => x.id === id);
@@ -5028,14 +5038,14 @@ window.cpUsarTrans = (id) => {
   cpRenderForm();
   document.getElementById('cp-sel-trans').value = id;
 };
-window.cpGuardarTrans = async () => {
+window.cpGuardarTrans = async (silencioso = false) => {
   const t = cpEstado.transportista;
-  if (!t.nombre) { mostrarMensajeFlotante?.('Pon al menos el nombre del transportista'); return; }
+  if (!t.nombre) { if (!silencioso) mostrarMensajeFlotante?.('Pon al menos el nombre del transportista'); return; }
   try {
     const ya = cpTrans.find(x => (x.nombre||'').toUpperCase() === t.nombre.toUpperCase() && (x.conductor||'').toUpperCase() === (t.conductor||'').toUpperCase());
     if (ya) await updateDoc(doc(db,'cartasTransportistas',ya.id), {...t, ts:Date.now()});
     else await addDoc(collection(db,'cartasTransportistas'), {...t, ts:Date.now()});
-    mostrarMensajeFlotante?.('💾 Transportista guardado');
+    if (!silencioso) mostrarMensajeFlotante?.('💾 Conductor guardado');
   } catch(e) { alert('No se ha podido guardar: ' + e.message); }
 };
 function cpRellenarSelectTrans() {
@@ -5078,7 +5088,7 @@ function cpRenderLista() {
       <div class="fl-ico">${c.adr?'☢️':'📄'}</div>
       <div class="gs-fila-info">
         <div class="gs-tit">${cpEsc(c.transportista?.nombre||'—')} <span style="font-weight:500;color:var(--text-muted);font-size:13px">· ${cpEsc(c.transportista?.conductor||'')}</span></div>
-        <div class="gs-sub">📅 ${cpEsc(cpFecha(c.fecha))} · ${cpEsc(c.transportista?.tractora||'')}${c.transportista?.semirremolque?' + '+cpEsc(c.transportista.semirremolque):''} · → ${cpEsc(c.destino?.poblacion||'')}</div>
+        <div class="gs-sub">📅 ${cpEsc(cpFecha(c.fecha))} · ${cpEsc(c.transportista?.tractora||'')}${c.transportista?.semirremolque?' + '+cpEsc(c.transportista.semirremolque):''} · → ${cpEsc(String(c.destinoTxt||c.destino?.poblacion||'').split('\n').pop())}</div>
         <div class="gs-chips">
           <span class="gs-chip">${cpEsc(c.id)}</span>
           ${c.pesoTotal?`<span class="gs-chip">⚖️ ${cpNum(c.pesoTotal,0)} kg</span>`:''}
@@ -5145,7 +5155,11 @@ function cpValidar(c) {
   if (!c.mercancia.some(m => m.naturaleza || m.bultos || m.peso)) f.push('al menos una línea de mercancía');
   if (c.adr) {
     if (!c.adrLineas.length) f.push('las materias ADR (o quita el interruptor de ADR)');
-    c.adrLineas.forEach((l,i) => { if (!(parseFloat(l.cantidad) > 0)) f.push(`la cantidad de la materia ADR ${i+1}`); });
+    c.adrLineas.forEach((l,i) => {
+      if (!(parseFloat(l.cantidad) > 0)) f.push(`la cantidad de la materia ADR ${i+1}`);
+      if (!(parseInt(l.bultos) > 0)) f.push(`el nº de bultos de la materia ADR ${i+1}`);
+      if (!l.embalaje || l.embalaje === 'Otro') f.push(`el tipo de bulto de la materia ADR ${i+1}`);
+    });
   }
   return f;
 }
@@ -5184,6 +5198,7 @@ window.cpGenerar = async () => {
   } catch(e) { console.warn('Registro de la carta:', e); }
   cpResultado = {id:c.id, url:c.url, bytes, subido:true};
   cpMostrarResultado(c, bytes, true);
+  cpGuardarTrans(true);         // el conductor queda guardado para la próxima vez
 };
 function cpMostrarResultado(c, bytes, subido) {
   const el = document.getElementById('cp-pane-nueva');
@@ -5231,7 +5246,7 @@ window.cpCompartir = async (id) => {
 async function cpConstruirPdf(c) {
   const {PDFDocument, StandardFonts, rgb} = PDFLib;
   const pdf = await PDFDocument.create();
-  pdf.setTitle(`Documento de control de transporte ${c.id}`); pdf.setAuthor(c.cargador.nombre); pdf.setCreator('NexoFlota');
+  pdf.setTitle(`Documento de control de transporte ${c.id}`); pdf.setAuthor(String(c.cargadorTxt || c.cargador?.nombre || '').split('\n')[0]); pdf.setCreator('NexoFlota');
   const fontR = await pdf.embedFont(StandardFonts.Helvetica), fontB = await pdf.embedFont(StandardFonts.HelveticaBold);
   const pag = pdf.addPage([595.28, 841.89]);
   const W = 595.28, H = 841.89, M = 28;
@@ -5275,10 +5290,22 @@ async function cpConstruirPdf(c) {
   txt('el documento original', W-M-qrTam, H-M-38-qrTam-17, {size:6.5, color:gris});
 
   const colW = (W-2*M-qrTam-8)/2, xL = M, xR = M+colW+4, top = H-M-38;
-  const dir = d => [d.nombre, d.nif ? 'NIF ' + d.nif : null, d.domicilio, [d.cp, d.poblacion].filter(Boolean).join(' '), d.telefono ? 'Tel. ' + d.telefono : null].filter(Boolean);
+  // Compatibilidad con cartas antiguas (datos por campos)
+  const bloque = (txt, obj) => {
+    if (txt) return String(txt).split('\n').map((t,i) => i===0 ? {t, b:true} : t);
+    if (!obj) return ['—'];
+    return [{t:obj.nombre+(obj.nif?' '+obj.nif:''), b:true}, obj.domicilio, [obj.cp, obj.poblacion].filter(Boolean).join('-'), obj.telefono?'TELEF. '+obj.telefono:null].filter(Boolean);
+  };
+  const tr = c.transportista;
+  const lineasTrans = [
+    {t:`${tr.nombre}${tr.nif ? '  DNI ' + tr.nif : ''}`, b:true},
+    tr.domicilio || '',
+    `CONDUCTOR :   ${tr.conductor || tr.nombre}${tr.telefono ? '  TFNO ' + tr.telefono : ''}`,
+    {t:`18. Matricula cabeza tractora 1:  ${tr.tractora || '—'}  Semiremolque:   ${tr.semirremolque || '—'}`, b:true},
+  ];
   // Fila 1
   let y1 = top - 66;
-  caja(xL, y1, colW, 66, '1 · CARGADOR O REMITENTE (nombre o denominación social, NIF y domicilio)', [{t:c.cargador.nombre, b:true}, ...dir(c.cargador).slice(1)]);
+  caja(xL, y1, colW, 66, '1 · CARGADOR O REMITENTE (nombre o denominación social y domicilio)', bloque(c.cargadorTxt, c.cargador));
   caja(xR, y1, colW, 66, 'FECHA · PRECINTO · CONTRATO', [{t:`Fecha: ${cpFecha(c.fecha)}`, b:true}, `Precinto: ${c.precinto||'—'}`, `16 · Contrato / referencia: ${c.contrato||'—'}`]);
   // Fila 2
   let y2 = y1 - 44;
@@ -5290,15 +5317,10 @@ async function cpConstruirPdf(c) {
   // Fila 3: destino / operador / transportista
   const fullW = W-2*M;
   let y4 = y3 - 76;
-  caja(xL, y4, colW, 72, '4 · DESTINO (nombre o denominación social y domicilio)', [{t:c.destino.nombre, b:true}, ...dir(c.destino).slice(1)]);
-  caja(xR, y4, fullW-colW-4, 72, '15 · OPERADOR DE TRANSPORTE QUE HA INTERMEDIADO', [{t:c.operador.nombre, b:true}, ...dir(c.operador).slice(1)]);
+  caja(xL, y4, colW, 72, '4 · DESTINO (nombre o denominación social y domicilio)', bloque(c.destinoTxt, c.destino));
+  caja(xR, y4, fullW-colW-4, 72, '15 · OPERADOR DE TRANSPORTE QUE HA INTERMEDIADO EN LA CONTRATACIÓN', bloque(c.operadorTxt, c.operador));
   let y5 = y4 - 76;
-  caja(xL, y5, fullW, 72, '14 · EMPRESA TRANSPORTISTA (nombre, NIF y domicilio) · CONDUCTOR · 18 · MATRÍCULAS', [
-    {t:`${c.transportista.nombre}${c.transportista.nif?'   NIF/DNI '+c.transportista.nif:''}`, b:true},
-    c.transportista.domicilio || '',
-    `Conductor: ${c.transportista.conductor||'—'}${c.transportista.telefono?'   Tel. '+c.transportista.telefono:''}`,
-    {t:`Cabeza tractora: ${c.transportista.tractora||'—'}      Semirremolque: ${c.transportista.semirremolque||'—'}`, b:true},
-  ]);
+  caja(xL, y5, fullW, 72, '14 · EMPRESA TRANSPORTISTA (nombre o denominación social y domicilio)', lineasTrans);
   // Mercancía (tabla)
   const cols = [['10 · MARCAS',0.14],['10 · Nº BULTOS',0.10],['11 · EMBALAJE',0.12],['12 · NATURALEZA DE LA MERCANCÍA',0.40],['13 · PESO kg',0.12],['14 · VOLUMEN',0.12]];
   const filas = c.mercancia.filter(m => m.naturaleza || m.bultos || m.peso || m.marcas);
@@ -5342,14 +5364,15 @@ async function cpConstruirPdf(c) {
     p2.drawRectangle({x:M, y:H-M-24, width:W-2*M, height:24, color:rgb(0.75,0.1,0.1)});
     t2('MERCANCÍAS PELIGROSAS · DATOS DEL DOCUMENTO DE TRANSPORTE (ADR 5.4.1)', M+8, H-M-17, {size:10.5, bold:true, color:rgb(1,1,1)});
     t2(`Anexo a la carta de porte ${c.id} · ${cpFecha(c.fecha)}`, M, H-M-40, {size:9});
-    t2(`Expedidor: ${c.cargador.nombre} · Transportista: ${c.transportista.nombre} · Vehículo: ${c.transportista.tractora}${c.transportista.semirremolque?' + '+c.transportista.semirremolque:''}`, M, H-M-54, {size:8.5, maxWidth:W-2*M});
+    t2(`Expedidor: ${String(c.cargadorTxt||c.cargador?.nombre||'').split('\n')[0]} · Transportista: ${c.transportista.nombre} · Vehículo: ${c.transportista.tractora}${c.transportista.semirremolque?' + '+c.transportista.semirremolque:''}`, M, H-M-54, {size:8.5, maxWidth:W-2*M});
     let ay = H-M-84;
     p2.drawRectangle({x:M, y:ay-2, width:W-2*M, height:14, color:claro});
     t2('Nº ONU · Designación oficial · Etiquetas · Grupo de embalaje · (Código túnel)', M+3, ay+2, {size:7, bold:true, color:gris});
-    t2('Cantidad', W-M-150, ay+2, {size:7, bold:true, color:gris}); t2('Bultos', W-M-70, ay+2, {size:7, bold:true, color:gris});
+    t2('Cantidad', W-M-160, ay+2, {size:7, bold:true, color:gris}); t2('Nº y tipo de bulto', W-M-90, ay+2, {size:7, bold:true, color:gris});
     ay -= 20;
     c.adrLineas.forEach(l => {
-      partir(l.texto, 9.5, W-2*M-160, true).forEach((ln,i) => { t2(ln, M+3, ay, {size:9.5, bold:true}); if (i===0) { t2(`${l.cantidad} ${l.unidad}`, W-M-150, ay, {size:9.5}); t2(`${l.bultos||'—'} ${l.embalaje||''}`, W-M-70, ay, {size:9}); } ay -= 13; });
+      partir(l.texto, 9.5, W-2*M-170, true).forEach((ln,i) => { t2(ln, M+3, ay, {size:9.5, bold:true}); if (i===0) { t2(`${l.cantidad} ${l.unidad}`, W-M-160, ay, {size:9.5}); t2(`${l.bultos||'—'} ${l.embalaje||''}`, W-M-90, ay, {size:9, maxWidth:88}); } ay -= 13; });
+      t2(`Descripción según 5.4.1: ${l.texto}, ${l.bultos} ${String(l.embalaje||'').toUpperCase()}, ${l.cantidad} ${l.unidad}`, M+3, ay, {size:7.5, color:gris, maxWidth:W-2*M-6}); ay -= 11;
       t2(`Categoría de transporte ${l.cat||'—'}${l.cl?' · Cantidad limitada '+l.cl:''}${l.codigo?' · Código de clasificación '+l.codigo:''}`, M+3, ay, {size:7.5, color:gris});
       ay -= 18;
       p2.drawLine({start:{x:M,y:ay+8},end:{x:W-M,y:ay+8},thickness:0.3,color:gris});
