@@ -701,6 +701,18 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 @media (max-width: 800px) { #modulo-home-screen .home-grid-3 { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 480px) { #modulo-home-screen .home-grid-3 { grid-template-columns: 1fr; } }
 .cp-remitente input { border-color: rgba(245,166,35,0.45); }
+
+.cp-remitente { position: relative; }
+.cp-sug { display: none; position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 50; background: var(--card); border: 1px solid var(--accent); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.45); max-height: 320px; overflow-y: auto; }
+.cp-sug-op { padding: 0.55rem 0.8rem; cursor: pointer; display: flex; flex-direction: column; gap: 2px; border-bottom: 1px solid var(--card-border); }
+.cp-sug-op:last-child { border-bottom: none; }
+.cp-sug-op:hover { background: var(--navy-light); }
+.cp-sug-op strong { font-size: 14px; }
+.cp-sug-op span { font-size: 12px; color: var(--text-muted); }
+.cp-remdat { font-size: 12px; color: var(--success); margin-top: 3px; min-height: 0; }
+.alm-sheet.cp-sheet-visor { max-width: 920px; width: 96vw; }
+.cp-visor { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; background: #525659; border-radius: 10px; padding: 0.5rem; min-height: 200px; }
+.cp-visor canvas { background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.4); border-radius: 2px; max-width: 100%; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2318,7 +2330,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v75 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v76 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -5139,8 +5151,9 @@ window.cpBuscarAdrUI = async (txt) => {
 };
 window.cpAnadirAdr = (idx) => {
   const f = cpAdr[idx];
-  const remAnt = cpEstado.adrLineas.length ? cpEstado.adrLineas[cpEstado.adrLineas.length-1].remitente || '' : '';
-  cpEstado.adrLineas.push({remitente: remAnt, un:f[0], nombre:f[1], clase:f[2], codigo:f[3], ge:f[4], etiquetas:f[5], disposiciones:f[6], cl:f[7], cat:f[9], tunel:f[10], texto:cpLineaAdr(f), tecnico:'', cantidad:'', unidad:'kg', bultos:'', embalaje:''});
+  const ant = cpEstado.adrLineas[cpEstado.adrLineas.length-1] || {};
+  const remAnt = ant.remitente || '';
+  cpEstado.adrLineas.push({remitente: remAnt, remitenteDatos: ant.remitenteDatos, un:f[0], nombre:f[1], clase:f[2], codigo:f[3], ge:f[4], etiquetas:f[5], disposiciones:f[6], cl:f[7], cat:f[9], tunel:f[10], texto:cpLineaAdr(f), tecnico:'', cantidad:'', unidad:'kg', bultos:'', embalaje:''});
   const b = document.getElementById('cp-adr-busca'); if (b) b.value = '';
   cpRenderForm();
 };
@@ -5152,8 +5165,9 @@ function cpEsNep(l) { return !l.vacio && (cpEsNepTabla(l) || !!l.conTecnico); }
 const CP_COD_VACIOS = '0000';
 const CP_TXT_VACIOS = 'ENVASES Y EMBALAJES VACÍOS SIN LIMPIAR';
 window.cpAnadirVacio = () => {
-  const remAnt = cpEstado.adrLineas.length ? cpEstado.adrLineas[cpEstado.adrLineas.length-1].remitente || '' : '';
-  cpEstado.adrLineas.push({remitente: remAnt, vacio:true, etiquetas:'', cat:'4', cantidad:'', unidad:'kg', bultos:'', embalaje:''});
+  const ant = cpEstado.adrLineas[cpEstado.adrLineas.length-1] || {};
+  const remAnt = ant.remitente || '';
+  cpEstado.adrLineas.push({remitente: remAnt, remitenteDatos: ant.remitenteDatos, vacio:true, etiquetas:'', cat:'4', cantidad:'', unidad:'kg', bultos:'', embalaje:''});
   const b = document.getElementById('cp-adr-busca'); if (b) b.value = '';
   cpRenderForm();
 };
@@ -5185,7 +5199,12 @@ function cpHtmlVacio(l, i) {
       <button type="button" class="cp-adr-quitar" onclick="cpEstado.adrLineas.splice(${i},1); cpRenderForm()" aria-label="Quitar">✕ Quitar</button>
     </div>
     <div class="cp-campo cp-remitente"><label>🏢 Remitente de esta mercancía</label>
-      <input list="cp-remitentes" value="${cpEsc(l.remitente||'')}" placeholder="Escribe para buscar en la lista de clientes, o pon uno nuevo" oninput="cpSetAdr(${i},'remitente',this.value)" autocomplete="off"></div>
+      <div style="position:relative">
+        <input id="cp-rem-${i}" value="${cpEsc(l.remitente||'')}" placeholder="Escribe el nombre del cliente" autocomplete="off"
+          oninput="cpEscribirRemit(${i}, this.value)" onfocus="cpSugerirRemit(${i}, this.value)" onblur="setTimeout(() => cpOcultarSug(${i}), 250)">
+        <div id="cp-sug-${i}" class="cp-sug"></div>
+      </div>
+      <div id="cp-remdat-${i}" class="cp-remdat">${cpHtmlFichaRemit(l)}</div></div>
     <div class="cp-fila">
       <div class="cp-campo cp-c3"><label>Nº de bultos</label><input type="number" inputmode="numeric" value="${cpEsc(l.bultos)}" oninput="cpSetAdr(${i},'bultos',this.value)"></div>
       <div class="cp-campo cp-c3"><label>Tipo de bulto</label>
@@ -5203,7 +5222,12 @@ function cpHtmlAdr(l, i) {
       <button type="button" class="cp-adr-quitar" onclick="cpEstado.adrLineas.splice(${i},1); cpRenderForm()" aria-label="Quitar esta materia">✕ Quitar</button>
     </div>
     <div class="cp-campo cp-remitente"><label>🏢 Remitente de esta mercancía</label>
-      <input list="cp-remitentes" value="${cpEsc(l.remitente||'')}" placeholder="Escribe para buscar en la lista de clientes, o pon uno nuevo" oninput="cpSetAdr(${i},'remitente',this.value)" autocomplete="off"></div>
+      <div style="position:relative">
+        <input id="cp-rem-${i}" value="${cpEsc(l.remitente||'')}" placeholder="Escribe el nombre del cliente" autocomplete="off"
+          oninput="cpEscribirRemit(${i}, this.value)" onfocus="cpSugerirRemit(${i}, this.value)" onblur="setTimeout(() => cpOcultarSug(${i}), 250)">
+        <div id="cp-sug-${i}" class="cp-sug"></div>
+      </div>
+      <div id="cp-remdat-${i}" class="cp-remdat">${cpHtmlFichaRemit(l)}</div></div>
     ${!nep ? `<button type="button" class="cp-tecnico-btn" onclick="cpEstado.adrLineas[${i}].conTecnico=true; cpRenderForm()">➕ Añadir nombre técnico (N.E.P.)</button>` : ''}
     ${nep ? `<div class="cp-campo"><label>Nombre técnico (N.E.P.: poner qué lleva, ADR 3.1.2.8)${!cpEsNepTabla(l) ? ` · <a href="#" onclick="event.preventDefault(); cpEstado.adrLineas[${i}].conTecnico=false; cpEstado.adrLineas[${i}].tecnico=''; cpRenderForm()">quitar</a>` : ''}</label>
       <input value="${cpEsc(l.tecnico||'')}" placeholder="Ej.: contiene tolueno y etanol" oninput="cpSetAdr(${i},'tecnico',this.value); this.closest('.cp-adr-linea').querySelector('.cp-adr-texto').textContent = cpTextoAdr(cpEstado.adrLineas[${i}])"></div>` : ''}
@@ -5262,6 +5286,43 @@ window.cpGuardarFijos = async () => {
 };
 
 // ── Remitentes (clientes) ──
+// Ficha del remitente elegido (o aviso de que es nuevo)
+function cpHtmlFichaRemit(l) {
+  const nombre = (l.remitente || '').trim();
+  if (!nombre) return '';
+  const d = cpDatosRemit(nombre, l);
+  return d.enLista ? `✓ ${cpEsc(d.linea || 'Sin dirección en la lista')}` : `<span style="color:var(--warning)">Remitente nuevo: se guardará en la lista al generar la carta</span>`;
+}
+window.cpEscribirRemit = (i, v) => {
+  const l = cpEstado.adrLineas[i];
+  l.remitente = v; delete l.remitenteDatos;
+  cpSugerirRemit(i, v);
+  const f = document.getElementById(`cp-remdat-${i}`); if (f) f.innerHTML = cpHtmlFichaRemit(l);
+};
+// Sugerencias por NOMBRE de cliente: primero los que empiezan así, luego los que lo contienen
+window.cpSugerirRemit = (i, v) => {
+  const cont = document.getElementById(`cp-sug-${i}`);
+  if (!cont) return;
+  const q = cpNormNombre(v);
+  if (!q) { cont.innerHTML = ''; cont.style.display = 'none'; return; }
+  const empiezan = cpRemit.filter(r => cpNormNombre(r.nombre).startsWith(q));
+  const contienen = cpRemit.filter(r => !cpNormNombre(r.nombre).startsWith(q) && cpNormNombre(r.nombre).includes(q));
+  const lista = [...empiezan, ...contienen].slice(0, 8);
+  if (!lista.length) { cont.innerHTML = ''; cont.style.display = 'none'; return; }
+  cont.innerHTML = lista.map(r => `<div class="cp-sug-op" onmousedown="event.preventDefault(); cpElegirRemit(${i}, '${r.id}')">
+      <strong>${cpEsc(r.nombre)}</strong><span>${cpEsc(cpDatosRemit(r.nombre).linea || 'Sin dirección')}</span></div>`).join('');
+  cont.style.display = 'block';
+};
+window.cpOcultarSug = (i) => { const c = document.getElementById(`cp-sug-${i}`); if (c) c.style.display = 'none'; };
+window.cpElegirRemit = (i, id) => {
+  const r = cpRemit.find(x => x.id === id); if (!r) return;
+  const l = cpEstado.adrLineas[i];
+  l.remitente = r.nombre;
+  l.remitenteDatos = {nombre:r.nombre, nif:r.nif||'', domicilio:r.domicilio||'', cp:r.cp||'', poblacion:r.poblacion||'', provincia:r.provincia||''};
+  const inp = document.getElementById(`cp-rem-${i}`); if (inp) inp.value = r.nombre;
+  const f = document.getElementById(`cp-remdat-${i}`); if (f) f.innerHTML = cpHtmlFichaRemit(l);
+  cpOcultarSug(i);
+};
 function cpRellenarDatalistRemit() {
   const dl = document.getElementById('cp-remitentes');
   if (dl) dl.innerHTML = cpRemit.map(r=>`<option value="${cpEsc(r.nombre)}">${cpEsc([r.poblacion, r.nif].filter(Boolean).join(' · '))}</option>`).join('');
@@ -5269,10 +5330,12 @@ function cpRellenarDatalistRemit() {
 const cpNormNombre = t => String(t||'').trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[.,]/g,'').replace(/\s+/g,' ');
 function cpBuscarRemit(nombre) { const n = cpNormNombre(nombre); return cpRemit.find(r => cpNormNombre(r.nombre) === n); }
 // Datos del remitente para el PDF (de la lista, o solo el nombre si es nuevo)
-function cpDatosRemit(nombre) {
-  const r = cpBuscarRemit(nombre) || {nombre};
+function cpDatosRemit(nombre, l = null) {
+  const guardado = l && l.remitenteDatos && cpNormNombre(l.remitenteDatos.nombre) === cpNormNombre(nombre) ? l.remitenteDatos : null;
+  const enLista = cpBuscarRemit(nombre);
+  const r = guardado || enLista || {nombre};
   const lugar = [r.cp, r.poblacion].filter(Boolean).join(' ') + (r.provincia ? ` (${r.provincia})` : '');
-  return {nombre: r.nombre || nombre, linea: [r.nif ? 'NIF ' + r.nif : '', r.domicilio, lugar].filter(Boolean).join(' · ')};
+  return {nombre: r.nombre || nombre, enLista: !!(guardado || enLista), linea: [r.domicilio, lugar, r.nif ? 'CIF ' + r.nif : ''].filter(Boolean).join(' · ')};
 }
 // Guarda los remitentes nuevos que se han escrito a mano
 async function cpGuardarRemitNuevos(c) {
@@ -5518,7 +5581,8 @@ window.cpVer = async (id) => {
     <div style="text-align:center;margin:1rem 0"><div id="cp-qr-ver" class="cp-qr"></div>
       <div style="font-size:12px;color:var(--text-muted);margin-top:0.4rem;word-break:break-all">${cpEsc(url)}</div></div>
     <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center">
-      <a class="alm-accion" href="${url}" target="_blank" rel="noopener">👁 Abrir PDF</a>
+      <button class="alm-accion" onclick="cpVerPdfEmitida('${c.id}')">👁 Ver PDF</button>
+      <a class="alm-accion" href="${url}" target="_blank" rel="noopener">🌐 Abrir desde la web</a>
       <button class="alm-accion" onclick="cpCompartir('${c.id}')">📤 Compartir</button>
       <button class="alm-accion" onclick="almCopiar('${url}','Enlace del DeCA')">📋 Copiar enlace</button>
     </div>
@@ -5695,7 +5759,8 @@ function cpMostrarResultado(c, bytes, estado, motivo = '') {
       <div style="font-family:monospace;color:var(--accent);font-size:16px;margin:0.3rem 0">${cpEsc(c.id)}</div>
       <div style="font-size:14px;color:var(--text-muted)">${cpEsc(c.transportista.nombre)} · ${cpEsc(c.transportista.conductor)} · ${cpEsc(c.transportista.tractora)}${c.transportista.semirremolque?' + '+cpEsc(c.transportista.semirremolque):''}</div>
       <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;margin:1rem 0">
-        <a class="btn btn-primary" style="width:auto;padding:0.8rem 1.2rem;text-decoration:none" href="${local}" download="${cpEsc(c.id)}.pdf">⬇ Descargar PDF</a>
+        <button class="btn btn-primary" style="width:auto;padding:0.8rem 1.2rem" onclick="cpVerPdfResultado()">👁 Ver PDF</button>
+        <a class="btn btn-ghost" style="width:auto;padding:0.8rem 1.2rem;text-decoration:none" href="${local}" download="${cpEsc(c.id)}.pdf">⬇ Descargar PDF</a>
         <a class="btn btn-ghost" style="width:auto;padding:0.8rem 1.2rem;text-decoration:none" href="${local}" target="_blank" rel="noopener">🖨 Abrir / imprimir</a>
         <button class="btn btn-ghost" style="width:auto;padding:0.8rem 1.2rem" onclick="cpCompartir('${c.id}')">📤 Compartir al conductor</button>
       </div>
@@ -5712,6 +5777,44 @@ function cpMostrarResultado(c, bytes, estado, motivo = '') {
   cpPintarQr('cp-qr-res', c.url, 220);
   cpEstadoSubida(estado, motivo);
 }
+// Visor de PDF dentro de la app (sin descargar): pinta cada hoja con pdf.js
+const CP_PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs';
+const CP_PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';
+async function cpVerPdf(bytes, titulo) {
+  almAbrirModal(`👁 ${titulo}`, `<div id="cp-visor" class="cp-visor"><div style="padding:2rem;text-align:center;color:var(--text-muted)">⏳ Cargando la carta…</div></div>`,
+    `<button class="btn btn-ghost" onclick="almCerrarModal()">Cerrar</button>`);
+  document.querySelector('.alm-sheet')?.classList.add('cp-sheet-visor');
+  const cont = document.getElementById('cp-visor');
+  try {
+    const pdfjs = await import(CP_PDFJS);
+    pdfjs.GlobalWorkerOptions.workerSrc = CP_PDFJS_WORKER;
+    const docu = await pdfjs.getDocument({data: new Uint8Array(bytes).slice()}).promise;
+    cont.innerHTML = '';
+    const ancho = Math.max(280, cont.clientWidth - 4), dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    for (let n = 1; n <= docu.numPages; n++) {
+      const pag = await docu.getPage(n);
+      const escala = ancho / pag.getViewport({scale:1}).width;
+      const vp = pag.getViewport({scale: escala * dpr});
+      const cv = document.createElement('canvas');
+      cv.width = vp.width; cv.height = vp.height; cv.style.width = ancho + 'px';
+      cont.appendChild(cv);
+      await pag.render({canvasContext: cv.getContext('2d'), viewport: vp}).promise;
+      if (!document.getElementById('cp-visor')) return;       // se cerró la ventana
+    }
+  } catch(e) {
+    console.error(e);
+    cont.innerHTML = `<div style="padding:1.5rem;text-align:center;color:#fff">No se ha podido mostrar aquí (${cpEsc(e.message||e)}).<br><br><a class="btn btn-primary" style="width:auto;display:inline-block;padding:0.7rem 1.2rem;text-decoration:none" href="${URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}))}" target="_blank" rel="noopener">Abrir en otra pestaña</a></div>`;
+  }
+}
+window.cpVerPdfResultado = () => { if (cpResultado?.bytes) cpVerPdf(cpResultado.bytes, cpResultado.id); };
+// Ver una carta ya emitida: se vuelve a dibujar con sus datos (no hace falta descargar nada)
+window.cpVerPdfEmitida = async (id) => {
+  const c = cpCartas.find(x => x.id === id);
+  if (!c) return;
+  try { const bytes = await cpConstruirPdf(JSON.parse(JSON.stringify(c))); cpVerPdf(bytes, id); }
+  catch(e) { alert('No se ha podido crear la vista: ' + e.message); }
+};
+
 // Estado de la subida a Firebase (se actualiza cuando termina)
 function cpEstadoSubida(estado, motivo = '') {
   const el = document.getElementById('cp-estado-subida');
@@ -5849,7 +5952,7 @@ async function cpConstruirPdf(c) {
       // Remitentes de las mercancías ADR (cada envío con el suyo)
       const rems = [...new Set(c.adrLineas.map(l => (l.remitente||'').trim()).filter(Boolean))];
       caja(p, M, yB, izqW, hB, rems.length > 1 ? `REMITENTES (${rems.length})` : 'REMITENTE',
-        rems.length ? rems.map(n => { const d = cpDatosRemit(n); return {t: d.nombre + (d.linea ? '  ·  ' + d.linea : ''), b:false}; }) : ['—']);
+        rems.length ? rems.map(n => { const d = cpDatosRemit(n, c.adrLineas.find(l => (l.remitente||'').trim() === n)); return {t: d.nombre + (d.linea ? '  ·  ' + d.linea : ''), b:false}; }) : ['—']);
     } else {
       caja(p, M, yB, mitad, hB, 'EXPEDIDOR (de no coincidir con el cargador)', [c.expedidor || '—']);
       caja(p, M+mitad+G, yB, mitad, hB, 'PUNTO INTERMEDIO 1', [c.intermedio1 || '—']);
@@ -5909,9 +6012,13 @@ async function cpConstruirPdf(c) {
       // nivel de detalle: 2 = todo; 1 = sin la línea gris de los vacíos; 0 = sin líneas grises
       // Líneas ordenadas por remitente, con una fila de cabecera por cada uno
       const remOrden = [...new Set(c.adrLineas.map(l => (l.remitente||'').trim() || '—'))];
-      const lineasOrd = remOrden.flatMap(r => [{cabecera:true, remitente:r}, ...c.adrLineas.filter(l => ((l.remitente||'').trim() || '—') === r)]);
+      const lineasOrd = remOrden.flatMap(r => {
+        const suyas = c.adrLineas.filter(l => ((l.remitente||'').trim() || '—') === r);
+        const d = cpDatosRemit(r, suyas[0]);
+        return [{cabecera:true, remitente:r, texto: `REMITENTE:  ${d.nombre}${d.linea ? '   ·   ' + d.linea : ''}`}, ...suyas];
+      });
       const medir = (fs, detalle = 2) => lineasOrd.map(l => {
-        if (l.cabecera) return {l, cabecera:true, alto: fs * 1.55};
+        if (l.cabecera) { const lin = partir(l.texto, fs*0.85, FW-10, true); return {l, cabecera:true, lin, alto: lin.length * fs * 1.1 + fs * 0.55}; }
         const desc = partir(cpTextoAdr(l), fs, colsA[0][1]*FW-8, true);
         const conExtra = detalle === 2 || (detalle === 1 && !l.vacio);
         const extra = !conExtra ? [] : partir(l.vacio ? 'Sin nº ONU · no cuentan para las placas'
@@ -5930,11 +6037,11 @@ async function cpConstruirPdf(c) {
       let cx = M;
       colsA.forEach(([t,f],i) => { titulo(p, t, cx+4, yTabA+hTabA-9.5, f*FW-8); if (i<colsA.length-1) p.drawLine({start:{x:cx+f*FW,y:yTabA},end:{x:cx+f*FW,y:yTabA+hTabA-12},thickness:0.4,color:gris}); cx += f*FW; });
       let ly = yTabA + hTabA - 14 - fs - 2;
-      filasA.forEach(({l, cabecera, desc, extra, lh, lhx, alto}, k) => {
+      filasA.forEach(({l, cabecera, lin, desc, extra, lh, lhx, alto}, k) => {
         if (ly < yTabA + 4) return;
         if (cabecera) {
-          p.drawRectangle({x:M+0.3, y:ly - fs*0.35, width:FW-0.6, height:fs*1.35, color:rgb(1,0.93,0.93)});
-          escribir(p, `REMITENTE:  ${l.remitente}`, M+4, ly, {size:fs*0.9, bold:true, color:rojo});
+          p.drawRectangle({x:M+0.3, y:ly - alto + fs*1.05, width:FW-0.6, height:alto - fs*0.15, color:rgb(1,0.93,0.93)});
+          lin.forEach((t, j) => escribir(p, t, M+4, ly - j*fs*1.1, {size:fs*0.85, bold:true, color:rojo}));
           ly -= alto;
           return;
         }
