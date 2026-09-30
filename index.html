@@ -2298,7 +2298,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v67 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v68 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -4742,11 +4742,13 @@ Object.assign(window, {
 // ════════════════════════════════════════════════════════════════════════════
 // CARTAS DE PORTE · DeCA (Documento electrónico de Control Administrativo)
 // Orden FOM/2861/2012 · Resolución de 5 de junio de 2026
-// El PDF se genera aquí (pdf-lib), se sube a Firebase Storage con una dirección
+// El PDF se genera aquí (pdf-lib), se sube a la web de Manchatrans (carpeta /deca/) con una dirección
 // única y el QR lleva esa dirección. Si se corrige, se regenera con el mismo QR.
 // ════════════════════════════════════════════════════════════════════════════
-const CP_BUCKET = firebaseConfigGasoil.storageBucket;
-const CP_CARPETA = 'deca';
+// Los PDF se alojan en la web de Manchatrans (Almazena), carpeta /deca/
+const CP_WEB = 'https://manchatrans.com/deca/';
+const CP_WEB_SUBIR = CP_WEB + 'subir.php';
+const CP_WEB_CLAVE = 'LVLcjgwfJ5ExVEFBGnLjLOUMK2LtkEDo';     // la misma que en subir.php
 // Datos fijos, tal cual la plantilla de Excel. Se pueden cambiar y guardar desde el formulario.
 const CP_DEFECTO = {
   cargadorTxt: 'MANCHEGA DE TRANSPORTES, S.L. B13101647\nCTRA. DE CARRION, KM. 311,300\n13005-CIUDAD REAL',
@@ -4793,7 +4795,7 @@ let cpResultado = null;       // {id, url, pdfBytes}
 const cpEsc = almEsc, cpNum = almNum;
 const cpHoy = () => new Date().toISOString().slice(0,10);
 const cpFecha = iso => { if (!iso) return ''; const [a,m,d] = iso.split('-'); return `${d}/${m}/${a}`; };
-const cpUrlDe = id => `https://firebasestorage.googleapis.com/v0/b/${CP_BUCKET}/o/${encodeURIComponent(`${CP_CARPETA}/${id}.pdf`)}?alt=media`;
+const cpUrlDe = id => `${CP_WEB}${id}.pdf`;
 const cpNuevoId = () => {
   const d = new Date();
   const f = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
@@ -5342,34 +5344,29 @@ window.cpGenerar = async () => {
   cpEstadoSubida(subida.ok ? 'ok' : 'mal', subida.motivo);
 };
 
-// Sube el PDF a Firebase Storage (proyecto de gasoil) y comprueba que ha quedado allí
+// Sube el PDF a la web de Manchatrans (subir.php) y comprueba que ha quedado guardado
 async function cpSubirPdf(c, bytes) {
-  let st;
-  try { st = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js'); }
-  catch(e) { return {ok:false, motivo:'No se ha podido cargar el módulo de Firebase Storage (¿sin conexión?).'}; }
+  const datos = new FormData();
+  datos.append('clave', CP_WEB_CLAVE);
+  datos.append('id', c.id);
+  datos.append('pdf', new Blob([bytes], {type:'application/pdf'}), `${c.id}.pdf`);
+  const ctrl = new AbortController();
+  const reloj = setTimeout(() => ctrl.abort(), 30000);
+  let r;
   try {
-    const storage = st.getStorage(appGasoil, `gs://${CP_BUCKET}`);
-    storage.maxUploadRetryTime = 20000;      // sin esto, Firebase reintenta hasta 10 minutos
-    storage.maxOperationRetryTime = 10000;
-    const ref = st.ref(storage, `${CP_CARPETA}/${c.id}.pdf`);
-    const limite = (prom, ms) => Promise.race([prom, new Promise((_, mal) => setTimeout(() => { const e = new Error('tiempo'); e.code = 'storage/sin-respuesta'; mal(e); }, ms))]);
-    await limite(st.uploadBytes(ref, bytes, {
-      contentType: 'application/pdf', cacheControl: 'no-cache',
-      contentDisposition: `attachment; filename="${c.id}.pdf"`,     // al escanear el QR, se descarga el PDF
-    }), 30000);
-    const meta = await limite(st.getMetadata(ref), 15000);          // confirma que el archivo está
-    if (!meta || !(meta.size > 0)) return {ok:false, motivo:'El PDF se ha subido vacío. Vuelve a intentarlo.'};
-    return {ok:true};
+    r = await fetch(CP_WEB_SUBIR, {method:'POST', body:datos, signal:ctrl.signal});
   } catch(e) {
-    console.error('Subida DeCA:', e);
-    const cod = e.code || '';
-    if (cod.includes('unauthorized')) return {ok:false, motivo:'Firebase Storage no deja escribir en la carpeta deca. Revisa las reglas de Storage ("allow write: if true").'};
-    if (cod.includes('bucket-not-found') || cod.includes('project-not-found') || cod.includes('no-default-bucket'))
-      return {ok:false, motivo:'Firebase Storage no está activado en el proyecto control-gasoil-manchatrans. En la consola de Firebase entra en Storage y pulsa "Empezar". Si pide pasar al plan Blaze, hay que hacerlo para poder usarlo.'};
-    if (cod.includes('sin-respuesta') || cod.includes('retry-limit')) return {ok:false, motivo:'Firebase Storage no responde. Lo más probable es que Storage no esté activado en el proyecto control-gasoil-manchatrans (consola de Firebase → Storage → Empezar; si pide el plan Blaze, hay que activarlo). Si ya lo está, revisa la conexión.'};
-    if (cod.includes('network')) return {ok:false, motivo:'Sin conexión o conexión lenta. Vuelve a intentarlo.'};
-    return {ok:false, motivo:`Error de Firebase Storage: ${cod || e.message}`};
+    clearTimeout(reloj);
+    if (e.name === 'AbortError') return {ok:false, motivo:'La web de Manchatrans no responde (más de 30 segundos). Revisa la conexión y vuelve a intentarlo.'};
+    return {ok:false, motivo:`No se ha podido conectar con ${CP_WEB_SUBIR}. Comprueba que el archivo subir.php está subido en la carpeta /deca/ de la web (abre ${CP_WEB_SUBIR}?prueba=1: debe poner "ok": true).`};
   }
+  clearTimeout(reloj);
+  let j = null;
+  try { j = await r.json(); } catch(e) {}
+  if (r.ok && j && j.ok) return {ok:true, tamano:j.tamano};
+  if (r.status === 404) return {ok:false, motivo:`No se encuentra ${CP_WEB_SUBIR}. Hay que subir subir.php a la carpeta /deca/ de la web.`};
+  if (r.status === 403) return {ok:false, motivo:'La web ha rechazado la clave. La clave de subir.php y la de NexoFlota tienen que ser la misma.'};
+  return {ok:false, motivo: (j && j.error) ? `La web dice: ${j.error}` : `La web ha respondido ${r.status}. ¿Admite PHP el alojamiento?`};
 }
 
 // Volver a subir una carta ya emitida (mismo número y mismo QR)
@@ -5378,11 +5375,15 @@ window.cpResubir = async (id) => {
   if (!c) return;
   mostrarMensajeFlotante?.('⏳ Regenerando y subiendo la carta…');
   const copia = JSON.parse(JSON.stringify(c));
+  const cambiaQr = copia.url !== cpUrlDe(copia.id);
+  copia.url = cpUrlDe(copia.id);
   let bytes;
   try { bytes = await cpConstruirPdf(copia); } catch(e) { alert('No se ha podido crear el PDF: ' + e.message); return; }
   const subida = await cpSubirPdf(copia, bytes);
-  try { await updateDoc(doc(db,'cartasPorte',id), {subido: subida.ok, errorSubida: subida.ok ? '' : subida.motivo, modTs: Date.now()}); } catch(e) {}
-  if (subida.ok) mostrarMensajeFlotante?.('✅ Subida. El QR ya descarga el PDF');
+  try { await updateDoc(doc(db,'cartasPorte',id), {url: copia.url, subido: subida.ok, errorSubida: subida.ok ? '' : subida.motivo, modTs: Date.now()}); } catch(e) {}
+  if (subida.ok && cambiaQr) {
+    alert('✅ Subida.\n\nOJO: esta carta se hizo cuando el QR apuntaba a Firebase, así que ahora tiene un QR NUEVO. Descárgala otra vez (Ver / QR → Abrir PDF) y mándasela al conductor.');
+  } else if (subida.ok) mostrarMensajeFlotante?.('✅ Subida. El QR ya descarga el PDF');
   else alert('No se ha podido subir:\n\n' + subida.motivo);
 };
 function cpMostrarResultado(c, bytes, estado, motivo = '') {
@@ -5421,22 +5422,6 @@ function cpEstadoSubida(estado, motivo = '') {
     ? `<div class="alm-banner alm-banner-ok">✅ <strong>Subida correcta:</strong> el QR ya descarga este PDF.</div>`
     : `<div class="alm-banner alm-banner-mal" style="text-align:left"><strong>⚠️ El QR todavía no descarga el PDF.</strong><br>${cpEsc(motivo || 'No se ha podido subir.')}<br><br>El PDF sí está creado: descárgalo y mándalo al conductor. Cuando esté arreglado, en "Emitidas" pulsa "☁️ Subir de nuevo" (el QR no cambia).</div>`;
 }
-async function cpComprobarUrl(url) {
-  try {
-    const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'comprobar=' + Date.now(), {cache:'no-store'});
-    const tipo = r.headers.get('content-type') || '';
-    if (r.ok && tipo.includes('pdf')) return {ok:true};
-    let detalle = '';
-    try { const j = await r.json(); detalle = j?.error?.message || JSON.stringify(j).slice(0,160); } catch(e) {}
-    if (r.status === 403) return {ok:false, motivo:`Firebase no deja leer el PDF sin identificarse (permiso denegado). Hay que poner en Storage la regla "allow read: if true" para la carpeta deca. ${detalle}`};
-    if (r.status === 404) return {ok:false, motivo:`El PDF no está en Firebase Storage (no encontrado). Puede que Storage no esté activado o que la subida no se completara. ${detalle}`};
-    return {ok:false, motivo:`Firebase respondió ${r.status} (${tipo || 'sin tipo'}). ${detalle}`};
-  } catch(e) {
-    // Si el navegador no deja comprobarlo (CORS), no se bloquea la carta
-    return {ok:true, sinComprobar:true};
-  }
-}
-
 window.cpCompartir = async (id) => {
   const c = cpCartas.find(x => x.id === id) || cpEstado;
   const url = (c && c.url) || cpUrlDe(id);
