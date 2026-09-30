@@ -2330,7 +2330,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v78 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v79 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -6011,8 +6011,30 @@ async function cpConstruirPdf(c) {
     if (esAdr) {
       // Remitentes de las mercancías ADR (cada envío con el suyo)
       const rems = [...new Set(c.adrLineas.map(l => (l.remitente||'').trim()).filter(Boolean))];
-      caja(p, M, yB, izqW, hB, rems.length > 1 ? `REMITENTES (${rems.length})` : 'REMITENTE',
-        rems.length ? rems.map(n => { const d = cpDatosRemit(n, c.adrLineas.find(l => (l.remitente||'').trim() === n)); return {t: d.nombre + (d.linea ? '  ·  ' + d.linea : ''), b:false}; }) : ['—']);
+      const titRem = rems.length > 1 ? `REMITENTES (${rems.length})` : 'REMITENTE';
+      // Cada remitente en su bloque: nombre / dirección / CP población (provincia), en columnas si hay varios
+      const fichaRem = n => {
+        const l = c.adrLineas.find(x => (x.remitente||'').trim() === n);
+        const r = (l && l.remitenteDatos) || cpBuscarRemit(n) || {nombre:n};
+        const lugar = [r.cp, r.poblacion].filter(Boolean).join(' ') + (r.provincia ? ` (${r.provincia})` : '');
+        return [{t: r.nombre || n, b:true}, r.domicilio, lugar, r.nif ? 'CIF ' + r.nif : ''].filter(x => x && (x.t === undefined ? String(x).trim() : x.t));
+      };
+      if (!rems.length) caja(p, M, yB, izqW, hB, titRem, ['—']);
+      else if (rems.length <= 3) {
+        marco(p, M, yB, izqW, hB, titRem);
+        const anchoCol = izqW / rems.length;
+        rems.forEach((n, k) => {
+          const x0 = M + k * anchoCol;
+          if (k > 0) p.drawLine({start:{x:x0, y:yB+3}, end:{x:x0, y:yB+hB-15}, thickness:0.4, color:gris});
+          let size = rems.length === 1 ? 9 : 8.3;
+          const lineas = () => fichaRem(n).flatMap(it => { const o = typeof it === 'object' ? it : {t:it}; return partir(o.t, size, anchoCol-10, o.b).map(ln => ({ln, b:o.b})); });
+          let fl = lineas();
+          while (fl.length * size * 1.22 > hB - 16 && size > 6.3) { size -= 0.25; fl = lineas(); }
+          fl.forEach((f, j) => { const yy = yB + hB - 14 - size - j * size * 1.22; if (yy >= yB + 2) escribir(p, f.ln, x0 + 5, yy, {size, bold:f.b}); });
+        });
+      } else {
+        caja(p, M, yB, izqW, hB, titRem, rems.map(n => { const d = cpDatosRemit(n, c.adrLineas.find(l => (l.remitente||'').trim() === n)); return {t: d.nombre + (d.linea ? '  ·  ' + d.linea : ''), b:false}; }));
+      }
     } else {
       caja(p, M, yB, mitad, hB, 'EXPEDIDOR (de no coincidir con el cargador)', [c.expedidor || '—']);
       caja(p, M+mitad+G, yB, mitad, hB, 'PUNTO INTERMEDIO 1', [c.intermedio1 || '—']);
