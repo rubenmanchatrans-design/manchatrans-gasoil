@@ -661,6 +661,14 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .cp-details[open] summary::before { content: '▾ '; }
 .cp-qr { display: inline-block; background: #fff; padding: 8px; border-radius: 12px; line-height: 0; }
 .cp-qr canvas { display: block; }
+
+.sa-mod { padding: 0.6rem 0; border-bottom: 1px solid var(--card-border); }
+.sa-mod:last-of-type { border-bottom: none; margin-bottom: 0.75rem; }
+.sa-mod-cab { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
+.sa-mod-nom { font-weight: 700; font-size: 15px; }
+.sa-switch { display: flex; align-items: center; gap: 0.4rem; font-size: 13px; font-weight: 600; cursor: pointer; }
+.sa-switch input { width: 20px; height: 20px; accent-color: var(--accent); }
+.sa-mod .form-input:disabled { opacity: 0.4; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -5599,6 +5607,7 @@ async function initApp() {
       MODULO_CODIGOS.almacen = data.almacen || MODULO_CODIGOS.almacen;
       MODULO_CODIGOS.formacion = data.formacion || MODULO_CODIGOS.formacion;
       MODULO_CODIGOS.cartas = data.cartas || MODULO_CODIGOS.cartas;
+      MODULO_PEDIR = data.pedir || {};
       // Si faltaba algún código nuevo, se guarda
       if (!data.almacen || !data.formacion || !data.cartas) await setDoc(doc(db,'configuracion','moduloCodigos'), MODULO_CODIGOS);
     } else {
@@ -6378,29 +6387,23 @@ function mostrarPantallaSuperAdmin() {
     </div>
     <div style="padding:1.25rem;max-width:480px;margin:0 auto;">
       <div class="section-title">Códigos de acceso por módulo</div>
-      <div style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem;">Estos códigos permiten el acceso parcial a cada módulo desde la pantalla principal del admin. Cámbialos cuando lo necesites; el cambio se aplica al instante en todos los dispositivos.</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem;">Activa <strong>"Pide código"</strong> en los módulos que quieras proteger: al entrar en ellos desde el panel de administración se pedirá su código. Los demás se abren directamente. El cambio se aplica en todos los dispositivos la próxima vez que abran la app.</div>
       <div id="superadmin-alert" class="alert"></div>
 
       <div class="refuel-card" style="margin-bottom:1rem;">
-        <div class="form-group">
-          <label class="form-label">⛽ Código de Gasoil</label>
-          <input class="form-input" type="text" id="codigo-gasoil-input" value="${MODULO_CODIGOS.gasoil}">
-        </div>
-        <div class="form-group">
-          <label class="form-label">🚛 Código de Flota</label>
-          <input class="form-input" type="text" id="codigo-fleet-input" value="${MODULO_CODIGOS.fleet}">
-        </div>
-        <div class="form-group">
-          <label class="form-label">👔 Código de Ropa</label>
-          <input class="form-input" type="text" id="codigo-ropa-input" value="${MODULO_CODIGOS.ropa}">
-        </div>
-        <div class="form-group">
-          <label class="form-label">🪪 Código de ADR/CAP</label>
-          <input class="form-input" type="text" id="codigo-adrcap-input" value="${MODULO_CODIGOS.adrcap}">
-        </div>
-        <div class="form-group">
-          <label class="form-label">🛡️ Código de Seguros</label>
-          <input class="form-input" type="text" id="codigo-seguros-input" value="${MODULO_CODIGOS.seguros}">
+        ${MODULOS_CON_CODIGO.map(([m, nombre]) => `
+          <div class="sa-mod">
+            <div class="sa-mod-cab">
+              <span class="sa-mod-nom">${nombre}</span>
+              <label class="sa-switch"><input type="checkbox" id="pedir-${m}" ${MODULO_PEDIR[m] ? 'checked' : ''}
+                onchange="document.getElementById('codigo-${m}-input').disabled=!this.checked; this.nextElementSibling.textContent=this.checked?'Pide código':'Sin código'">
+                <span>${MODULO_PEDIR[m] ? 'Pide código' : 'Sin código'}</span></label>
+            </div>
+            <input class="form-input" type="text" id="codigo-${m}-input" value="${MODULO_CODIGOS[m] || ''}" placeholder="Código" ${MODULO_PEDIR[m] ? '' : 'disabled'}>
+          </div>`).join('')}
+        <div class="sa-mod">
+          <div class="sa-mod-cab"><span class="sa-mod-nom">📦 Almacén</span><span style="font-size:12px;color:var(--text-muted)">Código de entrada de los mozos</span></div>
+          <input class="form-input" type="text" id="codigo-almacen-input" value="${MODULO_CODIGOS.almacen || ''}" placeholder="Código">
         </div>
         <button class="btn btn-primary" id="btn-guardar-codigos">💾 Guardar cambios</button>
       </div>
@@ -6444,17 +6447,21 @@ function mostrarPantallaSuperAdmin() {
 
   document.getElementById('btn-guardar-codigos').addEventListener('click', async () => {
     const al = document.getElementById('superadmin-alert');
-    const g = document.getElementById('codigo-gasoil-input').value.trim();
-    const f = document.getElementById('codigo-fleet-input').value.trim();
-    const r = document.getElementById('codigo-ropa-input').value.trim();
-    const a = document.getElementById('codigo-adrcap-input').value.trim();
-    const s = document.getElementById('codigo-seguros-input').value.trim();
-    if (!g || !f || !r || !a || !s) { showAlert(al,'Los cinco campos son obligatorios',true); return; }
+    const nuevos = {...MODULO_CODIGOS}, pedir = {}, faltan = [];
+    MODULOS_CON_CODIGO.forEach(([m, nombre]) => {
+      const cod = document.getElementById(`codigo-${m}-input`).value.trim();
+      pedir[m] = document.getElementById(`pedir-${m}`).checked;
+      if (cod) nuevos[m] = cod;
+      if (pedir[m] && !cod) faltan.push(nombre);
+    });
+    const alm = document.getElementById('codigo-almacen-input').value.trim();
+    if (alm) nuevos.almacen = alm; else faltan.push('📦 Almacén');
+    if (faltan.length) { showAlert(al, 'Falta el código de: ' + faltan.join(', '), true); return; }
     try {
-      const nuevos = { gasoil: g, fleet: f, ropa: r, adrcap: a, seguros: s };
-      await setDoc(doc(db, 'configuracion', 'moduloCodigos'), nuevos);
-      MODULO_CODIGOS = nuevos;
-      showAlert(al, '✓ Códigos actualizados correctamente', false);
+      await setDoc(doc(db, 'configuracion', 'moduloCodigos'), {...nuevos, pedir});   // se guardan TODOS los códigos
+      MODULO_CODIGOS = nuevos; MODULO_PEDIR = pedir;
+      const n = Object.values(pedir).filter(Boolean).length;
+      showAlert(al, `✓ Guardado. ${n ? n + ' módulo' + (n===1?'':'s') + ' piden código.' : 'Ningún módulo pide código.'}`, false);
     } catch(e) { showAlert(al, 'Error al guardar: '+e.message, true); }
   });
 
@@ -8098,9 +8105,8 @@ window.switchGestionTab = (tab) => {
 // ══════════════════════════════
 // SELECTOR DE MÓDULO GASOIL / FLEET
 function switchModule(mod) {
-  // Los módulos ya no piden código: el acceso se controla al entrar en la app como administrador.
-  // Para volver a pedirlo, poner PEDIR_CODIGO_MODULOS = true.
-  if (PEDIR_CODIGO_MODULOS && mod !== 'gestion' && mod !== 'almacen' && !modulosDesbloqueados[mod]) {
+  // Solo piden código los módulos marcados en Admin Superior
+  if (MODULO_PEDIR[mod] && mod !== 'gestion' && mod !== 'almacen' && !modulosDesbloqueados[mod]) {
     pedirCodigoModulo(mod);
     return;
   }
@@ -8179,7 +8185,12 @@ function volverASeleccionModulo() {
   document.getElementById('admin-topbar-title').textContent = 'NexoFlota';
 }
 
-const PEDIR_CODIGO_MODULOS = false;
+// Módulos que piden código al entrar. Se decide desde Admin Superior (por defecto, ninguno).
+let MODULO_PEDIR = {};
+const MODULOS_CON_CODIGO = [
+  ['gasoil','⛽ Gasoil'], ['fleet','🚛 Flota'], ['ropa','👔 Ropa'], ['adrcap','🪪 ADR/CAP'],
+  ['seguros','🛡️ Seguros'], ['formacion','🎓 Formación'], ['cartas','📄 Cartas de porte'],
+];
 function pedirCodigoModulo(mod) {
   const nombres = {gasoil:'⛽ Gasoil', fleet:'🚛 Flota', ropa:'👔 Ropa', adrcap:'🪪 ADR/CAP', seguros:'🛡️ Seguros', formacion:'🎓 Formación', cartas:'📄 Cartas de porte'};
   const modal = document.createElement('div');
