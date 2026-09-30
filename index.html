@@ -2298,7 +2298,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v66 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v67 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -5030,12 +5030,29 @@ function cpHtmlSelectMat(campo, etiqueta) {
 }
 window.cpElegirMatricula = (campo, sel) => {
   if (sel.value === '__otra__') {
-    const m = (prompt(campo === 'tractora' ? 'Matrícula de la cabeza tractora:' : 'Matrícula del semirremolque:') || '').trim().toUpperCase();
-    if (m) cpEstado.transportista[campo] = m;
-    cpRenderForm();
+    sel.value = cpEstado.transportista[campo] || '';
+    const titulo = campo === 'tractora' ? '🚛 Nueva matrícula de cabeza tractora' : '🔗 Nueva matrícula de semirremolque';
+    almAbrirModal(titulo, `
+      <div class="cp-campo"><label>Matrícula</label>
+        <input id="cp-nueva-mat" autocomplete="off" autocapitalize="characters" placeholder="${campo==='tractora'?'Ej.: 6732 LDT':'Ej.: R-4317-BDR'}"
+          style="font-family:monospace;font-size:22px;font-weight:800;text-transform:uppercase;text-align:center;letter-spacing:1px"
+          onkeydown="if(event.key==='Enter') cpGuardarNuevaMat('${campo}')"></div>
+      <div style="font-size:13px;color:var(--text-muted)">Se pondrá en esta carta y quedará en el desplegable para las próximas.</div>`,
+      `<button class="btn btn-primary" onclick="cpGuardarNuevaMat('${campo}')">✓ Usar esta matrícula</button>
+       <button class="btn btn-ghost" onclick="almCerrarModal()">Cancelar</button>`);
+    setTimeout(() => document.getElementById('cp-nueva-mat')?.focus(), 50);
     return;
   }
   cpEstado.transportista[campo] = sel.value;
+};
+window.cpGuardarNuevaMat = (campo) => {
+  const m = (document.getElementById('cp-nueva-mat')?.value || '').trim().toUpperCase();
+  if (!m) { document.getElementById('cp-nueva-mat')?.focus(); return; }
+  cpEstado.transportista[campo] = m;
+  const lista = campo === 'tractora' ? 'tractoras' : 'semis';
+  cpEstado.transportista[lista] = cpAnadirMatricula(cpEstado.transportista[lista], m);
+  almCerrarModal();
+  cpRenderForm();
 };
 // Si no hay matrícula puesta, la de la última carta generada
 function cpMatriculasPorDefecto() {
@@ -5300,21 +5317,29 @@ window.cpGenerar = async () => {
   let bytes;
   try { bytes = await cpConstruirPdf(c); }
   catch(e) { console.error(e); showAlert(aviso, 'No se ha podido crear el PDF: ' + e.message, true); return; }
-  showAlert(aviso, '⏳ Subiendo el PDF (la inspección lo descargará desde el QR)…', false);
+  // 1) El PDF se enseña ya, para poder descargarlo aunque la subida tarde o falle
+  c.subido = false;
+  cpResultado = {id:c.id, url:c.url, bytes, subido:false};
+  cpMostrarResultado(c, bytes, 'subiendo');
+  cpGuardarTrans(true);         // el conductor queda guardado para la próxima vez
+  // 2) La carta se guarda SIEMPRE, para poder reintentar la subida con el mismo QR
+  const guardar = async (extra) => {
+    try {
+      const datos = {...c, ...extra, ts: c.ts || Date.now(), modTs: Date.now(), fechaStr: cpFecha(c.fecha).replace(/^0/,'').replace(/\/0/g,'/'),
+                     emitidaPor: (typeof currentUser!=='undefined' && currentUser?.name) || ''};
+      delete datos.tocado;
+      if (datos.transportista) { datos.transportista = {...datos.transportista}; delete datos.transportista.tractoras; delete datos.transportista.semis; delete datos.transportista.idGuardado; }
+      await setDoc(doc(db,'cartasPorte',c.id), datos);
+      c.ts = datos.ts;
+    } catch(e) { console.warn('Registro de la carta:', e); }
+  };
+  await guardar({subido:false, errorSubida:'Subiendo…'});
+  // 3) Subida por detrás
   const subida = await cpSubirPdf(c, bytes);
   c.subido = subida.ok;
-  // La carta se guarda SIEMPRE (aunque falle la subida), para poder reintentarlo con el mismo QR
-  try {
-    const datos = {...c, ts: c.ts || Date.now(), modTs: Date.now(), fechaStr: cpFecha(c.fecha).replace(/^0/,'').replace(/\/0/g,'/'),
-                   emitidaPor: (typeof currentUser!=='undefined' && currentUser?.name) || '', errorSubida: subida.ok ? '' : subida.motivo};
-    delete datos.tocado;
-    if (datos.transportista) { datos.transportista = {...datos.transportista}; delete datos.transportista.tractoras; delete datos.transportista.semis; delete datos.transportista.idGuardado; }
-    await setDoc(doc(db,'cartasPorte',c.id), datos);
-    c.ts = datos.ts;
-  } catch(e) { console.warn('Registro de la carta:', e); }
-  cpResultado = {id:c.id, url:c.url, bytes, subido:subida.ok};
-  cpMostrarResultado(c, bytes, subida.ok, subida.motivo);
-  cpGuardarTrans(true);         // el conductor queda guardado para la próxima vez
+  cpResultado.subido = subida.ok;
+  await guardar({subido: subida.ok, errorSubida: subida.ok ? '' : subida.motivo});
+  cpEstadoSubida(subida.ok ? 'ok' : 'mal', subida.motivo);
 };
 
 // Sube el PDF a Firebase Storage (proyecto de gasoil) y comprueba que ha quedado allí
@@ -5324,12 +5349,15 @@ async function cpSubirPdf(c, bytes) {
   catch(e) { return {ok:false, motivo:'No se ha podido cargar el módulo de Firebase Storage (¿sin conexión?).'}; }
   try {
     const storage = st.getStorage(appGasoil, `gs://${CP_BUCKET}`);
+    storage.maxUploadRetryTime = 20000;      // sin esto, Firebase reintenta hasta 10 minutos
+    storage.maxOperationRetryTime = 10000;
     const ref = st.ref(storage, `${CP_CARPETA}/${c.id}.pdf`);
-    await st.uploadBytes(ref, bytes, {
+    const limite = (prom, ms) => Promise.race([prom, new Promise((_, mal) => setTimeout(() => { const e = new Error('tiempo'); e.code = 'storage/sin-respuesta'; mal(e); }, ms))]);
+    await limite(st.uploadBytes(ref, bytes, {
       contentType: 'application/pdf', cacheControl: 'no-cache',
       contentDisposition: `attachment; filename="${c.id}.pdf"`,     // al escanear el QR, se descarga el PDF
-    });
-    const meta = await st.getMetadata(ref);                          // confirma que el archivo está
+    }), 30000);
+    const meta = await limite(st.getMetadata(ref), 15000);          // confirma que el archivo está
     if (!meta || !(meta.size > 0)) return {ok:false, motivo:'El PDF se ha subido vacío. Vuelve a intentarlo.'};
     return {ok:true};
   } catch(e) {
@@ -5338,7 +5366,8 @@ async function cpSubirPdf(c, bytes) {
     if (cod.includes('unauthorized')) return {ok:false, motivo:'Firebase Storage no deja escribir en la carpeta deca. Revisa las reglas de Storage ("allow write: if true").'};
     if (cod.includes('bucket-not-found') || cod.includes('project-not-found') || cod.includes('no-default-bucket'))
       return {ok:false, motivo:'Firebase Storage no está activado en el proyecto control-gasoil-manchatrans. En la consola de Firebase entra en Storage y pulsa "Empezar". Si pide pasar al plan Blaze, hay que hacerlo para poder usarlo.'};
-    if (cod.includes('retry-limit') || cod.includes('network')) return {ok:false, motivo:'Sin conexión o conexión lenta. Vuelve a intentarlo.'};
+    if (cod.includes('sin-respuesta') || cod.includes('retry-limit')) return {ok:false, motivo:'Firebase Storage no responde. Lo más probable es que Storage no esté activado en el proyecto control-gasoil-manchatrans (consola de Firebase → Storage → Empezar; si pide el plan Blaze, hay que activarlo). Si ya lo está, revisa la conexión.'};
+    if (cod.includes('network')) return {ok:false, motivo:'Sin conexión o conexión lenta. Vuelve a intentarlo.'};
     return {ok:false, motivo:`Error de Firebase Storage: ${cod || e.message}`};
   }
 }
@@ -5356,32 +5385,41 @@ window.cpResubir = async (id) => {
   if (subida.ok) mostrarMensajeFlotante?.('✅ Subida. El QR ya descarga el PDF');
   else alert('No se ha podido subir:\n\n' + subida.motivo);
 };
-function cpMostrarResultado(c, bytes, subido, motivo = '') {
+function cpMostrarResultado(c, bytes, estado, motivo = '') {
   const el = document.getElementById('cp-pane-nueva');
-  const blob = new Blob([bytes], {type:'application/pdf'});
-  const local = URL.createObjectURL(blob);
+  const local = URL.createObjectURL(new Blob([bytes], {type:'application/pdf'}));
   el.innerHTML = `
     <div class="refuel-card cp-card" style="text-align:center">
-      <div style="font-size:44px">${subido?'✅':'⚠️'}</div>
-      <div style="font-size:20px;font-weight:800;color:${subido?'var(--success)':'var(--warning)'}">${subido ? 'Carta de porte emitida' : 'PDF creado, pero sin subir'}</div>
+      <div style="font-size:20px;font-weight:800;color:var(--text)">📄 Carta de porte creada</div>
       <div style="font-family:monospace;color:var(--accent);font-size:16px;margin:0.3rem 0">${cpEsc(c.id)}</div>
       <div style="font-size:14px;color:var(--text-muted)">${cpEsc(c.transportista.nombre)} · ${cpEsc(c.transportista.conductor)} · ${cpEsc(c.transportista.tractora)}${c.transportista.semirremolque?' + '+cpEsc(c.transportista.semirremolque):''}</div>
-      <div id="cp-qr-res" class="cp-qr" style="margin:1rem auto"></div>
-      <div style="font-size:12px;color:var(--text-muted);word-break:break-all">${cpEsc(c.url)}</div>
-      ${subido ? '' : `<div class="alm-banner alm-banner-mal" style="text-align:left"><strong>El QR todavía no descarga el PDF.</strong><br>${cpEsc(motivo || 'No se ha podido subir el PDF a Firebase Storage.')}<br><br>Mientras tanto, descárgalo y mándalo al conductor. Cuando esté arreglado, pulsa "Corregir esta carta" y "Regenerar": el QR no cambia.</div>`}
-      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;margin-top:1rem">
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;margin:1rem 0">
         <a class="btn btn-primary" style="width:auto;padding:0.8rem 1.2rem;text-decoration:none" href="${local}" download="${cpEsc(c.id)}.pdf">⬇ Descargar PDF</a>
         <a class="btn btn-ghost" style="width:auto;padding:0.8rem 1.2rem;text-decoration:none" href="${local}" target="_blank" rel="noopener">🖨 Abrir / imprimir</a>
         <button class="btn btn-ghost" style="width:auto;padding:0.8rem 1.2rem" onclick="cpCompartir('${c.id}')">📤 Compartir al conductor</button>
-        <button class="btn btn-ghost" style="width:auto;padding:0.8rem 1.2rem" onclick="almCopiar('${c.url}','Enlace del DeCA')">📋 Copiar enlace</button>
       </div>
+      <div id="cp-estado-subida"></div>
+      <div id="cp-qr-res" class="cp-qr" style="margin:0.75rem auto"></div>
+      <div style="font-size:12px;color:var(--text-muted);word-break:break-all">${cpEsc(c.url)}</div>
       <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;margin-top:1rem">
+        <button class="alm-accion" onclick="almCopiar('${c.url}','Enlace del DeCA')">📋 Copiar enlace</button>
         <button class="alm-accion" onclick="cpRenderForm()">✏️ Corregir esta carta</button>
-        <button class="alm-accion" onclick="cpEstado=cpNuevaCarta(); cpEstado.transportista={...(${JSON.stringify(c.transportista)})}; cpRenderForm()">📄 Otra carta, mismo transportista</button>
+        <button class="alm-accion" onclick="cpEstado=cpNuevaCarta(); cpEstado.transportista={...(${JSON.stringify(c.transportista).replace(/"/g,'&quot;')})}; cpRenderForm()">📄 Otra carta, mismo transportista</button>
         <button class="alm-accion" onclick="cpEstado=cpNuevaCarta(); cpRenderForm()">➕ Carta nueva</button>
       </div>
     </div>`;
   cpPintarQr('cp-qr-res', c.url, 220);
+  cpEstadoSubida(estado, motivo);
+}
+// Estado de la subida a Firebase (se actualiza cuando termina)
+function cpEstadoSubida(estado, motivo = '') {
+  const el = document.getElementById('cp-estado-subida');
+  if (!el) return;
+  el.innerHTML = estado === 'subiendo'
+    ? `<div class="alm-banner" style="background:rgba(37,99,235,0.15);color:#93c5fd;border:1px solid rgba(37,99,235,0.4)">⏳ Subiendo el PDF para que el QR lo descargue… Puedes ir descargándolo ya.</div>`
+    : estado === 'ok'
+    ? `<div class="alm-banner alm-banner-ok">✅ <strong>Subida correcta:</strong> el QR ya descarga este PDF.</div>`
+    : `<div class="alm-banner alm-banner-mal" style="text-align:left"><strong>⚠️ El QR todavía no descarga el PDF.</strong><br>${cpEsc(motivo || 'No se ha podido subir.')}<br><br>El PDF sí está creado: descárgalo y mándalo al conductor. Cuando esté arreglado, en "Emitidas" pulsa "☁️ Subir de nuevo" (el QR no cambia).</div>`;
 }
 async function cpComprobarUrl(url) {
   try {
