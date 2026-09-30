@@ -688,6 +688,11 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .cp-mats { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: -0.2rem 0 0.5rem; }
 .cp-mats button { background: var(--navy-light); border: 1px solid var(--card-border); color: var(--text); border-radius: 16px; padding: 0.35rem 0.7rem; font-size: 13px; font-weight: 700; cursor: pointer; font-family: monospace; }
 .cp-mats button.on { border-color: var(--accent); color: var(--accent); background: rgba(245,166,35,0.12); }
+
+.cp-adr-vacio { border-color: rgba(245,166,35,0.55); background: rgba(245,166,35,0.06); }
+.cp-tecnico-btn { background: transparent; border: 1px dashed var(--card-border); color: var(--text-muted); border-radius: 10px; padding: 0.35rem 0.7rem; font-size: 12px; font-weight: 700; cursor: pointer; margin-bottom: 0.4rem; }
+.cp-tecnico-btn:hover { color: var(--accent); border-color: var(--accent); }
+.cp-campo label a { color: var(--accent); text-transform: none; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2298,7 +2303,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v71 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v72 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -4984,7 +4989,8 @@ function cpRenderForm() {
             <input id="cp-adr-busca" placeholder="Ej.: 1263 o PINTURA" oninput="cpBuscarAdrUI(this.value)" autocomplete="off"></div>
         </div>
         <div id="cp-adr-res" class="cp-adr-res"></div>
-        <div id="cp-adr-lineas">${c.adrLineas.map((l,i)=>cpHtmlAdr(l,i)).join('') || '<div style="font-size:13px;color:var(--text-muted)">Busca arriba y añade cada materia peligrosa que va en el camión.</div>'}</div>
+        <button type="button" class="alm-anadir" style="margin-bottom:0.6rem" onclick="cpAnadirVacio()">➕ Envases / embalajes vacíos sin limpiar</button>
+        <div id="cp-adr-lineas">${c.adrLineas.map((l,i)=> l.vacio ? cpHtmlVacio(l,i) : cpHtmlAdr(l,i)).join('') || '<div style="font-size:13px;color:var(--text-muted)">Busca arriba y añade cada materia peligrosa que va en el camión.</div>'}</div>
         <div id="cp-adr-puntos" class="cp-puntos"></div>
         <div style="font-size:12px;color:var(--text-muted);margin-top:0.5rem">El DeCA no sustituye al documento de transporte ADR: la hoja ADR que se añade al PDF recoge los datos del 5.4.1, pero el conductor debe llevar además la documentación ADR que corresponda.</div>
       ` : ''}
@@ -5112,7 +5118,62 @@ window.cpAnadirAdr = (idx) => {
   const b = document.getElementById('cp-adr-busca'); if (b) b.value = '';
   cpRenderForm();
 };
-function cpEsNep(l) { return /N\.E\.P\./i.test(l.nombre || '') || String(l.disposiciones||'').split(/\s+/).includes('274'); }
+function cpEsNepTabla(l) { return /N\.E\.P\./i.test(l.nombre || '') || String(l.disposiciones||'').split(/\s+/).includes('274'); }
+function cpEsNep(l) { return !l.vacio && (cpEsNepTabla(l) || !!l.conTecnico); }
+
+// ── Envases y embalajes vacíos sin limpiar (ADR 5.4.1.1.6) ──
+const CP_TIPOS_VACIO = ['ENVASE VACÍO', 'EMBALAJE VACÍO', 'RECIPIENTE VACÍO', 'GRG VACÍO', 'GRAN EMBALAJE VACÍO'];
+window.cpAnadirVacio = () => {
+  cpEstado.adrLineas.push({vacio:true, tipoVacio:'ENVASE VACÍO', etiquetas:'', ultima:null, cat:'4', cantidad:'', unidad:'kg', bultos:'', embalaje:''});
+  cpRenderForm();
+};
+window.cpBuscarUltimaUI = async (i, txt) => {
+  await cpCargarAdr();
+  const cont = document.getElementById(`cp-ult-res-${i}`);
+  if (!cont) return;
+  const res = cpBuscarAdr(txt).slice(0, 15);
+  cont.innerHTML = !txt.trim() ? '' : !res.length ? '<div style="font-size:13px;color:var(--text-muted)">Sin resultados</div>'
+    : res.map(f => `<div class="cp-adr-opt" onclick="cpElegirUltima(${i}, ${cpAdr.indexOf(f)})"><span class="cp-un">UN ${f[0]}</span><span class="cp-adr-nom">${cpEsc(f[1].length>80?f[1].slice(0,80)+'…':f[1])}</span><span class="cp-adr-meta">Clase ${cpEsc(f[2])}${f[4]?' · GE '+cpEsc(f[4]):''}${f[5]?' · Etq. '+cpEsc(f[5]):''}</span></div>`).join('');
+};
+window.cpElegirUltima = (i, idx) => {
+  const f = cpAdr[idx], l = cpEstado.adrLineas[i];
+  const nombre = f[1].replace(/\s*\(.*?\)\s*/g,' ').replace(/\s+/g,' ').trim();
+  l.ultima = {un:f[0], nombre, etiquetas:f[5] || f[2], ge:f[4]};
+  if (!l.etiquetas) l.etiquetas = f[5] || f[2];
+  cpRenderForm();
+};
+// "ENVASE VACÍO, 3"  o  "GRG VACÍO, ÚLTIMA MERCANCÍA CARGADA: UN 1263 PINTURA, 3, II"
+function cpTextoVacio(l) {
+  if (l.ultima) return `${l.tipoVacio}, ÚLTIMA MERCANCÍA CARGADA: UN ${l.ultima.un} ${l.ultima.nombre}, ${l.ultima.etiquetas}${l.ultima.ge ? ', ' + l.ultima.ge : ''}`;
+  return `${l.tipoVacio}${l.etiquetas ? ', ' + l.etiquetas : ''}`;
+}
+function cpHtmlVacio(l, i) {
+  return `<div class="cp-adr-linea cp-adr-vacio">
+    <div class="cp-adr-cab">
+      <div class="cp-adr-texto">${cpEsc(cpTextoVacio(l))}</div>
+      <button type="button" class="cp-adr-quitar" onclick="cpEstado.adrLineas.splice(${i},1); cpRenderForm()" aria-label="Quitar">✕ Quitar</button>
+    </div>
+    <div class="cp-fila">
+      <div class="cp-campo cp-c2"><label>Tipo</label>
+        <select onchange="cpSetAdr(${i},'tipoVacio',this.value); cpRenderForm()">${CP_TIPOS_VACIO.map(t=>`<option ${l.tipoVacio===t?'selected':''}>${t}</option>`).join('')}</select></div>
+      <div class="cp-campo cp-c2"><label>Clase / etiquetas de lo que contenían</label>
+        <input value="${cpEsc(l.etiquetas||'')}" placeholder="Ej.: 3   o   6.1 (3)" oninput="cpSetAdr(${i},'etiquetas',this.value); this.closest('.cp-adr-linea').querySelector('.cp-adr-texto').textContent = cpTextoVacio(cpEstado.adrLineas[${i}])"></div>
+    </div>
+    <div class="cp-campo"><label>Última mercancía cargada (opcional: si la indicas, sale en la descripción)</label>
+      ${l.ultima ? `<div style="display:flex;gap:0.5rem;align-items:center"><span class="cp-un">UN ${cpEsc(l.ultima.un)}</span> <span style="flex:1;font-size:13px">${cpEsc(l.ultima.nombre)}</span>
+        <button type="button" class="cp-adr-quitar" onclick="cpEstado.adrLineas[${i}].ultima=null; cpRenderForm()">✕</button></div>`
+      : `<input placeholder="Buscar por nº ONU o nombre (ej.: 1263)" oninput="cpBuscarUltimaUI(${i}, this.value)" autocomplete="off"><div id="cp-ult-res-${i}" class="cp-adr-res" style="margin-top:0.3rem"></div>`}
+    </div>
+    <div class="cp-fila">
+      <div class="cp-campo cp-c4"><label>1 · Nº de bultos</label><input type="number" inputmode="numeric" value="${cpEsc(l.bultos)}" oninput="cpSetAdr(${i},'bultos',this.value)"></div>
+      <div class="cp-campo cp-c4"><label>2 · Tipo de bulto</label>
+        <select onchange="cpSetAdr(${i},'embalaje',this.value)"><option value="">— Elegir —</option>${CP_BULTOS_ADR.map(b=>`<option ${l.embalaje===b?'selected':''}>${b}</option>`).join('')}</select></div>
+      <div class="cp-campo cp-c4"><label>3 · Unidad</label><select onchange="cpSetAdr(${i},'unidad',this.value)">${['kg','L'].map(u=>`<option ${l.unidad===u?'selected':''}>${u}</option>`).join('')}</select></div>
+      <div class="cp-campo cp-c4"><label>4 · Cantidad (opcional)</label><input type="number" inputmode="decimal" value="${cpEsc(l.cantidad)}" oninput="cpSetAdr(${i},'cantidad',this.value)"></div>
+    </div>
+    <div class="cp-adr-meta">Envases vacíos sin limpiar · categoría de transporte 4: no cuentan para las placas (1.1.3.6)</div>
+  </div>`;
+}
 function cpHtmlAdr(l, i) {
   const nep = cpEsNep(l);
   return `<div class="cp-adr-linea">
@@ -5120,7 +5181,8 @@ function cpHtmlAdr(l, i) {
       <div class="cp-adr-texto">${cpEsc(cpTextoAdr(l))}</div>
       <button type="button" class="cp-adr-quitar" onclick="cpEstado.adrLineas.splice(${i},1); cpRenderForm()" aria-label="Quitar esta materia">✕ Quitar</button>
     </div>
-    ${nep ? `<div class="cp-campo"><label>Nombre técnico (N.E.P.: obligatorio poner qué lleva, ADR 3.1.2.8)</label>
+    ${!nep ? `<button type="button" class="cp-tecnico-btn" onclick="cpEstado.adrLineas[${i}].conTecnico=true; cpRenderForm()">➕ Añadir nombre técnico (N.E.P.)</button>` : ''}
+    ${nep ? `<div class="cp-campo"><label>Nombre técnico (N.E.P.: poner qué lleva, ADR 3.1.2.8)${!cpEsNepTabla(l) ? ` · <a href="#" onclick="event.preventDefault(); cpEstado.adrLineas[${i}].conTecnico=false; cpEstado.adrLineas[${i}].tecnico=''; cpRenderForm()">quitar</a>` : ''}</label>
       <input value="${cpEsc(l.tecnico||'')}" placeholder="Ej.: contiene tolueno y etanol" oninput="cpSetAdr(${i},'tecnico',this.value); this.closest('.cp-adr-linea').querySelector('.cp-adr-texto').textContent = cpTextoAdr(cpEstado.adrLineas[${i}])"></div>` : ''}
     <div class="cp-fila">
       <div class="cp-campo cp-c4"><label>1 · Nº de bultos</label><input type="number" inputmode="numeric" value="${cpEsc(l.bultos)}" oninput="cpSetAdr(${i},'bultos',this.value)"></div>
@@ -5139,6 +5201,7 @@ function cpHtmlAdr(l, i) {
 }
 // Texto oficial de la materia; en las N.E.P. añade el nombre técnico entre paréntesis
 function cpTextoAdr(l) {
+  if (l.vacio) return cpTextoVacio(l);
   if (!l.tecnico || !cpEsNep(l)) return l.texto;
   const tec = ` (${l.tecnico.trim()})`;
   // ADR 3.1.2.8: el nombre técnico va detrás de "N.E.P." -> "LÍQUIDO INFLAMABLE, N.E.P. (contiene …), 3, II"
@@ -5325,6 +5388,12 @@ function cpValidar(c) {
   if (c.adr) {
     if (!c.adrLineas.length) f.push('las materias ADR (o quita el interruptor de ADR)');
     c.adrLineas.forEach((l,i) => {
+      if (l.vacio) {
+        if (!l.etiquetas && !l.ultima) f.push(`la clase de lo que contenían los envases vacíos (línea ADR ${i+1})`);
+        if (!(parseInt(l.bultos) > 0)) f.push(`el nº de bultos de los envases vacíos (línea ADR ${i+1})`);
+        if (!l.embalaje) f.push(`el tipo de bulto de los envases vacíos (línea ADR ${i+1})`);
+        return;
+      }
       if (!(parseFloat(l.cantidad) > 0)) f.push(`la cantidad de la materia ADR ${i+1}`);
       if (!(parseInt(l.bultos) > 0)) f.push(`el nº de bultos de la materia ADR ${i+1}`);
       if (!l.embalaje || l.embalaje === 'Otro') f.push(`el tipo de bulto de la materia ADR ${i+1}`);
@@ -5655,38 +5724,46 @@ async function cpConstruirPdf(c) {
       });
       escribir(p, `TOTAL:   ${c.bultosTotal||0} bultos   ·   ${cpNum(c.pesoTotal||0,0)} kg`, M+4, yMed+5, {size:9, bold:true});
     } else {
-      // Materias peligrosas
-      const colsA = [['DESCRIPCIÓN ADR (Nº ONU, designación oficial, etiquetas, grupo de embalaje, código de túnel)',0.56],['Nº Y TIPO DE BULTO',0.22],['CANTIDAD TOTAL',0.22]];
-      const lineasA = c.adrLineas.map(l => {
-        const desc = partir(cpTextoAdr(l), 9.5, colsA[0][1]*FW-8, true);
-        const extra = partir(`Categoría de transporte ${l.cat||'—'}${l.cl?' · Cantidad limitada '+l.cl:''}${l.codigo?' · Código de clasificación '+l.codigo:''}`, 7.2, colsA[0][1]*FW-8);
-        return {l, desc, extra, alto: desc.length*12 + extra.length*9 + 10};
-      });
+      // Materias peligrosas: tabla con la descripción del 5.4.1, nº y tipo de bulto y cantidad.
+      // Se ajusta al hueco: si hay muchas líneas, se reduce la letra para que quepan todas.
+      const colsA = [['DESCRIPCIÓN SEGÚN ADR 5.4.1 (Nº ONU, designación oficial, etiquetas, grupo de embalaje, código de túnel)',0.58],['Nº Y TIPO DE BULTO',0.22],['CANTIDAD TOTAL',0.20]];
       const pts = cpPuntosAdr(c.adrLineas), exento = !pts.ilimitado && pts.total <= 1000;
-      const hPts = 46, hDesc = 18 + c.adrLineas.reduce((s,l)=>s+partir(`${cpTextoAdr(l)}, ${l.bultos} ${l.embalaje}, ${l.cantidad} ${l.unidad}`, 8.5, FW-8).length*11, 0);
-      const yPts = yMed, yDesc = yPts + hPts + G, yTabA = yDesc + hDesc + G, hTabA = yMed + hMed - yTabA;
-      // tabla
+      const hPts = 46, yPts = yMed, yTabA = yPts + hPts + G, hTabA = yMed + hMed - yTabA;
+      // nivel de detalle: 2 = todo; 1 = sin la línea gris de los vacíos; 0 = sin líneas grises
+      const medir = (fs, detalle = 2) => c.adrLineas.map(l => {
+        const desc = partir(cpTextoAdr(l), fs, colsA[0][1]*FW-8, true);
+        const conExtra = detalle === 2 || (detalle === 1 && !l.vacio);
+        const extra = !conExtra ? [] : partir(l.vacio ? 'Envases/embalajes vacíos sin limpiar (ADR 5.4.1.1.6) · Categoría de transporte 4'
+          : `Categoría de transporte ${l.cat||'—'}${l.cl?' · Cantidad limitada '+l.cl:''}${l.codigo?' · Código de clasificación '+l.codigo:''}`, fs*0.76, colsA[0][1]*FW-8);
+        const lh = fs * 1.25, lhx = fs * 0.95;
+        return {l, desc, extra, lh, lhx, alto: desc.length*lh + extra.length*lhx + fs*0.7};
+      });
+      let fs = 9.5, detalle = 2, filasA = medir(fs, detalle);
+      const cabe = () => 14 + 6 + filasA.reduce((s,x)=>s+x.alto, 0) <= hTabA;
+      while (!cabe() && fs > 8) { fs -= 0.25; filasA = medir(fs, detalle); }
+      if (!cabe()) { detalle = 1; filasA = medir(fs, detalle); }      // fuera las líneas grises de los vacíos
+      if (!cabe()) { detalle = 0; filasA = medir(fs, detalle); }      // fuera todas las líneas grises
+      while (!cabe() && fs > 5.5) { fs -= 0.25; filasA = medir(fs, detalle); }
+      if (!cabe()) console.warn('Hoja ADR: demasiadas líneas para el espacio disponible');
       marco(p, M, yTabA, FW, hTabA, '');
       let cx = M;
       colsA.forEach(([t,f],i) => { titulo(p, t, cx+4, yTabA+hTabA-9.5, f*FW-8); if (i<colsA.length-1) p.drawLine({start:{x:cx+f*FW,y:yTabA},end:{x:cx+f*FW,y:yTabA+hTabA-12},thickness:0.4,color:gris}); cx += f*FW; });
-      let ly = yTabA + hTabA - 26;
-      lineasA.forEach(({l, desc, extra, alto}, k) => {
-        if (ly < yTabA + 10) return;
-        desc.forEach((ln,i) => escribir(p, ln, M+4, ly - i*12, {size:9.5, bold:true}));
-        extra.forEach((ln,i) => escribir(p, ln, M+4, ly - desc.length*12 - i*9 + 2, {size:7.2, color:gris}));
+      let ly = yTabA + hTabA - 14 - fs - 2;
+      filasA.forEach(({l, desc, extra, lh, lhx, alto}, k) => {
+        if (ly < yTabA + 4) return;
+        desc.forEach((ln,i) => escribir(p, ln, M+4, ly - i*lh, {size:fs, bold:true}));
+        extra.forEach((ln,i) => escribir(p, ln, M+4, ly - desc.length*lh - i*lhx + 1, {size:fs*0.76, color:gris}));
         const xB = M + colsA[0][1]*FW, xC = xB + colsA[1][1]*FW;
-        partir(`${l.bultos||'—'} ${l.embalaje||''}`, 9.5, colsA[1][1]*FW-8).forEach((ln,i) => escribir(p, ln, xB+4, ly - i*12, {size:9.5}));
-        escribir(p, `${l.cantidad} ${l.unidad}`, xC+4, ly, {size:9.5, bold:true});
+        partir(`${l.bultos||'—'} ${l.embalaje||''}`, fs, colsA[1][1]*FW-8).forEach((ln,i) => escribir(p, ln, xB+4, ly - i*lh, {size:fs}));
+        escribir(p, parseFloat(l.cantidad) > 0 ? `${l.cantidad} ${l.unidad}` : '—', xC+4, ly, {size:fs, bold:true});
         ly -= alto;
-        if (k < lineasA.length-1) p.drawLine({start:{x:M,y:ly+8},end:{x:M+FW,y:ly+8},thickness:0.3,color:gris});
+        if (k < filasA.length-1) p.drawLine({start:{x:M,y:ly+fs*0.9},end:{x:M+FW,y:ly+fs*0.9},thickness:0.3,color:gris});
       });
-      // descripción 5.4.1
-      caja(p, M, yDesc, FW, hDesc, 'DESCRIPCIÓN SEGÚN ADR 5.4.1', c.adrLineas.map(l => `${cpTextoAdr(l)}, ${l.bultos} ${String(l.embalaje||'').toUpperCase()}, ${l.cantidad} ${l.unidad}`), {size:8.5});
-      // puntos
+      // cantidad total y placas
       const colorPts = exento ? rgb(0.1,0.5,0.22) : rojo;
       p.drawRectangle({x:M, y:yPts, width:FW, height:hPts, borderColor:colorPts, borderWidth:1.2});
       escribir(p, `Cantidad total ADR:  ${cpKilosTexto(c.adrLineas)}   ·   ${exento ? 'NO LLEVA PLACAS NARANJAS' : 'LLEVA PLACAS NARANJAS'}`, M+8, yPts+hPts-16, {size:10.5, bold:true, color:colorPts});
-      partir(exento ? `Equivale a ${cpNum(pts.total,0)} puntos del 1.1.3.6 ADR (hasta 1.000): exención parcial, sin paneles naranja y sin certificado ADR del conductor.`
+      partir(exento ? `Equivale a ${cpNum(pts.total,0)} puntos del 1.1.3.6 ADR (hasta 1.000): exención parcial, sin paneles naranja y sin certificado ADR del conductor. Los envases vacíos sin limpiar no cuentan.`
            : pts.ilimitado ? 'Hay materias de categoría de transporte 0: no se aplica la exención del 1.1.3.6. Transporte ADR completo.'
            : `Equivale a ${cpNum(pts.total,0)} puntos del 1.1.3.6 ADR (1.001 o más): paneles naranja, conductor con certificado ADR, equipamiento y documentación ADR.`,
         7.8, FW-16).forEach((ln,i) => escribir(p, ln, M+8, yPts+hPts-29-i*9.5, {size:7.8}));
@@ -5714,7 +5791,7 @@ async function cpConstruirPdf(c) {
   return await pdf.save();
 }
 
-Object.assign(window, { cpTab, cpRenderForm, cpEntrar, cpNuevaCarta, cpTextoAdr });
+Object.assign(window, { cpTab, cpRenderForm, cpEntrar, cpNuevaCarta, cpTextoAdr, cpTextoVacio });
 // los botones del formulario tocan cpEstado directamente: se expone
 Object.defineProperty(window, 'cpEstado', { get: () => cpEstado, set: v => { cpEstado = v; } });
 Object.defineProperty(window, 'cpResultado', { get: () => cpResultado });
