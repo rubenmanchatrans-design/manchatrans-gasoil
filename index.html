@@ -4811,7 +4811,7 @@ function cpNuevaCarta() {
     anexos: '', contrato: '', precinto: '', observaciones: '',
     operadorTxt: f.operadorTxt || CP_DEFECTO.operadorTxt,
     transportista: {nombre:'', nif:'', domicilio:'', cp:'', poblacion:'', provincia:'', conductor:'', telefono:'', tractora:'', semirremolque:''},
-    mercancia: [{bultos:'', embalaje:'Palets', naturaleza: CP_DEFECTO.naturaleza, peso:'', volumen:''}],
+    mercancia: [{bultos:'', embalaje:'Palets y bultos', naturaleza: CP_DEFECTO.naturaleza, peso:'', volumen:''}],
     adr: false, adrLineas: [],
   };
 }
@@ -4960,7 +4960,7 @@ function cpRenderForm() {
     <div class="refuel-card cp-card">
       <div class="cp-tit">10–14 · Mercancía</div>
       <div id="cp-merc">${c.mercancia.map((m,i)=>cpHtmlMerc(m,i)).join('')}</div>
-      <button type="button" class="alm-anadir" onclick="cpEstado.mercancia.push({bultos:'',embalaje:'Bultos',naturaleza:'',peso:'',volumen:''}); cpRenderForm()">＋ Añadir línea de mercancía</button>
+      <button type="button" class="alm-anadir" onclick="cpEstado.mercancia.push({bultos:'',embalaje:'Palets y bultos',naturaleza:'',peso:'',volumen:''}); cpRenderForm()">＋ Añadir línea de mercancía</button>
     </div>
 
     <div class="refuel-card cp-card">
@@ -5032,7 +5032,7 @@ function cpHtmlMerc(m, i) {
     <div class="cp-fila">
       <div class="cp-campo cp-c3"><label>10 · Nº de bultos</label><input type="number" inputmode="numeric" value="${cpEsc(m.bultos)}" oninput="cpSetMerc(${i},'bultos',this.value)"></div>
       <div class="cp-campo cp-c3"><label>11 · Embalaje</label>
-        <div class="cp-seg cp-seg3">${[['Palets','🟫 Palets'],['Bultos','📦 Bultos'],['Palets y bultos','🟫📦 Los dos']].map(([e,t]) => `<button type="button" class="${m.embalaje===e?'on':''}" onclick="cpSetMerc(${i},'embalaje','${e}'); cpRenderForm()">${t}</button>`).join('')}</div></div>
+        <input value="Palets y bultos" readonly tabindex="-1"></div>
       <div class="cp-campo cp-c3"><label>13 · Peso bruto (kg)</label><input type="number" inputmode="decimal" value="${cpEsc(m.peso)}" oninput="cpSetMerc(${i},'peso',this.value)"></div>
     </div>
     <div class="cp-fila">
@@ -5528,7 +5528,7 @@ async function cpConstruirPdf(c) {
       });
       let ry = yMed + hMed - 26;
       c.mercancia.filter(m => m.naturaleza || m.bultos || m.peso).forEach(m => {
-        const valores = [m.bultos, m.embalaje, m.naturaleza, m.peso ? cpNum(m.peso,0) : '', m.volumen];
+        const valores = [m.bultos, 'Palets y bultos', m.naturaleza, m.peso ? cpNum(m.peso,0) : '', m.volumen];
         let alto = 1; cx = M;
         const partes = valores.map((v,i) => { const ls = partir(String(v||''), 9.5, cols[i][1]*FW-8); alto = Math.max(alto, ls.length); return ls; });
         partes.forEach((ls,i) => { ls.forEach((ln,k) => { if (ry - k*12 > yMed + hTot + 2) escribir(p, ln, cx+4, ry - k*12, {size:9.5}); }); cx += cols[i][1]*FW; });
