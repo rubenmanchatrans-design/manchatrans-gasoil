@@ -719,6 +719,13 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .cp-grupo-cab > span { font-weight: 800; font-size: 15px; color: var(--accent); }
 .cp-grupo .cp-adr-linea { margin-top: 0.5rem; }
 .cp-otro-cliente { border-color: var(--accent) !important; color: var(--accent) !important; font-weight: 800; }
+
+.cp-desglose { width: 100%; border-collapse: collapse; margin-top: 0.5rem; font-size: 13px; color: var(--text); }
+.cp-desglose th { text-align: left; font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; padding: 3px 6px; border-bottom: 1px solid var(--card-border); }
+.cp-desglose td { padding: 3px 6px; }
+.cp-desglose td:last-child, .cp-desglose th:last-child { text-align: right; font-weight: 800; }
+.cp-desglose tr.cp-vacio td { opacity: 0.45; }
+.cp-desglose tr.cp-total td { border-top: 1px solid var(--card-border); font-weight: 800; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2336,7 +2343,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v89 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v90 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -4937,6 +4944,15 @@ function cpLineaAdr(f) {
   if (tunel) partes.push(`(${tunel})`);
   return partes.join(', ');
 }
+// Desglose del 1.1.3.6 por categoría de transporte (como la hoja de cálculo de Manchatrans)
+function cpDesgloseAdr(lineas) {
+  const d = {1:{cant:0}, 2:{cant:0}, 3:{cant:0}};
+  lineas.filter(l => !l.vacio).forEach(l => {
+    const c = String(l.cat||'');
+    if (d[c]) d[c].cant += parseFloat(String(l.cantidad).replace(',','.')) || 0;
+  });
+  return [1,2,3].map(c => ({cat:c, cant:d[c].cant, coef:CP_FACTOR_CAT[c], valor:d[c].cant * CP_FACTOR_CAT[c]}));
+}
 function cpPuntosAdr(lineas) {
   let total = 0, ilimitado = false;
   lineas.forEach(l => {
@@ -5399,7 +5415,11 @@ function cpPintarPuntos() {
     <strong>${cpKilosTexto(cpEstado.adrLineas)} en total</strong>${cpKilosVacios(cpEstado.adrLineas) ? ` + ${cpNum(cpKilosVacios(cpEstado.adrLineas),0)} kg de envases vacíos (no cuentan)` : ''} (equivale a ${cpNum(total,0)} puntos según el 1.1.3.6) ${ilimitado ? '· hay materias de categoría 0: siempre ADR completo'
       : exento ? '· hasta 1.000: <strong>no hace falta llevar placas naranjas</strong> (exención parcial)'
       : '· 1.001 o más: <strong>hay que llevar placas naranjas</strong> y conductor con carnet ADR'}
-    <div style="font-size:12px;opacity:0.85;margin-top:3px">Los puntos son los kilos o litros multiplicados por el factor de su categoría: categoría 3 ×1 (1 kg = 1 punto), categoría 2 ×3, categoría 1 ×50, categoría 4 no cuenta.</div>
+    <table class="cp-desglose">
+      <tr><th>Categoría de transporte</th><th>Kilos / litros</th><th>Coeficiente</th><th>Valor 1.1.3.6</th></tr>
+      ${cpDesgloseAdr(cpEstado.adrLineas).map(r => `<tr class="${r.cant ? '' : 'cp-vacio'}"><td>Categoría ${r.cat}</td><td>${r.cant ? cpNum(r.cant, r.cant % 1 ? 2 : 0) : '—'}</td><td>× ${r.coef}</td><td>${r.cant ? cpNum(r.valor,0) : '—'}</td></tr>`).join('')}
+      <tr class="cp-total"><td colspan="3">Total</td><td>${cpNum(total,0)}</td></tr>
+    </table>
   </div>`;
 }
 
@@ -6273,7 +6293,7 @@ async function cpConstruirPdf(c) {
     caja(p, M, yE, FW, hE, 'EMPRESA TRANSPORTISTA · CONDUCTOR · MATRÍCULAS', lineasTrans, {size:9.5});
 
     // Parte de abajo (de abajo arriba)
-    const hPie = 18, hFirmas = 78, hArb = 42, hAnx = 48;
+    const hPie = 18, hFirmas = 78, hArb = 42, hAnx = esAdr ? 70 : 48;
     const yFirmas = M + hPie, yArb = yFirmas + hFirmas + G, yAnx = yArb + hArb + G;
     const yMed = yAnx + hAnx + G, hMed = y - yMed;       // hueco central
 
@@ -6364,7 +6384,25 @@ async function cpConstruirPdf(c) {
     const mitadF = (FW - G) / 2;
     caja(p, M, yAnx, mitadF, hAnx, 'DOCUMENTOS ANEXOS', [esAdr ? 'Instrucciones escritas ADR · Certificado ADR del conductor (si procede)'
       : ([c.anexos, c.adr ? 'MERCANCÍA ADR SEGÚN DOCUMENTACIÓN ADJUNTA (hoja 2)' : ''].filter(Boolean).join(' · ') || '—')]);
-    caja(p, M+mitadF+G, yAnx, mitadF, hAnx, 'OBSERVACIONES', [c.observaciones || '—']);
+    if (!esAdr) caja(p, M+mitadF+G, yAnx, mitadF, hAnx, 'OBSERVACIONES', [c.observaciones || '—']);
+    else {
+      // Cálculo 1.1.3.6 por categoría de transporte
+      const x0 = M+mitadF+G, w = mitadF;
+      marco(p, x0, yAnx, w, hAnx, 'CÁLCULO 1.1.3.6 POR CATEGORÍA DE TRANSPORTE');
+      const colsD = [['Categoría', 0.30], ['Kilos/litros', 0.26], ['Coef.', 0.16], ['Valor', 0.28]];
+      const filaH = 9.6, fs = 7.6;
+      let yy = yAnx + hAnx - 12 - 8.5;
+      let xx = x0 + 4;
+      colsD.forEach(([t, f]) => { escribir(p, t, xx, yy, {size:6.4, bold:true, color:gris}); xx += f * (w - 8); });
+      const desg = cpDesgloseAdr(c.adrLineas), ptsTot = cpPuntosAdr(c.adrLineas).total;
+      [...desg.map(r => [`Categoría ${r.cat}`, r.cant ? cpNum(r.cant, r.cant % 1 ? 2 : 0) : '—', `× ${r.coef}`, r.cant ? cpNum(r.valor, 0) : '—', false]),
+       ['TOTAL', '', '', cpNum(ptsTot, 0), true]].forEach((fila, k) => {
+        yy -= filaH;
+        if (fila[4]) p.drawLine({start:{x:x0+3, y:yy+filaH-2}, end:{x:x0+w-3, y:yy+filaH-2}, thickness:0.4, color:gris});
+        xx = x0 + 4;
+        fila.slice(0, 4).forEach((v, j) => { escribir(p, v, xx, yy, {size:fs, bold: fila[4] || j === 3}); xx += colsD[j][1] * (w - 8); });
+      });
+    }
     caja(p, M, yArb, FW, hArb, 'SOMETIMIENTO A ARBITRAJE', ['Las partes se someten, para la resolución de cualquier controversia relativa a la interpretación y ejecución del contrato de transporte al que se refiere el presente documento, a la Junta Arbitral de Transporte que proceda conforme a lo establecido en la Ley 16/1987, de Ordenación de los Transportes Terrestres, y sus normas de desarrollo.'], {size:7});
     const fW3 = (FW - 2*G) / 3;
     const firmas = esAdr ? ['FIRMA Y SELLO DEL OPERADOR DE TRANSPORTE', 'FIRMA DEL CONDUCTOR', 'RECIBO · FIRMA Y SELLO DEL CONSIGNATARIO']
