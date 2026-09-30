@@ -2336,7 +2336,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v88 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v89 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -5108,6 +5108,20 @@ async function cpCargarMatBorradas() {
 async function cpGuardarMatBorradas() {
   try { await setDoc(doc(db,'configuracion','cartasMatriculasBorradas'), {tractoras:[...cpMatBorradas]}); } catch(e) { console.warn(e); }
 }
+// Guarda la matrícula de la tractora en la ficha del conductor (autónomo o de la empresa)
+window.cpGuardarMatricula = async (silencioso = false) => {
+  const t = cpEstado.transportista, m = (t.tractora||'').trim();
+  if (!m) { if (!silencioso) mostrarMensajeFlotante?.('Elige o añade primero la matrícula'); return false; }
+  if (!(t.nombre||'').trim() || (!t.autonomo && !(t.conductor||'').trim())) {
+    if (!silencioso) mostrarMensajeFlotante?.('Pon primero la empresa y el conductor, para saber de quién es la matrícula');
+    return false;
+  }
+  if (cpMatBorrada(m)) { cpMatBorradas.delete(cpNormMat(m)); cpGuardarMatBorradas(); }
+  t.tractoras = cpAnadirMatricula(t.tractoras, m);
+  await cpGuardarTrans(true);
+  mostrarMensajeFlotante?.(`💾 Matrícula ${m} guardada en ${t.autonomo ? t.nombre : t.conductor}`);
+  return true;
+};
 window.cpBorrarMatricula = async () => {
   const m = (cpEstado.transportista.tractora || '').trim();
   if (!m) { mostrarMensajeFlotante?.('Elige primero la matrícula que quieres borrar'); return; }
@@ -5145,7 +5159,8 @@ function cpHtmlSelectMat(campo, etiqueta) {
         ${todas.map(m => `<option ${m.toUpperCase()===actual.toUpperCase()?'selected':''}>${cpEsc(m)}</option>`).join('')}
         <option value="__otra__">➕ Otra matrícula…</option>
       </select>
-      ${campo === 'tractora' ? `<button type="button" class="alm-accion alm-accion-borrar" style="flex-shrink:0" title="Borrar esta matrícula de la lista" aria-label="Borrar matrícula" onclick="cpBorrarMatricula()">🗑</button>` : ''}
+      ${campo === 'tractora' ? `<button type="button" class="alm-accion" style="flex-shrink:0" title="Guardar esta matrícula en la ficha del conductor" aria-label="Guardar matrícula" onclick="cpGuardarMatricula()">💾</button>
+        <button type="button" class="alm-accion alm-accion-borrar" style="flex-shrink:0" title="Borrar esta matrícula de la lista" aria-label="Borrar matrícula" onclick="cpBorrarMatricula()">🗑</button>` : ''}
     </div></div>`;
 }
 window.cpElegirMatricula = (campo, sel) => {
@@ -5174,6 +5189,7 @@ window.cpGuardarNuevaMat = (campo) => {
   cpEstado.transportista[lista] = cpAnadirMatricula(cpEstado.transportista[lista], m);
   almCerrarModal();
   cpRenderForm();
+  if (campo === 'tractora') cpGuardarMatricula(true);
 };
 // Si no hay matrícula puesta, la de la última carta generada
 function cpMatriculasPorDefecto() {
