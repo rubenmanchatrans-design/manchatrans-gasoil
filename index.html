@@ -104,6 +104,7 @@
   mantenerVertical();
   // Fuerza la actualización: borra la copia guardada y vuelve a descargar la app
   window.forzarActualizacion = async () => {
+    try { if (!document.getElementById('overlay-actualizando') && typeof mostrarPantallaActualizando === 'function') mostrarPantallaActualizando(); } catch(e) {}
     try {
       if ('serviceWorker' in navigator) {
         const regs = await navigator.serviceWorker.getRegistrations();
@@ -116,6 +117,33 @@
     } catch(e) { console.warn(e); }
     location.replace(location.pathname + '?v=' + Date.now());
   };
+  // ── ¿Hay versión nueva? Se mira el index.html publicado (sin copias guardadas) y se
+  //    compara su número de versión con el de la app abierta. Si es más nueva, aviso.
+  window.versionAbierta = () => { const m = document.documentElement.innerHTML.match(/const ALM_VERSION = 'Almacén v(\d+)/); return m ? +m[1] : 0; };
+  window.comprobarVersion = async (avisarSiNo = false) => {
+    try {
+      const r = await fetch(location.pathname.replace(/[^/]*$/, '') + 'index.html?comprobar=' + Date.now(), {cache: 'no-store'});
+      const t = await r.text();
+      const m = t.match(/const ALM_VERSION = 'Almacén v(\d+)/);
+      const publicada = m ? +m[1] : 0, abierta = window.versionAbierta();
+      if (publicada > abierta) { avisoVersionNueva(publicada); return true; }
+      if (avisarSiNo && typeof avisoApp === 'function') avisoApp(`Ya tienes la última versión (v${abierta}).`);
+      return false;
+    } catch (e) { if (avisarSiNo && typeof avisoApp === 'function') avisoApp('No se ha podido comprobar (¿sin conexión?).'); return false; }
+  };
+  function avisoVersionNueva(v) {
+    if (document.getElementById('aviso-actualizacion')) return;
+    const aviso = document.createElement('div');
+    aviso.id = 'aviso-actualizacion';
+    aviso.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#f5a623;color:#111;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:14px;font-weight:600;box-shadow:0 -2px 10px rgba(0,0,0,0.25);';
+    aviso.innerHTML = `<span>🔄 Hay una versión nueva de FlotaMancha (v${v})</span><button style="background:#1a2332;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:700;font-size:14px;cursor:pointer;">Actualizar</button>`;
+    aviso.querySelector('button').onclick = () => { mostrarPantallaActualizando(); window.forzarActualizacion(); };
+    document.body.appendChild(aviso);
+  }
+  window.addEventListener('load', () => setTimeout(() => window.comprobarVersion(), 4000));
+  setInterval(() => window.comprobarVersion(), 5 * 60 * 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) window.comprobarVersion(); });
+
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/manchatrans-gasoil/sw.js').then(reg => {
       reg.update();
@@ -854,6 +882,7 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .alm-cmp-v small { font-weight: 500; color: var(--text-muted); }
 .alm-cmp-rojo { color: #ff8b80; }
 @media (max-width: 520px) { .alm-cmp { column-gap: 0.6rem; grid-template-columns: auto repeat(3, auto); font-size: 12px; } }
+.fm-actualizar { background: none; border: none; color: var(--accent); font-size: inherit; font-weight: 700; cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 2px; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -1089,7 +1118,8 @@ html.giro-fijo #screen-chat { height: 100% !important; }
           <span class="hc-desc">Empleados · Vehículos · Copia de seguridad</span>
         </button>
       </div>
-      <div class="fm-credito fm-credito-home">FlotaMancha · Desarrollada y diseñada por Rubén Díaz · © <span class="fm-anio"></span> Todos los derechos reservados</div>
+      <div class="fm-credito fm-credito-home">FlotaMancha · Desarrollada y diseñada por Rubén Díaz · © <span class="fm-anio"></span> Todos los derechos reservados
+        · <span class="fm-version"></span> · <button type="button" class="fm-actualizar" onclick="comprobarVersion(true).then(n => { if (n) forzarActualizacion(); })">🔄 Buscar actualización</button></div>
     </div>
 
     <!-- ═══════════ MÓDULO GASOIL ═══════════ -->
@@ -1941,6 +1971,7 @@ html.giro-fijo #screen-chat { height: 100% !important; }
 <script type="module">
 // ── Autoría: se añade a todos los PDF y Excel que genera la aplicación ──
 document.querySelectorAll('.fm-anio').forEach(e => e.textContent = new Date().getFullYear());
+setTimeout(() => document.querySelectorAll('.fm-version').forEach(e => e.textContent = ALM_VERSION.replace('Almacén ', '')), 0);   // cuando ya está definida la versión
 const FM_APP = 'FlotaMancha';
 const FM_AUTOR = 'Rubén Díaz';
 const fmCredito = () => `${FM_APP} · Desarrollada y diseñada por ${FM_AUTOR} · © ${new Date().getFullYear()} Todos los derechos reservados`;
@@ -2530,7 +2561,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v108 · 01/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v109 · 01/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
