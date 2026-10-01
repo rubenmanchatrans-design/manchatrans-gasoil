@@ -787,6 +787,29 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .cp-sug-op.activa { background: var(--navy-light); box-shadow: inset 3px 0 0 var(--accent); }
 .cp-sug-op.activa strong { color: var(--accent); }
 #module-comercial .alm-estados.co-destaca #co-tab-lista { box-shadow: 0 0 0 3px rgba(245,166,35,0.55); transition: box-shadow 0.3s; }
+
+/* ── Inicio compacto en ordenador: todo a la vista sin deslizar ── */
+@media (min-width: 801px) {
+  #modulo-home-screen .home-saludo { font-size: 22px; }
+  #modulo-home-screen .home-hoy { margin-bottom: 0.6rem; }
+  #modulo-home-screen .home-seccion { margin: 0.7rem 0 0.4rem 0.2rem; }
+  #modulo-home-screen .home-grid { margin-bottom: 0; gap: 0.6rem; }
+  #modulo-home-screen .home-card {
+    display: grid; grid-template-columns: 44px 1fr; column-gap: 0.85rem; row-gap: 0.1rem;
+    align-content: start; align-items: start; min-height: 0 !important; padding: 0.85rem 1rem; }
+  #modulo-home-screen .home-card > * { grid-column: 2; }
+  #modulo-home-screen .home-card > .hc-icon { grid-column: 1; grid-row: 1 / span 4; width: 44px; height: 44px; font-size: 22px; border-radius: 12px; margin: 0; }
+  #modulo-home-screen .hc-name { font-size: 17px; line-height: 1.2; }
+  #modulo-home-screen .hc-desc { font-size: 12.5px; }
+  #modulo-home-screen .hc-info { margin-top: 0.25rem; font-size: 12.5px; }
+  #modulo-home-screen .hc-badge { margin-top: 0.3rem; padding-top: 0; }
+}
+/* pantallas bajas (portátiles): un poco más justo */
+@media (min-width: 801px) and (max-height: 820px) {
+  #modulo-home-screen .home-saludo { font-size: 20px; }
+  #modulo-home-screen .home-seccion { margin: 0.5rem 0 0.3rem 0.2rem; }
+  #modulo-home-screen .home-card { padding: 0.7rem 0.9rem; }
+}
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2429,7 +2452,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v101 · 01/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v102 · 01/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
