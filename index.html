@@ -823,6 +823,15 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 /* ── Autoría ── */
 .fm-credito { font-size: 11px; color: var(--text-muted); text-align: center; line-height: 1.5; margin-top: 1.25rem; opacity: 0.75; }
 .fm-credito-home { margin-top: clamp(0.4rem, 1.2vh, 0.9rem); font-size: 10.5px; }
+
+.alm-seg { display: inline-flex; margin-top: 0.4rem; border: 1px solid var(--card-border); border-radius: 10px; overflow: hidden; background: var(--input-bg); }
+.alm-seg-op { border: none; background: transparent; color: var(--text-muted); font-size: 12px; font-weight: 700; padding: 0.38rem 0.7rem; cursor: pointer; white-space: nowrap; }
+.alm-seg-op + .alm-seg-op { border-left: 1px solid var(--card-border); }
+.alm-seg-op:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+.alm-seg-esperando.on { background: rgba(148,163,184,0.2); color: #e2e8f0; }
+.alm-seg-modificada.on { background: rgba(46,204,113,0.2); color: var(--success); }
+.alm-seg-nomod.on { background: rgba(231,76,60,0.2); color: #ff8b80; }
+@media (max-width: 520px) { .alm-seg-op { padding: 0.38rem 0.5rem; font-size: 11.5px; } }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2499,7 +2508,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v105 · 01/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v106 · 01/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -3986,6 +3995,7 @@ function almResultado(r) {
   if (!almPasada(r)) return 'pendiente';
   if (r.agenciaEstado === 'modificada') return 'modificada';
   if (r.agenciaEstado === 'no') return 'nomod';
+  if (r.agenciaEstado === 'esperando') return 'esperando';     // devuelta a mano a esperando
   if (r.huboCambio) return 'modificada';
   return 'esperando';
 }
@@ -4006,11 +4016,16 @@ function almTextoCambios(r) {
 async function almMarcarAgencia(id, estado) {
   const r = almCache.find(x => x.id === id);
   if (!r) return;
-  const cambios = {agenciaEstado: estado || '', agenciaEstadoTs: estado ? Date.now() : null};
+  // "Esperando" la deja como recién validada, para que la comprobación automática del PC siga funcionando
+  const cambios = estado === 'esperando'
+    ? {agenciaEstado:'', agenciaEstadoTs:null, huboCambio:false}
+    : {agenciaEstado: estado || '', agenciaEstadoTs: estado ? Date.now() : null};
   try {
     await updateDoc(doc(db,'almacenExpediciones',id), cambios);
     Object.assign(r, cambios);
     renderAlmacenAdmin();
+    const dest = {modificada:'✅ Modificadas', no:'❌ No modificadas', esperando:'🕐 Esperando a la agencia'}[estado];
+    if (dest) mostrarMensajeFlotante?.(`${r.expedicion||r.codigo} → ${dest}`);
     if (document.querySelector('.alm-sheet[data-id]')?.dataset.id === id) almVer(id);
   } catch(e) { alert('No se ha podido guardar: '+e.message); }
 }
@@ -4064,8 +4079,18 @@ function almHtmlControlAgencia(r) {
       <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
         ${btn('modificada','✅ Sí, lo han modificado','#2ecc71')}
         ${btn('no','❌ No lo han modificado','#e74c3c')}
+        ${r.agenciaEstado && r.agenciaEstado !== 'esperando' ? btn('esperando','🕐 Volver a esperando','#94a3b8') : ''}
       </div>
     </div>`;
+}
+
+// Selector rápido en la fila: Esperando · Modificada · No modificada
+function almHtmlSelectorAgencia(r) {
+  const res = almResultado(r);
+  const op = (val, est, txt) => `<button type="button" class="alm-seg-op alm-seg-${est} ${res===est?'on':''}" onclick="almMarcarAgencia('${r.id}','${val}')" ${res===est?'aria-pressed="true"':''}>${txt}</button>`;
+  return `<div class="alm-seg" role="group" aria-label="Respuesta de la agencia">
+    ${op('esperando','esperando','🕐 Esperando')}${op('modificada','modificada','✅ Modificada')}${op('no','nomod','❌ No modificada')}
+  </div>`;
 }
 
 function almHtmlEstadoAgencia(r) {
@@ -4085,21 +4110,24 @@ async function almMarcarPasada(id, pasada) {
   const r = almCache.find(x => x.id === id);
   if (!r) return;
   if (!pasada && !confirm('¿Volver a dejarla como pendiente de pasar al sistema?')) return;
+  // la respuesta de la agencia empieza siempre de cero: al validar va a "Esperando a la agencia"
+  const limpio = {agenciaEstado:'', agenciaEstadoTs:null, huboCambio:false};
   const cambios = pasada
-    ? {pasadoSistema:true, pasadoTs:Date.now(), pasadoPor:(typeof currentUser!=='undefined' && currentUser?.name)||''}
-    : {pasadoSistema:false, pasadoTs:null, pasadoPor:''};
+    ? {pasadoSistema:true, pasadoTs:Date.now(), pasadoPor:(typeof currentUser!=='undefined' && currentUser?.name)||'', ...limpio}
+    : {pasadoSistema:false, pasadoTs:null, pasadoPor:'', ...limpio};
   try {
     await updateDoc(doc(db,'almacenExpediciones',id), cambios);
     Object.assign(r, cambios);
     renderAlmacenAdmin();
     if (document.getElementById('alm-modal') && document.querySelector('.alm-sheet[data-id]')?.dataset.id === id) almVer(id);
+    if (pasada) mostrarMensajeFlotante?.(`✓ ${r.expedicion||r.codigo} pasada al sistema · ahora en 🕐 Esperando a la agencia`);
   } catch(e) { alert('No se ha podido guardar: '+e.message); }
 }
 async function almMarcarTodasPasadas() {
   const lista = almFiltrarAdmin(true).lista.filter(r => !almPasada(r));
   if (!lista.length) return;
   if (!confirm(`¿Marcar las ${lista.length} medidas de la lista como pasadas al sistema?`)) return;
-  const cambios = {pasadoSistema:true, pasadoTs:Date.now(), pasadoPor:(typeof currentUser!=='undefined' && currentUser?.name)||''};
+  const cambios = {pasadoSistema:true, pasadoTs:Date.now(), pasadoPor:(typeof currentUser!=='undefined' && currentUser?.name)||'', agenciaEstado:'', agenciaEstadoTs:null, huboCambio:false};
   try {
     await Promise.all(lista.map(r => updateDoc(doc(db,'almacenExpediciones',r.id), cambios)));
     lista.forEach(r => Object.assign(r, cambios));
@@ -4186,7 +4214,7 @@ function renderAlmacenAdmin() {
       <button type="button" class="alm-estado ${almVistaEstado==='nomod'?'on':''}" onclick="almVerEstado('nomod')">❌ No modificadas <span class="alm-badge">${f.cuenta.nomod}</span></button>
       <button type="button" class="alm-estado ${almVistaEstado==='todas'?'on':''}" onclick="almVerEstado('todas')">Todas</button>
     </div>
-    ${almVistaEstado==='esperando' && f.lista.length ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:0.6rem">Ya pasadas al sistema. Se comprueba solo si la agencia cambia los kilos o el volumen; si no se refleja, márcalo tú en 👁 Ver. En rojo, las que llevan ${ALM_DIAS_RECLAMAR} días o más sin modificar.</div>` : ''}
+    ${almVistaEstado==='esperando' && f.lista.length ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:0.6rem">Ya pasadas al sistema. Se comprueba solo si la agencia cambia los kilos o el volumen; si no se refleja, márcalo tú con los botones de cada expedición. En rojo, las que llevan ${ALM_DIAS_RECLAMAR} días o más sin modificar.</div>` : ''}
     ${almHtmlFiltros(f, 'renderAlmacenAdmin()')}
     ${almVistaEstado==='pendientes' && lista.length ? `<div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.6rem">
       <div style="font-size:13px;color:var(--text-muted)">Marca la casilla <span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.4);border-radius:4px;vertical-align:-2px"></span> cuando la hayas pasado al sistema. Las más recientes salen arriba.</div>
@@ -4206,6 +4234,7 @@ function renderAlmacenAdmin() {
               <div style="font-weight:600;font-family:monospace;color:var(--accent);word-break:break-all">${almEsc(r.expedicion||r.codigo)}</div>
               <div style="font-size:11px;color:var(--text-muted)">${almTurno(r.ts)} · ${almEsc(r.fechaStr)} ${almEsc(r.horaStr)}${r.albaran?' · Alb. '+almEsc(r.albaran):''}${r.sinLectura?' · <span style="color:var(--warning)">sin lectura</span>':''}${r.editadoTs?' · editado':''}</div>
               ${pas ? almHtmlEstadoAgencia(r) : ''}
+              ${pas ? almHtmlSelectorAgencia(r) : ''}
             </div>
             <div style="display:flex;gap:0.35rem;align-items:center;flex-wrap:wrap;justify-content:flex-end">
               <span style="background:var(--navy-light);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">${almEsc(r.agencia)}</span>
