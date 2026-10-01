@@ -2561,7 +2561,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v109 · 01/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v110 · 01/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -5140,14 +5140,23 @@ function cpEntrar() {
   if (!cpEstado) cpEstado = cpNuevaCarta();
   cpTab('nueva');
   if (!cpUnsub) {
-    cpUnsub = onSnapshot(query(collection(db,'cartasPorte'), orderBy('ts','desc')), snap => {
-      cpCartas = snap.docs.map(d => ({id:d.id, ...d.data()}));
+    // sin orderBy en la consulta (así no se queda fuera ninguna carta) y ordenadas aquí
+    cpEstadoCarga = 'cargando';
+    cpUnsub = onSnapshot(collection(db,'cartasPorte'), {includeMetadataChanges: true}, snap => {
+      cpCartas = snap.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b) => (b.ts||0) - (a.ts||0));
+      cpEstadoCarga = (snap.metadata && snap.metadata.fromCache && !cpCartas.length) ? 'cargando' : 'ok';
+      cpErrorCarga = '';
       const n = document.getElementById('cp-n'); if (n) n.textContent = cpCartas.length;
       if (cpEstado && !cpEstado.id && !cpEstado.transportista.tractora && document.getElementById('cp-pane-nueva')?.style.display !== 'none') cpRenderForm();
       if (document.getElementById('cp-pane-lista')?.style.display !== 'none') cpRenderLista();
       const hi = document.getElementById('home-info-cartas');
       if (hi) { const hoy = new Date().toLocaleDateString('es-ES'); const h = cpCartas.filter(c => c.fechaStr === hoy).length; hi.innerHTML = `📄 <strong>${h}</strong> carta${h===1?'':'s'} hoy`; }
-    }, e => console.warn('cartasPorte', e));
+    }, e => {
+      console.warn('cartasPorte', e);
+      cpEstadoCarga = 'error'; cpErrorCarga = (e && (e.code || e.message)) || 'error desconocido';
+      cpUnsub = null;                                   // para poder reintentar
+      if (document.getElementById('cp-pane-lista')?.style.display !== 'none') cpRenderLista();
+    });
     getDoc(doc(db,'configuracion','cartasPorte')).then(d => {
       if (d.exists()) { cpFijos = d.data(); if (cpEstado && !cpEstado.id && !cpEstado.tocado) { cpEstado = cpNuevaCarta(); cpRenderForm(); } }
     }).catch(()=>{});
@@ -6117,9 +6126,15 @@ window.cpBorrarTrans = async (id) => {
 // ── Lista de cartas emitidas ──
 let cpBusqueda = '';
 window.cpBuscar = (v) => { cpBusqueda = v; cpRenderLista(); const b = document.getElementById('cp-buscar'); if (b) { b.focus(); b.setSelectionRange(v.length, v.length); } };
+let cpEstadoCarga = 'cargando', cpErrorCarga = '';
+window.cpReintentarCarga = () => { cpUnsub = null; cpEstadoCarga = 'cargando'; cpRenderLista(); cpEntrar(); cpTab('lista'); };
 function cpRenderLista() {
   const el = document.getElementById('cp-pane-lista');
   if (!el) return;
+  if (cpEstadoCarga === 'error') { el.innerHTML = `<div class="refuel-card"><div class="empty-state"><div class="empty-icon">⚠️</div>
+      <strong>No se han podido cargar las cartas emitidas.</strong><br><span style="font-size:13px;color:var(--text-muted)">Motivo: ${cpEsc(cpErrorCarga)}. Revisa la conexión y vuelve a intentarlo.</span><br><br>
+      <button class="btn btn-primary" style="width:auto;padding:0.6rem 1.2rem" onclick="cpReintentarCarga()">🔄 Reintentar</button></div></div>`; return; }
+  if (!cpCartas.length && cpEstadoCarga === 'cargando') { el.innerHTML = `<div class="refuel-card"><div class="empty-state"><div class="empty-icon">⏳</div>Cargando las cartas emitidas…</div></div>`; return; }
   if (!cpCartas.length) { el.innerHTML = `<div class="refuel-card"><div class="empty-state"><div class="empty-icon">📄</div>Todavía no se ha emitido ninguna carta de porte.</div></div>`; return; }
   const q = cpBusqueda.trim().toUpperCase().replace(/\s+/g,' ');
   const qNum = q.replace(/[^0-9]/g,'');
