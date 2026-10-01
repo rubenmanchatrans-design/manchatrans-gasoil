@@ -832,6 +832,20 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .alm-seg-modificada.on { background: rgba(46,204,113,0.2); color: var(--success); }
 .alm-seg-nomod.on { background: rgba(231,76,60,0.2); color: #ff8b80; }
 @media (max-width: 520px) { .alm-seg-op { padding: 0.38rem 0.5rem; font-size: 11.5px; } }
+
+/* ── Ventanas propias (confirmar, avisos, pedir dato) ── */
+.dlg-fondo { position: fixed; inset: 0; background: rgba(5,10,18,0.72); z-index: 1000000; display: flex; align-items: center; justify-content: center; padding: 1rem; animation: dlgIn 0.12s ease-out; }
+.dlg-caja { background: var(--card); border: 1px solid var(--card-border); border-radius: 16px; padding: 1.35rem 1.35rem 1.1rem; width: 100%; max-width: 420px; box-shadow: 0 18px 50px rgba(0,0,0,0.5); }
+.dlg-tit { font-size: 16px; font-weight: 800; color: var(--text); margin-bottom: 0.5rem; }
+.dlg-txt { font-size: 14.5px; color: var(--text); line-height: 1.55; white-space: pre-line; margin-bottom: 1.1rem; word-break: break-word; }
+.dlg-campo { margin: -0.4rem 0 1.1rem; font-size: 16px; }
+.dlg-botones { display: flex; gap: 0.5rem; }
+.dlg-btn { flex: 1; padding: 0.75rem 0.5rem; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; border: 1px solid transparent; }
+.dlg-sec { background: var(--navy-light); color: var(--text); border-color: var(--card-border); }
+.dlg-pri { background: var(--accent); color: #111; }
+.dlg-peligro { background: var(--danger); color: #fff; }
+.dlg-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@keyframes dlgIn { from { opacity: 0; } to { opacity: 1; } }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2455,7 +2469,7 @@ function renderChatUsuariosAdmin() {
 window.resetPassChatUsuario = async (userId) => {
   const u = chatUsuariosCache.find(x=>x.id===userId);
   if (!u) return;
-  const nuevaPass = prompt(`Nueva contraseña para ${u.nombre}:`);
+  const nuevaPass = await preguntarApp(`Nueva contraseña para ${u.nombre}:`, '', {titulo:'🔑 Cambiar contraseña', boton:'Guardar'});
   if (!nuevaPass) return;
   try {
     await updateDoc(doc(db,'chatUsuarios',userId),{pass:nuevaPass});
@@ -2467,7 +2481,7 @@ window.resetPassChatUsuario = async (userId) => {
 window.eliminarChatUsuario = async (userId) => {
   const u = chatUsuariosCache.find(x=>x.id===userId);
   if (!u) return;
-  if (!confirm(`¿Eliminar usuario "${u.nombre}"? No se borran sus mensajes.`)) return;
+  if (!(await confirmarAccion(`¿Eliminar usuario "${u.nombre}"? No se borran sus mensajes.`))) return;
   try {
     await deleteDoc(doc(db,'chatUsuarios',userId));
     chatUsuariosCache = chatUsuariosCache.filter(x=>x.id!==userId);
@@ -2508,7 +2522,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v106 · 01/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v107 · 01/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -4109,7 +4123,7 @@ function almHtmlEstadoAgencia(r) {
 async function almMarcarPasada(id, pasada) {
   const r = almCache.find(x => x.id === id);
   if (!r) return;
-  if (!pasada && !confirm('¿Volver a dejarla como pendiente de pasar al sistema?')) return;
+  if (!pasada && !(await confirmarAccion('¿Volver a dejarla como pendiente de pasar al sistema?', 'Sí, dejar pendiente'))) return;
   // la respuesta de la agencia empieza siempre de cero: al validar va a "Esperando a la agencia"
   const limpio = {agenciaEstado:'', agenciaEstadoTs:null, huboCambio:false};
   const cambios = pasada
@@ -4126,7 +4140,7 @@ async function almMarcarPasada(id, pasada) {
 async function almMarcarTodasPasadas() {
   const lista = almFiltrarAdmin(true).lista.filter(r => !almPasada(r));
   if (!lista.length) return;
-  if (!confirm(`¿Marcar las ${lista.length} medidas de la lista como pasadas al sistema?`)) return;
+  if (!(await confirmarAccion(`¿Marcar las ${lista.length} medidas de la lista como pasadas al sistema?`))) return;
   const cambios = {pasadoSistema:true, pasadoTs:Date.now(), pasadoPor:(typeof currentUser!=='undefined' && currentUser?.name)||'', agenciaEstado:'', agenciaEstadoTs:null, huboCambio:false};
   try {
     await Promise.all(lista.map(r => updateDoc(doc(db,'almacenExpediciones',r.id), cambios)));
@@ -4603,7 +4617,7 @@ function almVerFoto(url, nombre) {
   document.body.appendChild(v);
 }
 async function almBorrarFoto(fotoId, registroId) {
-  if (!confirm('¿Borrar esta foto?')) return;
+  if (!(await confirmarAccion('¿Borrar esta foto?'))) return;
   try {
     await deleteDoc(doc(db,'almacenFotos',fotoId));
     const r = almCache.find(x => x.id === registroId);
@@ -4866,8 +4880,8 @@ function almEdAnadir() {
   const i = almEdBultos.length-1;
   document.getElementById(`alm-eb${i}-alto`)?.focus();
 }
-function almEdQuitar(i) {
-  if (!confirm(`¿Quitar el bulto ${i+1}?`)) return;
+async function almEdQuitar(i) {
+  if (!(await confirmarAccion(`¿Quitar el bulto ${i+1}?`))) return;
   almEdBultos.splice(i,1);
   almEdPintarBultos();
 }
@@ -4905,7 +4919,7 @@ async function almGuardarEdicion() {
   };
   // Si se cambia la expedición, lo declarado era de la anterior: se quita
   if (exp !== (r.expedicion||r.codigo)) {
-    if (!confirm('Has cambiado el número de expedición. Se borrarán los datos declarados del sistema de la anterior. ¿Seguir?')) return;
+    if (!(await confirmarAccion('Has cambiado el número de expedición. Se borrarán los datos declarados del sistema de la anterior. ¿Seguir?'))) return;
     Object.assign(cambios, {albaran:'', idExp:null, enSistema:false, poblacion:'', bultos:0,
       kgDeclarados:0, kgTasadosDeclarados:0, m3Declarados:0});
   }
@@ -4919,7 +4933,7 @@ async function almGuardarEdicion() {
 }
 
 async function almBorrarExpedicion(id) {
-  if (!confirm('¿Eliminar esta medida?')) return;
+  if (!(await confirmarAccion('¿Eliminar esta medida?'))) return;
   try {
     await deleteDoc(doc(db,'almacenExpediciones',id));
     (await almCargarFotos(id)).forEach(f => deleteDoc(doc(db,'almacenFotos',f.id)).catch(()=>{}));
@@ -5326,7 +5340,7 @@ window.cpGuardarMatricula = async (silencioso = false) => {
 window.cpBorrarMatricula = async () => {
   const m = (cpEstado.transportista.tractora || '').trim();
   if (!m) { mostrarMensajeFlotante?.('Elige primero la matrícula que quieres borrar'); return; }
-  if (!confirm(`¿Borrar la matrícula ${m} de la lista?\n\nYa no saldrá en el desplegable ni se pondrá sola. Las cartas ya emitidas con ella no se tocan.`)) return;
+  if (!(await confirmarAccion(`¿Borrar la matrícula ${m} de la lista?\n\nYa no saldrá en el desplegable ni se pondrá sola. Las cartas ya emitidas con ella no se tocan.`))) return;
   cpMatBorradas.add(cpNormMat(m));
   await cpGuardarMatBorradas();
   // se quita de las fichas de los conductores que la tenían
@@ -5462,9 +5476,9 @@ window.cpAnadirGrupo = () => {
   cpRenderForm();
   setTimeout(() => { const g = cpEstado.adrGrupos.length - 1; document.querySelectorAll('.cp-grupo')[g]?.scrollIntoView({block:'center', behavior:'smooth'}); }, 50);
 };
-window.cpQuitarGrupo = (g) => {
+window.cpQuitarGrupo = async (g) => {
   const n = cpEstado.adrLineas.filter(l => l.g === g).length;
-  if (n && !confirm(`¿Quitar este cliente y sus ${n} mercancías ADR?`)) return;
+  if (n && !(await confirmarAccion(`¿Quitar este cliente y sus ${n} mercancías ADR?`))) return;
   cpEstado.adrLineas = cpEstado.adrLineas.filter(l => l.g !== g).map(l => ({...l, g: l.g > g ? l.g - 1 : l.g}));
   cpEstado.adrGrupos.splice(g, 1);
   cpRenderForm();
@@ -5844,12 +5858,12 @@ window.cpGuardarRemit = async (id, linea = null, grupo = null) => {
   const datos = {nombre: v('nombre').toUpperCase(), domicilio: v('domicilio').toUpperCase(), cp: v('cp'), poblacion: v('poblacion').toUpperCase(), provincia: v('provincia').toUpperCase(), ts: Date.now()};
   if (!datos.nombre) { document.getElementById('cp-r-nombre')?.focus(); return; }
   const falta = [['domicilio','la dirección'],['cp','el código postal'],['poblacion','la población'],['provincia','la provincia']].filter(([k]) => !datos[k]);
-  if (falta.length && !confirm('Falta ' + falta.map(x=>x[1]).join(', ') + '. ¿Guardar igualmente?')) return;
+  if (falta.length && !(await confirmarAccion('Falta ' + falta.map(x=>x[1]).join(', ') + '. ¿Guardar igualmente?'))) return;
   try {
     if (id) await updateDoc(doc(db,'cartasRemitentes',id), datos);
     else {
       const ya = cpRemitPropios().find(r => cpNormNombre(r.nombre) === cpNormNombre(datos.nombre));
-      if (ya) { if (!confirm(`Ya hay un remitente llamado ${ya.nombre}. ¿Guardar otro igualmente?`)) return; }
+      if (ya) { if (!(await confirmarAccion(`Ya hay un remitente llamado ${ya.nombre}. ¿Guardar otro igualmente?`))) return; }
       await addDoc(collection(db,'cartasRemitentes'), {...datos, origen:'manual'});
     }
     almCerrarModal();
@@ -5871,7 +5885,7 @@ window.cpGuardarRemit = async (id, linea = null, grupo = null) => {
 };
 window.cpQuitarImportados = async () => {
   const imp = cpRemit.filter(r => r.origen === 'excel');
-  if (!imp.length || !confirm(`¿Quitar los ${imp.length} clientes importados del Excel? Los creados a mano no se tocan.`)) return;
+  if (!imp.length || !(await confirmarAccion(`¿Quitar los ${imp.length} clientes importados del Excel? Los creados a mano no se tocan.`))) return;
   cpAvisoRemit = `⏳ Quitando… 0 de ${imp.length}`; cpRenderRemit();
   for (let i = 0; i < imp.length; i += 25) {
     await Promise.all(imp.slice(i, i+25).map(r => deleteDoc(doc(db,'cartasRemitentes',r.id)).catch(()=>{})));
@@ -5881,7 +5895,7 @@ window.cpQuitarImportados = async () => {
   cpAvisoRemit = `✅ Quitados ${imp.length} clientes importados.`; cpRenderRemit();
 };
 window.cpBorrarRemit = async (id) => {
-  if (!confirm('¿Borrar este remitente de la lista?')) return;
+  if (!(await confirmarAccion('¿Borrar este remitente de la lista?'))) return;
   try { await deleteDoc(doc(db,'cartasRemitentes',id)); } catch(e) { alert(e.message); }
 };
 // ── Plantillas de transportista ──
@@ -5933,7 +5947,7 @@ window.cpNuevoConductorEmpresa = () => {
 window.cpBorrarConductor = async (id) => {
   const t = cpTrans.find(x => x.id === id);
   if (!t) return;
-  if (!confirm(`¿Quitar a ${t.conductor} de ${t.nombre}?\n\nLas cartas ya emitidas con él no se tocan.`)) return;
+  if (!(await confirmarAccion(`¿Quitar a ${t.conductor} de ${t.nombre}?\n\nLas cartas ya emitidas con él no se tocan.`))) return;
   const quedan = cpConductoresDe(t.nombre).filter(x => x.id !== id).length;
   try {
     if (quedan) await deleteDoc(doc(db,'cartasTransportistas',id));
@@ -6038,7 +6052,7 @@ function cpRenderTrans() {
       </div>`).join('')}</div>`;
 }
 window.cpBorrarTrans = async (id) => {
-  if (!confirm('¿Borrar esta plantilla de transportista?')) return;
+  if (!(await confirmarAccion('¿Borrar esta plantilla de transportista?'))) return;
   try { await deleteDoc(doc(db,'cartasTransportistas',id)); } catch(e) { alert(e.message); }
 };
 
@@ -6936,8 +6950,8 @@ window.coGuardar = async () => {
     mostrarMensajeFlotante?.(`💾 Parte de visita a ${nombre} guardado. Lo tienes en 📋 Visitas`);
   } catch(err) { showAlert(aviso, 'No se ha podido guardar: ' + err.message, true); }
 };
-window.coLimpiar = () => {
-  if (!coEstado.id && (coEstado.cliente || coEstado.observaciones) && !confirm('¿Vaciar el formulario? Se perderá lo que no hayas guardado.')) return;
+window.coLimpiar = async () => {
+  if (!coEstado.id && (coEstado.cliente || coEstado.observaciones) && !(await confirmarAccion('¿Vaciar el formulario? Se perderá lo que no hayas guardado.'))) return;
   coEstado = coNueva();
   try { localStorage.removeItem(CO_BORRADOR); } catch(e) {}
   coRenderForm(); window.scrollTo(0,0);
@@ -6949,7 +6963,7 @@ window.coEditar = (id) => {
 };
 window.coEliminar = async (id) => {
   const v = coVisitas.find(x => x.id === id); if (!v) return;
-  if (!confirm(`¿Eliminar el parte de visita a ${v.cliente} del ${coFechaCorta(v.fecha)}?\n\nNo se puede deshacer.`)) return;
+  if (!(await confirmarAccion(`¿Eliminar el parte de visita a ${v.cliente} del ${coFechaCorta(v.fecha)}?\n\nNo se puede deshacer.`))) return;
   try { await deleteDoc(doc(db,'comercialVisitas',id)); if (coEstado?.id === id) coEstado = coNueva(); mostrarMensajeFlotante?.('🗑 Parte eliminado'); }
   catch(e) { alert('No se ha podido eliminar: ' + e.message); }
 };
@@ -7010,7 +7024,7 @@ function coRenderClientes() {
 }
 window.coBorrarCliente = async (id) => {
   const c = coClientes.find(x => x.id === id); if (!c) return;
-  if (!confirm(`¿Borrar la ficha de ${c.cliente}?\n\nSus partes de visita no se borran.`)) return;
+  if (!(await confirmarAccion(`¿Borrar la ficha de ${c.cliente}?\n\nSus partes de visita no se borran.`))) return;
   try { await deleteDoc(doc(db,'comercialClientes',id)); } catch(e) { alert(e.message); }
 };
 
@@ -9510,7 +9524,7 @@ window.editDriver = (code) => {
     btnLimpiar.textContent = '🔄 Limpiar perfil de Ropa (código reutilizado)';
     btnLimpiar.style.cssText = 'width:100%;padding:8px;margin-top:8px;background:none;color:var(--warning);border:1px solid var(--warning);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;';
     btnLimpiar.onclick = async () => {
-      if (!confirm(`¿Desvincular el perfil de ropa del código ${code}?\n\nEl historial de entregas firmadas se conserva. Solo se liberan las tallas para el nuevo empleado.`)) return;
+      if (!(await confirmarAccion(`¿Desvincular el perfil de ropa del código ${code}?\n\nEl historial de entregas firmadas se conserva. Solo se liberan las tallas para el nuevo empleado.`))) return;
       try {
         const codigoArchivo = `BAJA_${code}_${Date.now()}`;
         const datosActualizados = {...ropaVinculada, conductorCode: codigoArchivo};
@@ -14954,25 +14968,65 @@ function mostrarMensajeFlotante(msg, esError) {
   setTimeout(() => div.remove(), 3500);
 }
 
-// Modal de confirmación propio (sin mostrar el dominio, a diferencia de confirm() nativo)
-function confirmarAccion(mensaje, tituloBoton) {
-  return new Promise((resolve) => {
-    const modal = document.createElement('div');
-    modal.id = 'confirmar-accion-modal';
-    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:999999;display:flex;align-items:center;justify-content:center;padding:1rem;';
-    modal.innerHTML = `
-      <div style="background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:1.5rem;width:100%;max-width:380px;">
-        <div style="font-size:14px;color:var(--text);margin-bottom:1.25rem;white-space:pre-line;line-height:1.5;">${mensaje}</div>
-        <div style="display:flex;gap:0.5rem;">
-          <button id="btn-confirmar-no" style="flex:1;padding:0.75rem;background:var(--navy-light);color:var(--text);border:1px solid var(--card-border);border-radius:var(--radius-sm);font-size:15px;cursor:pointer;">Cancelar</button>
-          <button id="btn-confirmar-si" style="flex:1;padding:0.75rem;background:var(--danger);color:#fff;border:none;border-radius:var(--radius-sm);font-size:15px;font-weight:700;cursor:pointer;">${tituloBoton||'Confirmar'}</button>
-        </div>
+// ── Ventanas propias de la app (sin la dirección de la web que ponen las del navegador) ──
+// Base común: tarjeta centrada, texto, botones; Esc cancela y Enter acepta.
+function dlgVentana({titulo = '', mensaje = '', botones = [], campo = null}) {
+  return new Promise(resolve => {
+    document.getElementById('dlg-app')?.remove();
+    const m = document.createElement('div');
+    m.id = 'dlg-app'; m.className = 'dlg-fondo';
+    m.innerHTML = `<div class="dlg-caja" role="dialog" aria-modal="true">
+        ${titulo ? `<div class="dlg-tit"></div>` : ''}
+        <div class="dlg-txt"></div>
+        ${campo ? `<input class="form-input dlg-campo" type="${campo.tipo||'text'}" autocomplete="off">` : ''}
+        <div class="dlg-botones"></div>
       </div>`;
-    document.body.appendChild(modal);
-    document.getElementById('btn-confirmar-no').addEventListener('click', () => { modal.remove(); resolve(false); });
-    document.getElementById('btn-confirmar-si').addEventListener('click', () => { modal.remove(); resolve(true); });
+    if (titulo) m.querySelector('.dlg-tit').textContent = titulo;
+    m.querySelector('.dlg-txt').textContent = String(mensaje ?? '');
+    const inp = m.querySelector('.dlg-campo');
+    if (inp) { inp.value = campo.valor || ''; inp.placeholder = campo.placeholder || ''; }
+    const cerrar = v => { document.removeEventListener('keydown', teclas, true); m.remove(); resolve(v); };
+    botones.forEach(bt => {
+      const el = document.createElement('button');
+      el.type = 'button'; el.className = 'dlg-btn ' + (bt.clase || ''); el.textContent = bt.texto;
+      el.onclick = () => cerrar(bt.valor === '__campo' ? (inp ? inp.value : '') : bt.valor);
+      m.querySelector('.dlg-botones').appendChild(el);
+    });
+    const principal = botones.find(bt => bt.principal) || botones[botones.length - 1];
+    const cancelar = botones.find(bt => bt.cancelar);
+    function teclas(ev) {
+      if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); cerrar(cancelar ? cancelar.valor : undefined); }
+      else if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); ev.stopPropagation(); cerrar(principal.valor === '__campo' ? (inp ? inp.value : '') : principal.valor); }
+    }
+    document.addEventListener('keydown', teclas, true);
+    document.body.appendChild(m);
+    setTimeout(() => (inp || m.querySelector('.dlg-btn:last-child'))?.focus(), 30);
   });
 }
+// Confirmar: devuelve true/false. Si no se dice el texto del botón, se deduce del mensaje.
+function confirmarAccion(mensaje, tituloBoton, opts = {}) {
+  const t = String(mensaje || '').replace(/^[¿\s]+/, '');
+  const borra = /^(Borrar|Eliminar|Quitar|Vaciar|Desvincular|Dar de baja)/i.test(t);
+  const verbo = (t.match(/^(Borrar|Eliminar|Quitar|Vaciar|Desvincular|Marcar|Volver|Guardar|Seguir)/i) || [])[1];
+  const texto = tituloBoton || (verbo ? (verbo.toLowerCase() === 'seguir' ? 'Sí, seguir' : `Sí, ${verbo.toLowerCase()}`) : 'Aceptar');
+  return dlgVentana({titulo: opts.titulo || (borra ? 'Confirmar' : ''), mensaje,
+    botones: [{texto:'Cancelar', valor:false, clase:'dlg-sec', cancelar:true}, {texto, valor:true, clase: borra ? 'dlg-peligro' : 'dlg-pri', principal:true}]})
+    .then(v => v === true);
+}
+// Aviso (sustituye a alert): una ventana con "Aceptar"
+function avisoApp(mensaje, titulo = '') {
+  const t = String(mensaje ?? '');
+  const error = /^(error|no se ha podido|❌|⚠)/i.test(t);
+  return dlgVentana({titulo: titulo || (error ? 'Atención' : ''), mensaje: t, botones: [{texto:'Aceptar', valor:true, clase:'dlg-pri', principal:true, cancelar:true}]});
+}
+// Pedir un dato (sustituye a prompt): devuelve el texto o null si se cancela
+function preguntarApp(mensaje, valor = '', opts = {}) {
+  return dlgVentana({titulo: opts.titulo || '', mensaje, campo: {valor, tipo: opts.tipo, placeholder: opts.placeholder},
+    botones: [{texto:'Cancelar', valor:null, clase:'dlg-sec', cancelar:true}, {texto: opts.boton || 'Aceptar', valor:'__campo', clase:'dlg-pri', principal:true}]});
+}
+// Todos los avisos de la app salen en la ventana propia
+window.alert = (m) => { avisoApp(m); };
+Object.assign(window, { confirmarAccion, avisoApp, preguntarApp });
 
 // Pide el usuario y contraseña del Admin Superior antes de mostrar algo sensible (por
 // ejemplo el salario de un empleado). Devuelve true/false según si se ha verificado bien.
