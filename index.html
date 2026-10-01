@@ -786,6 +786,7 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 @media (max-width: 520px) { #module-comercial .alm-estados .alm-estado { font-size: 12.5px; padding-left: 0.3rem; padding-right: 0.3rem; } }
 .cp-sug-op.activa { background: var(--navy-light); box-shadow: inset 3px 0 0 var(--accent); }
 .cp-sug-op.activa strong { color: var(--accent); }
+#module-comercial .alm-estados.co-destaca #co-tab-lista { box-shadow: 0 0 0 3px rgba(245,166,35,0.55); transition: box-shadow 0.3s; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2428,7 +2429,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v99 · 01/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v100 · 01/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -6086,6 +6087,7 @@ window.cpGenerar = async () => {
   c.subido = false;
   cpResultado = {id:c.id, url:c.url, bytes, subido:false};
   cpMostrarResultado(c, bytes, 'subiendo');
+  window.scrollTo({top:0, behavior:'smooth'});
   cpGuardarTrans(true);         // el conductor queda guardado para la próxima vez
   // 2) La carta se guarda SIEMPRE, para poder reintentar la subida con el mismo QR
   const guardar = async (extra) => {
@@ -6826,8 +6828,14 @@ window.coGuardar = async () => {
     const ya = coClientes.find(c => coNorm(c.cliente) === coNorm(e.cliente));
     if (ya) await updateDoc(doc(db,'comercialClientes',ya.id), ficha); else await addDoc(collection(db,'comercialClientes'), ficha);
     try { localStorage.removeItem(CO_BORRADOR); } catch(x) {}
-    mostrarMensajeFlotante?.('💾 Parte de visita guardado');
+    const nombre = e.cliente, eraEdicion = !!(coEstado.ts && coEstado.modTs);
+    // formulario limpio y arriba del todo, para poder ir a "Visitas"
+    coEstado = coNueva();
     coRenderForm();
+    window.scrollTo({top:0, behavior:'smooth'});
+    const tabs = document.querySelector('#module-comercial .alm-estados');
+    if (tabs) { tabs.classList.add('co-destaca'); setTimeout(() => tabs.classList.remove('co-destaca'), 1600); }
+    mostrarMensajeFlotante?.(`💾 Parte de visita a ${nombre} guardado. Lo tienes en 📋 Visitas`);
   } catch(err) { showAlert(aviso, 'No se ha podido guardar: ' + err.message, true); }
 };
 window.coLimpiar = () => {
