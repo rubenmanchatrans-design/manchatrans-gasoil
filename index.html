@@ -784,6 +784,8 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .co-iban { font-size: 12px; margin-top: 3px; min-height: 15px; }
 #module-comercial .alm-estados { grid-template-columns: repeat(3, 1fr) !important; }
 @media (max-width: 520px) { #module-comercial .alm-estados .alm-estado { font-size: 12.5px; padding-left: 0.3rem; padding-right: 0.3rem; } }
+.cp-sug-op.activa { background: var(--navy-light); box-shadow: inset 3px 0 0 var(--accent); }
+.cp-sug-op.activa strong { color: var(--accent); }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2426,7 +2428,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v98 · 01/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v99 · 01/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -5511,6 +5513,29 @@ window.cpGuardarFijos = async () => {
   catch(e) { alert('No se ha podido guardar: ' + e.message); }
 };
 
+// ── Teclado en las listas de sugerencias (↓ ↑ Enter Tab Esc) ──
+// Sirve para cualquier casilla con una lista .cp-sug debajo (poblaciones de remitentes, comercial…)
+window.sugTeclado = (ev, idLista) => {
+  const cont = document.getElementById(idLista);
+  if (!cont) return;
+  const ops = [...cont.querySelectorAll('.cp-sug-op')];
+  const visible = cont.style.display !== 'none' && ops.length;
+  let i = Number(cont.dataset.i ?? -1);
+  const marcar = n => {
+    cont.dataset.i = n;
+    ops.forEach((o, k) => o.classList.toggle('activa', k === n));
+    if (ops[n]) ops[n].scrollIntoView({block:'nearest'});
+  };
+  const elegir = n => { const o = ops[n]; if (o) o.dispatchEvent(new MouseEvent('mousedown', {bubbles:true, cancelable:true})); };
+  if (ev.key === 'ArrowDown') { if (!ops.length) return; ev.preventDefault(); cont.style.display = 'block'; marcar(Math.min(i + 1, ops.length - 1)); }
+  else if (ev.key === 'ArrowUp') { if (!visible) return; ev.preventDefault(); marcar(Math.max(i - 1, 0)); }
+  else if (ev.key === 'Enter') { if (!visible) return; ev.preventDefault(); elegir(i >= 0 ? i : 0); }
+  else if (ev.key === 'Tab') { if (visible && !ev.shiftKey) elegir(i >= 0 ? i : 0); }
+  else if (ev.key === 'Escape') { if (visible) { ev.preventDefault(); cont.style.display = 'none'; } }
+};
+// al volver a pintar la lista, ninguna resaltada
+function sugReiniciar(idLista) { const c = document.getElementById(idLista); if (c) c.dataset.i = -1; }
+
 // ── Municipios de España (datos abiertos del INE) ──
 // municipios.json: {"13063": {"nombre":"Piedrabuena","codigos_postales":["13100"]}, ...}
 const CP_MUNI_URL = 'https://cdn.jsdelivr.net/gh/regi-es/ds-codigos-postales-ine-es@2026-01/data/municipios.json';
@@ -5560,6 +5585,7 @@ window.cpSugerirMuni = async (v) => {
   cont.innerHTML = lista.map((m,i) => `<div class="cp-sug-op" onmousedown="event.preventDefault(); cpElegirMuni('${m.ine}', '${m.nombre.replace(/'/g,"\\'")}')">
     <strong>${cpEsc(m.nombre)}</strong><span>${cpEsc(m.provincia)} · ${m.cps.length === 1 ? 'CP ' + m.cps[0] : m.cps.length + ' códigos postales'}</span></div>`).join('');
   cont.style.display = lista.length ? 'block' : 'none';
+  sugReiniciar('cp-muni-sug');
 };
 window.cpElegirMuni = (ine, nombre) => {
   const m = cpMuni.find(x => x.ine === ine && x.nombre === nombre) || cpMuni.find(x => x.ine === ine);
@@ -5567,6 +5593,7 @@ window.cpElegirMuni = (ine, nombre) => {
   document.getElementById('cp-r-poblacion').value = m.nombre;
   document.getElementById('cp-r-provincia').value = m.provincia;
   document.getElementById('cp-muni-sug').style.display = 'none';
+  setTimeout(() => document.getElementById('cp-r-poblacion')?.blur(), 0);
   const cpInp = document.getElementById('cp-r-cp'), elegir = document.getElementById('cp-cp-elegir');
   if (m.cps.length === 1) { cpInp.value = m.cps[0]; elegir.innerHTML = ''; }
   else {
@@ -5699,7 +5726,7 @@ window.cpNuevoRemit = (id, linea = null, grupo = null) => {
     ${campo('nombre','Nombre del remitente')}
     ${campo('domicilio','Dirección')}
     <div class="cp-campo" style="position:relative"><label>Población</label>
-      <input id="cp-r-poblacion" value="${cpEsc(r.poblacion||'')}" placeholder="Empieza a escribir el pueblo" autocomplete="off"
+      <input id="cp-r-poblacion" value="${cpEsc(r.poblacion||'')}" placeholder="Empieza a escribir el pueblo" autocomplete="off" onkeydown="sugTeclado(event,'cp-muni-sug')"
         oninput="cpSugerirMuni(this.value)" onblur="setTimeout(()=>{const c=document.getElementById('cp-muni-sug'); if(c && document.activeElement?.id!=='cp-r-poblacion') c.style.display='none'},250)">
       <div id="cp-muni-sug" class="cp-sug"></div></div>
     <div class="cp-fila">
@@ -6646,7 +6673,7 @@ function coRenderForm() {
       ${coCampo('domicilio','Domicilio')}
       <div class="cp-fila">
         <div class="cp-campo cp-c2" style="position:relative"><label for="co-poblacion">Población</label>
-          <input id="co-poblacion" value="${coEsc(e.poblacion||'')}" autocomplete="off" placeholder="Empieza a escribir el pueblo"
+          <input id="co-poblacion" value="${coEsc(e.poblacion||'')}" autocomplete="off" placeholder="Empieza a escribir el pueblo" onkeydown="sugTeclado(event,'co-muni-sug')"
             oninput="coSet('poblacion', this.value); coSugerirMuni(this.value)" onblur="setTimeout(()=>{const c=document.getElementById('co-muni-sug'); if(c && document.activeElement?.id!=='co-poblacion') c.style.display='none'},250)">
           <div id="co-muni-sug" class="cp-sug"></div></div>
         ${coCampo('cp','Código postal',{ancho:'cp-c4', modo:'numeric', attr:'maxlength="5"', extra:'coDesdeCp(this.value)'})}
@@ -6740,6 +6767,7 @@ window.coSugerirMuni = async (v) => {
   cont.innerHTML = lista.map(m => `<div class="cp-sug-op" onmousedown="event.preventDefault(); coElegirMuni('${m.ine}', '${m.nombre.replace(/'/g,"\\'")}')">
     <strong>${coEsc(m.nombre)}</strong><span>${coEsc(m.provincia)} · ${m.cps.length === 1 ? 'CP ' + m.cps[0] : m.cps.length + ' códigos postales'}</span></div>`).join('');
   cont.style.display = lista.length ? 'block' : 'none';
+  sugReiniciar('co-muni-sug');
 };
 window.coElegirMuni = (ine, nombre) => {
   const m = cpMuni.find(x => x.ine === ine && x.nombre === nombre) || cpMuni.find(x => x.ine === ine); if (!m) return;
