@@ -1,24 +1,17 @@
 {
-  "name": "NexoFlota - Manchatrans",
-  "short_name": "NexoFlota",
-  "description": "Control de flota y gestión Manchatrans S.L.",
-  "start_url": "/manchatrans-gasoil/",
+  "name": "FlotaMancha",
+  "short_name": "FlotaMancha",
+  "description": "Gestión integral del transporte · Desarrollada y diseñada por Rubén Díaz · Todos los derechos reservados",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#111820",
-  "theme_color": "#1a2332",
   "orientation": "portrait-primary",
+  "background_color": "#121a28",
+  "theme_color": "#1a2332",
   "icons": [
-    {
-      "src": "icon.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icon.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

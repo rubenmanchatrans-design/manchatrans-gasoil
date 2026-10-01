@@ -7,7 +7,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="NexoFlota">
+<meta name="apple-mobile-web-app-title" content="FlotaMancha">
+<meta name="application-name" content="FlotaMancha">
+<meta name="author" content="Rubén Díaz">
+<meta name="copyright" content="© FlotaMancha · Rubén Díaz. Todos los derechos reservados.">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
 <script>
   // Pantalla siempre en vertical, aunque se gire la pistola. El navegador solo
@@ -161,7 +167,7 @@
     overlay.style.cssText = 'position:fixed;inset:0;z-index:999999;background:#111820;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;';
     overlay.innerHTML = `
       <div style="font-size:42px;">🔄</div>
-      <div style="color:#f0f4f8;font-size:15px;font-weight:600;">Actualizando NexoFlota...</div>
+      <div style="color:#f0f4f8;font-size:15px;font-weight:600;">Actualizando FlotaMancha...</div>
       <div style="width:200px;height:6px;background:#2a3d55;border-radius:6px;overflow:hidden;">
         <div id="barra-actualizando" style="width:0%;height:100%;background:#f5a623;border-radius:6px;transition:width 0.4s linear;"></div>
       </div>`;
@@ -172,7 +178,7 @@
     });
   }
 </script>
-<title>NexoFlota</title>
+<title>FlotaMancha</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -813,6 +819,10 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
   /* el contenido se reparte en el centro de la pantalla si sobra alto */
   #modulo-home-screen > :last-child { margin-bottom: 0; }
 }
+
+/* ── Autoría ── */
+.fm-credito { font-size: 11px; color: var(--text-muted); text-align: center; line-height: 1.5; margin-top: 1.25rem; opacity: 0.75; }
+.fm-credito-home { margin-top: clamp(0.4rem, 1.2vh, 0.9rem); font-size: 10.5px; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -839,11 +849,11 @@ html.giro-fijo #screen-chat { height: 100% !important; }
 <!-- LOGIN -->
 <div id="screen-login" class="screen">
   <div class="login-logo" id="login-logo-tap"><img src="icon.png" style="width:80px;height:80px;border-radius:18px;"></div>
-  <div class="login-company">NEXOFLOTA</div>
+  <div class="login-company">FLOTAMANCHA</div>
   <div class="login-title" id="login-title">Control de Gasoil</div>
   <div class="login-sub" id="login-sub">Introduce tu código de acceso</div>
   <div class="login-card"></div>
-  <div style="margin-top:2rem;font-size:13px;color:var(--text-muted);text-align:center;opacity:0.8;">Desarrollada y diseñada por <span style="color:var(--accent);font-weight:600;">Rubén Díaz</span></div>
+  <div style="margin-top:2rem;font-size:13px;color:var(--text-muted);text-align:center;opacity:0.8;line-height:1.6;">FlotaMancha · Desarrollada y diseñada por <span style="color:var(--accent);font-weight:600;">Rubén Díaz</span><br><span style="font-size:11.5px">© <span class="fm-anio"></span> Todos los derechos reservados</span></div>
 </div>
 
 <!-- ALMACÉN -->
@@ -901,7 +911,7 @@ html.giro-fijo #screen-chat { height: 100% !important; }
 <!-- CONDUCTOR -->
 <div id="screen-driver" class="screen">
   <div class="topbar">
-    <span class="topbar-title">⛽ NexoFlota</span>
+    <span class="topbar-title">⛽ FlotaMancha</span>
     <div style="display:flex;align-items:center;gap:8px;">
       <span class="topbar-user" id="driver-name-display"></span>
       <button class="topbar-logout" id="btn-logout-driver">Salir</button>
@@ -961,7 +971,7 @@ html.giro-fijo #screen-chat { height: 100% !important; }
 <!-- ADMIN -->
 <div id="screen-admin" class="screen">
   <div class="topbar">
-    <span class="topbar-title" id="admin-topbar-title">NexoFlota</span>
+    <span class="topbar-title" id="admin-topbar-title">FlotaMancha</span>
     <div style="display:flex;gap:0.5rem;align-items:center;">
       <button class="topbar-logout" id="btn-cambiar-modulo" style="display:none;">← Cambiar módulo</button>
       <button class="topbar-logout" id="btn-logout-admin">Salir</button>
@@ -1048,6 +1058,7 @@ html.giro-fijo #screen-chat { height: 100% !important; }
           <span class="hc-desc">Empleados · Vehículos · Copia de seguridad</span>
         </button>
       </div>
+      <div class="fm-credito fm-credito-home">FlotaMancha · Desarrollada y diseñada por Rubén Díaz · © <span class="fm-anio"></span> Todos los derechos reservados</div>
     </div>
 
     <!-- ═══════════ MÓDULO GASOIL ═══════════ -->
@@ -1897,6 +1908,39 @@ html.giro-fijo #screen-chat { height: 100% !important; }
 
 <!-- Firebase SDKs -->
 <script type="module">
+// ── Autoría: se añade a todos los PDF y Excel que genera la aplicación ──
+document.querySelectorAll('.fm-anio').forEach(e => e.textContent = new Date().getFullYear());
+const FM_APP = 'FlotaMancha';
+const FM_AUTOR = 'Rubén Díaz';
+const fmCredito = () => `${FM_APP} · Desarrollada y diseñada por ${FM_AUTOR} · © ${new Date().getFullYear()} Todos los derechos reservados`;
+// Pie pequeño en cada hoja del PDF (abajo, centrado) y datos del documento
+async function fmMarca(doc) {
+  try {
+    const { StandardFonts, rgb } = PDFLib;
+    const f = await doc.embedFont(StandardFonts.Helvetica);
+    const t = fmCredito().replace(/[^\x20-\x7E\xA0-\xFF·]/g, '');
+    doc.getPages().forEach(pg => {
+      const { width } = pg.getSize(), size = 5.6, w = f.widthOfTextAtSize(t, size);
+      pg.drawText(t, { x: (width - w) / 2, y: 7, size, font: f, color: rgb(0.55, 0.57, 0.62) });
+    });
+    doc.setCreator(`${FM_APP} · ${FM_AUTOR}`);
+    doc.setProducer(`${FM_APP} · © ${FM_AUTOR}`);
+  } catch (e) { console.warn('Marca PDF:', e); }
+  return doc;
+}
+// En los Excel: propiedades del archivo y una hoja final con la autoría
+function fmMarcaExcel(wb) {
+  try {
+    wb.Props = Object.assign({}, wb.Props, { Author: FM_AUTOR, Company: FM_APP, Comments: fmCredito(), CreatedDate: new Date() });
+    if (!wb.SheetNames.includes('Acerca de')) {
+      const ws = XLSX.utils.aoa_to_sheet([[FM_APP], ['Desarrollada y diseñada por ' + FM_AUTOR], [`© ${new Date().getFullYear()} Todos los derechos reservados`], [''], ['Generado el ' + new Date().toLocaleString('es-ES')]]);
+      ws['!cols'] = [{ wch: 60 }];
+      XLSX.utils.book_append_sheet(wb, ws, 'Acerca de');
+    }
+  } catch (e) { console.warn('Marca Excel:', e); }
+  return wb;
+}
+
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getFirestore, collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, where } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
@@ -2455,7 +2499,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v104 · 01/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v105 · 01/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -4880,7 +4924,7 @@ async function almExportarExcel() {
     const ws = XLSX.utils.json_to_sheet(datos);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Almacén');
-    XLSX.writeFile(wb, `Almacen_${new Date().toISOString().slice(0,10)}.xlsx`);
+    XLSX.writeFile(fmMarcaExcel(wb), `Almacen_${new Date().toISOString().slice(0,10)}.xlsx`);
   } catch(e) { alert('Error exportando: '+e.message); }
 }
 
@@ -6156,7 +6200,7 @@ async function cpSubirPdf(c, bytes) {
   try { j = await r.json(); } catch(e) {}
   if (r.ok && j && j.ok) return {ok:true, tamano:j.tamano};
   if (r.status === 404) return {ok:false, motivo:`No se encuentra ${CP_WEB_SUBIR}. Hay que subir subir.php a la carpeta /deca/ de la web.`};
-  if (r.status === 403) return {ok:false, motivo:'La web ha rechazado la clave. La clave de subir.php y la de NexoFlota tienen que ser la misma.'};
+  if (r.status === 403) return {ok:false, motivo:'La web ha rechazado la clave. La clave de subir.php y la de FlotaMancha tienen que ser la misma.'};
   return {ok:false, motivo: (j && j.error) ? `La web dice: ${j.error}` : `La web ha respondido ${r.status}. ¿Admite PHP el alojamiento?`};
 }
 
@@ -6311,8 +6355,7 @@ async function cpConstruirPdf(c) {
   const pdf = await PDFDocument.create();
   pdf.setTitle(cpPdfTexto(`Documento de control de transporte ${c.id}`));
   pdf.setAuthor(cpPdfTexto(String(c.cargadorTxt || c.cargador?.nombre || '').split('\n')[0]));
-  pdf.setCreator(cpPdfTexto(String(c.cargadorTxt || c.cargador?.nombre || '').split('\n')[0]));
-  pdf.setProducer(cpPdfTexto(String(c.cargadorTxt || c.cargador?.nombre || '').split('\n')[0]));
+  
   const fR = await pdf.embedFont(StandardFonts.Helvetica), fB = await pdf.embedFont(StandardFonts.HelveticaBold);
   const W = 595.28, H = 841.89, M = 26, FW = W - 2*M, G = 4;
   const negro = rgb(0,0,0), gris = rgb(0.38,0.38,0.38), fondo = rgb(0.92,0.93,0.95), blanco = rgb(1,1,1);
@@ -6572,7 +6615,7 @@ async function cpConstruirPdf(c) {
 
   hoja('normal', 1);
   if (totalHojas === 2) hoja('adr', 2);
-  return await pdf.save();
+  return await (await fmMarca(pdf)).save();
 }
 
 Object.assign(window, { cpTab, cpRenderForm, cpEntrar, cpNuevaCarta, cpTextoAdr, cpTextoVacio });
@@ -6947,7 +6990,7 @@ async function coConstruirPdf(v) {
   const {PDFDocument, StandardFonts, rgb} = PDFLib;
   const pdf = await PDFDocument.create();
   pdf.setTitle(cpPdfTexto(`Parte de visita · ${v.cliente} · ${coFechaCorta(v.fecha)}`));
-  pdf.setAuthor('MANCHEGA DE TRANSPORTES, S.L.'); pdf.setCreator('MANCHEGA DE TRANSPORTES, S.L.'); pdf.setProducer('MANCHEGA DE TRANSPORTES, S.L.');
+  pdf.setAuthor('MANCHEGA DE TRANSPORTES, S.L.');
   const fR = await pdf.embedFont(StandardFonts.Helvetica), fB = await pdf.embedFont(StandardFonts.HelveticaBold);
   const W = 595.28, H = 841.89, M = 34, FW = W - 2*M;
   const negro = rgb(0,0,0), gris = rgb(0.4,0.4,0.42), linea = rgb(0.78,0.8,0.84), azul = rgb(0.12,0.16,0.23), fondo = rgb(0.95,0.96,0.97);
@@ -7044,7 +7087,7 @@ async function coConstruirPdf(v) {
   });
   // pie
   pdf.getPages().forEach((pg, i, todas) => pg.drawText(cpPdfTexto(`Parte de visita · ${v.cliente} · ${coFechaCorta(v.fecha)} · hoja ${i+1} de ${todas.length}`), {x:M, y:M-14, size:7, font:fR, color:gris}));
-  return await pdf.save();
+  return await (await fmMarca(pdf)).save();
 }
 window.coVerPdf = async (id) => {
   const v = coVisitas.find(x => x.id === id) || (coEstado?.id === id ? coEstado : null); if (!v) return;
@@ -7251,7 +7294,7 @@ window.exportarPedidoRopa = async function(temporada) {
     const ws = XLSX.utils.json_to_sheet(filas);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Pedido '+cfg.label);
-    XLSX.writeFile(wb, `Pedido_Ropa_${cfg.label}_${new Date().getFullYear()}.xlsx`);
+    XLSX.writeFile(fmMarcaExcel(wb), `Pedido_Ropa_${cfg.label}_${new Date().getFullYear()}.xlsx`);
   } catch(e) { alert('Error exportando: '+e.message); }
 };
 
@@ -8167,7 +8210,7 @@ function mostrarPantallaSuperAdmin() {
 window.toggleLoginMode = () => {
   loginMode = loginMode==='driver'?'admin':'driver';
   buildLoginForm();
-  document.getElementById('login-title').textContent = loginMode==='admin' ? 'NexoFlota' : 'Control de Gasoil';
+  document.getElementById('login-title').textContent = loginMode==='admin' ? 'FlotaMancha' : 'Control de Gasoil';
   document.getElementById('login-sub').textContent = loginMode==='admin' ? 'Acceso administrador' : 'Introduce tu código de acceso';
 };
 
@@ -8663,7 +8706,7 @@ async function descargarCierreMensualPDF() {
       y -= 20;
     }
 
-    const pdfBytes = await pdfDoc.save();
+    const pdfBytes = await (await fmMarca(pdfDoc)).save();
     const blob = new Blob([pdfBytes], {type:'application/pdf'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -9559,7 +9602,7 @@ async function exportarPdfEmpleados() {
       page.drawRectangle({ x:0, y:H-66, width:W, height:66, color: navy });
       page.drawRectangle({ x:0, y:H-70, width:W, height:4, color: accent });
       page.drawText('MANCHATRANS S.L.', { x:M, y:H-30, size:14, font:fontBold, color: rgb(1,1,1) });
-      page.drawText('Listado de empleados · NexoFlota', { x:M, y:H-47, size:9, font:fontReg, color: rgb(0.78,0.84,0.92) });
+      page.drawText('Listado de empleados · FlotaMancha', { x:M, y:H-47, size:9, font:fontReg, color: rgb(0.78,0.84,0.92) });
       const tagTxt = 'EMPLEADOS';
       const tagW = fontBold.widthOfTextAtSize(tagTxt, 12);
       page.drawText(tagTxt, { x:W-M-tagW, y:H-34, size:12, font:fontBold, color: accent });
@@ -9606,7 +9649,7 @@ async function exportarPdfEmpleados() {
       p.drawText(pagTxt, { x:W-M-pagW, y:20, size:8, font:fontReg, color: gray });
     });
 
-    const pdfBytes = await pdfDoc.save();
+    const pdfBytes = await (await fmMarca(pdfDoc)).save();
     const blob = new Blob([pdfBytes], {type:'application/pdf'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -9934,7 +9977,7 @@ function volverASeleccionModulo() {
   window.scrollTo(0, 0);
   actualizarSaludoHome();
   document.getElementById('btn-cambiar-modulo').style.display = 'none';
-  document.getElementById('admin-topbar-title').textContent = 'NexoFlota';
+  document.getElementById('admin-topbar-title').textContent = 'FlotaMancha';
 }
 
 // Módulos que piden código al entrar. Se decide desde Admin Superior (por defecto, ninguno).
@@ -12002,7 +12045,7 @@ window.exportarPdfSegurosVehiculos = async () => {
       page.drawRectangle({ x:0, y:H-66, width:W, height:66, color: navy });
       page.drawRectangle({ x:0, y:H-70, width:W, height:4, color: accent });
       page.drawText('MANCHATRANS S.L.', { x:M, y:H-30, size:14, font:fontBold, color: rgb(1,1,1) });
-      page.drawText(`Seguros de ${etiquetasGrupoSeguro().nombre} (activos) · NexoFlota`, { x:M, y:H-47, size:9, font:fontReg, color: rgb(0.78,0.84,0.92) });
+      page.drawText(`Seguros de ${etiquetasGrupoSeguro().nombre} (activos) · FlotaMancha`, { x:M, y:H-47, size:9, font:fontReg, color: rgb(0.78,0.84,0.92) });
       const tagTxt = etiquetasGrupoSeguro().tag;
       const tagW = fontBold.widthOfTextAtSize(tagTxt, 12);
       page.drawText(tagTxt, { x:W-M-tagW, y:H-34, size:12, font:fontBold, color: accent });
@@ -12062,7 +12105,7 @@ window.exportarPdfSegurosVehiculos = async () => {
       p.drawText(pagTxt, { x:W-M-pagW, y:20, size:8, font:fontReg, color: gray });
     });
 
-    const pdfBytes = await pdfDoc.save();
+    const pdfBytes = await (await fmMarca(pdfDoc)).save();
     const blob = new Blob([pdfBytes], {type:'application/pdf'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -12100,7 +12143,7 @@ window.exportarPdfSegurosPolizas = async () => {
       page.drawRectangle({ x:0, y:H-66, width:W, height:66, color: navy });
       page.drawRectangle({ x:0, y:H-70, width:W, height:4, color: accent });
       page.drawText('MANCHATRANS S.L.', { x:M, y:H-30, size:14, font:fontBold, color: rgb(1,1,1) });
-      page.drawText('Pólizas de seguros · NexoFlota', { x:M, y:H-47, size:9, font:fontReg, color: rgb(0.78,0.84,0.92) });
+      page.drawText('Pólizas de seguros · FlotaMancha', { x:M, y:H-47, size:9, font:fontReg, color: rgb(0.78,0.84,0.92) });
       const tagTxt = 'PÓLIZAS';
       const tagW = fontBold.widthOfTextAtSize(tagTxt, 12);
       page.drawText(tagTxt, { x:W-M-tagW, y:H-34, size:12, font:fontBold, color: accent });
@@ -12159,7 +12202,7 @@ window.exportarPdfSegurosPolizas = async () => {
       p.drawText(pagTxt, { x:W-M-pagW, y:20, size:8, font:fontReg, color: gray });
     });
 
-    const pdfBytes = await pdfDoc.save();
+    const pdfBytes = await (await fmMarca(pdfDoc)).save();
     const blob = new Blob([pdfBytes], {type:'application/pdf'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -12203,7 +12246,7 @@ function _generarExcelSegurosVehiculos() {
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = [16,16,16,8,12,16,14,14,16,14,30,12,28,22,12,30,30].map(w=>({wch:w}));
   XLSX.utils.book_append_sheet(wb, ws, etiquetasGrupoSeguro().hoja);
-  XLSX.writeFile(wb, etiquetasGrupoSeguro().archivo + '.xlsx');
+  XLSX.writeFile(fmMarcaExcel(wb), etiquetasGrupoSeguro().archivo + '.xlsx');
 }
 
 // ── Exportar Excel: Pólizas ──
@@ -12235,7 +12278,7 @@ function _generarExcelSegurosPolizas() {
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = [16,18,16,14,14,16,14,30,30].map(w=>({wch:w}));
   XLSX.utils.book_append_sheet(wb, ws, 'Pólizas');
-  XLSX.writeFile(wb, 'Manchatrans_Polizas.xlsx');
+  XLSX.writeFile(fmMarcaExcel(wb), 'Manchatrans_Polizas.xlsx');
 }
 
 window.verPendientesMesCond = () => {
@@ -12650,7 +12693,7 @@ async function exportarPdfLimpiezaVehiculos() {
       page.drawRectangle({ x:0, y:H-66, width:W, height:66, color: navy });
       page.drawRectangle({ x:0, y:H-70, width:W, height:4, color: accent });
       page.drawText('MANCHATRANS S.L.', { x:M, y:H-30, size:14, font:fontBold, color: rgb(1,1,1) });
-      page.drawText('Gestión de flota · NexoFlota', { x:M, y:H-47, size:9, font:fontReg, color: rgb(0.78,0.84,0.92) });
+      page.drawText('Gestión de flota · FlotaMancha', { x:M, y:H-47, size:9, font:fontReg, color: rgb(0.78,0.84,0.92) });
       const tagTxt = 'LIMPIEZA DE VEHÍCULOS';
       const tagW = fontBold.widthOfTextAtSize(tagTxt, 12);
       page.drawText(tagTxt, { x:W-M-tagW, y:H-34, size:12, font:fontBold, color: accent });
@@ -12698,7 +12741,7 @@ async function exportarPdfLimpiezaVehiculos() {
       p.drawText(pagTxt, { x:W-M-pagW, y:20, size:8, font:fontReg, color: gray });
     });
 
-    const pdfBytes = await pdfDoc.save();
+    const pdfBytes = await (await fmMarca(pdfDoc)).save();
     const blob = new Blob([pdfBytes], {type:'application/pdf'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -12731,7 +12774,7 @@ async function generarPdfLimpiezaVehUnico(h) {
   page.drawRectangle({ x:0, y:H-80, width:W, height:80, color: navy });
   page.drawRectangle({ x:0, y:H-84, width:W, height:4, color: accent });
   page.drawText('MANCHATRANS S.L.', { x:M, y:H-35, size:16, font:fontBold, color: rgb(1,1,1) });
-  page.drawText('Ficha de limpieza de vehículo · NexoFlota', { x:M, y:H-56, size:10, font:fontReg, color: rgb(0.78,0.84,0.92) });
+  page.drawText('Ficha de limpieza de vehículo · FlotaMancha', { x:M, y:H-56, size:10, font:fontReg, color: rgb(0.78,0.84,0.92) });
   const tagTxt = 'LIMPIEZA';
   const tagW = fontBold.widthOfTextAtSize(tagTxt, 14);
   page.drawText(tagTxt, { x:W-M-tagW, y:H-42, size:14, font:fontBold, color: accent });
@@ -12801,7 +12844,7 @@ async function generarPdfLimpiezaVehUnico(h) {
   page.drawLine({ start:{x:M,y:34}, end:{x:W-M,y:34}, thickness:0.5, color: rgb(0.85,0.87,0.9) });
   page.drawText(`Generado el ${new Date().toLocaleDateString('es-ES')}`, { x:M, y:20, size:8, font:fontReg, color: gray });
 
-  return pdfDoc.save();
+  return (await fmMarca(pdfDoc)).save();
 }
 
 window.descargarPdfLimpiezaVehUnico = async (id) => {
@@ -12977,7 +13020,7 @@ async function generarPdfLimpiezaInstUnico(h) {
   page.drawRectangle({ x:0, y:H-80, width:W, height:80, color: navy });
   page.drawRectangle({ x:0, y:H-84, width:W, height:4, color: accent });
   page.drawText('MANCHATRANS S.L.', { x:M, y:H-35, size:16, font:fontBold, color: rgb(1,1,1) });
-  page.drawText('Ficha de limpieza de instalaciones · NexoFlota', { x:M, y:H-56, size:10, font:fontReg, color: rgb(0.78,0.84,0.92) });
+  page.drawText('Ficha de limpieza de instalaciones · FlotaMancha', { x:M, y:H-56, size:10, font:fontReg, color: rgb(0.78,0.84,0.92) });
   const tagTxt = 'LIMPIEZA';
   const tagW = fontBold.widthOfTextAtSize(tagTxt, 14);
   page.drawText(tagTxt, { x:W-M-tagW, y:H-42, size:14, font:fontBold, color: accent });
@@ -13044,7 +13087,7 @@ async function generarPdfLimpiezaInstUnico(h) {
   page.drawLine({ start:{x:M,y:34}, end:{x:W-M,y:34}, thickness:0.5, color: rgb(0.85,0.87,0.9) });
   page.drawText(`Generado el ${new Date().toLocaleDateString('es-ES')}`, { x:M, y:20, size:8, font:fontReg, color: gray });
 
-  return pdfDoc.save();
+  return (await fmMarca(pdfDoc)).save();
 }
 
 window.descargarPdfLimpiezaInstUnico = async (id) => {
@@ -13113,7 +13156,7 @@ async function exportarPdfLimpiezaInstalaciones() {
       page.drawRectangle({ x:0, y:H-66, width:W, height:66, color: navy });
       page.drawRectangle({ x:0, y:H-70, width:W, height:4, color: accent });
       page.drawText('MANCHATRANS S.L.', { x:M, y:H-30, size:14, font:fontBold, color: rgb(1,1,1) });
-      page.drawText('Gestión de instalaciones · NexoFlota', { x:M, y:H-47, size:9, font:fontReg, color: rgb(0.78,0.84,0.92) });
+      page.drawText('Gestión de instalaciones · FlotaMancha', { x:M, y:H-47, size:9, font:fontReg, color: rgb(0.78,0.84,0.92) });
       const tagTxt = 'LIMPIEZA DE INSTALACIONES';
       const tagW = fontBold.widthOfTextAtSize(tagTxt, 12);
       page.drawText(tagTxt, { x:W-M-tagW, y:H-34, size:12, font:fontBold, color: accent });
@@ -13160,7 +13203,7 @@ async function exportarPdfLimpiezaInstalaciones() {
       p.drawText(pagTxt, { x:W-M-pagW, y:20, size:8, font:fontReg, color: gray });
     });
 
-    const pdfBytes = await pdfDoc.save();
+    const pdfBytes = await (await fmMarca(pdfDoc)).save();
     const blob = new Blob([pdfBytes], {type:'application/pdf'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -13317,7 +13360,7 @@ function _generarExcel() {
   recargasCache.forEach(r=>h4.push([r.fechaStr,r.horaStr,r.litros,r.obs||'']));
   const ws4=XLSX.utils.aoa_to_sheet(h4); ws4['!cols']=[14,8,18,40].map(w=>({wch:w})); XLSX.utils.book_append_sheet(wb,ws4,'Recargas depósito');
 
-  XLSX.writeFile(wb,'gasoil_'+rangoTxt+'.xlsx');
+  XLSX.writeFile(fmMarcaExcel(wb),'gasoil_'+rangoTxt+'.xlsx');
 }
 
 // ══════════════════════════════
@@ -13889,7 +13932,7 @@ async function exportarPdfTallasEmpleados() {
       page.drawRectangle({ x:0, y:H-66, width:W, height:66, color: navy });
       page.drawRectangle({ x:0, y:H-70, width:W, height:4, color: accent });
       page.drawText('MANCHATRANS S.L.', { x:M, y:H-30, size:14, font:fontBold, color: rgb(1,1,1) });
-      page.drawText('Tallas de ropa laboral · NexoFlota', { x:M, y:H-47, size:9, font:fontReg, color: rgb(0.78,0.84,0.92) });
+      page.drawText('Tallas de ropa laboral · FlotaMancha', { x:M, y:H-47, size:9, font:fontReg, color: rgb(0.78,0.84,0.92) });
       const tagTxt = 'PARA PREPARAR ROPA';
       const tagW = fontBold.widthOfTextAtSize(tagTxt, 12);
       page.drawText(tagTxt, { x:W-M-tagW, y:H-34, size:12, font:fontBold, color: accent });
@@ -13941,7 +13984,7 @@ async function exportarPdfTallasEmpleados() {
       p.drawText(pagTxt, { x:W-M-pagW, y:20, size:8, font:fontReg, color: gray });
     });
 
-    const pdfBytes = await pdfDoc.save();
+    const pdfBytes = await (await fmMarca(pdfDoc)).save();
     const blob = new Blob([pdfBytes], {type:'application/pdf'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -14485,7 +14528,7 @@ async function generarPdfRopa(empleado, puesto, articulosData, firmaPngBytes) {
     page.drawText(txt, { x: (bx0+bx1)/2 - w/2, y: toPdfY((btop+bbottom)/2) - 4, size: 10, font: fontReg, color: rgb(0.6,0.6,0.6) });
   }
 
-  const pdfFinalBytes = await pdfDoc.save();
+  const pdfFinalBytes = await (await fmMarca(pdfDoc)).save();
   return btoa(Array.from(pdfFinalBytes, b => String.fromCharCode(b)).join(''));
 }
 
