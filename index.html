@@ -772,6 +772,18 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .inv-acc button:disabled { opacity: 0.35; cursor: default; }
 .inv-acc .inv-del:hover { border-color: var(--danger) !important; }
 @media (max-width: 520px) { .inv-nivel { display: none; } .inv-tabla th:nth-child(2) { display: none; } .inv-acc button { width: 28px; height: 28px; } }
+
+#modulo-home-screen .home-grid-4c { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 1000px) { #modulo-home-screen .home-grid-4c { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { #modulo-home-screen .home-grid-4c { grid-template-columns: 1fr; } }
+.co-bloque { margin-bottom: 0.6rem; }
+.co-lab { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 0.35rem; }
+.co-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.4rem; }
+.co-chips button { background: var(--input-bg); border: 1px solid var(--card-border); color: var(--text); border-radius: 18px; padding: 0.5rem 0.85rem; font-size: 14px; font-weight: 600; cursor: pointer; }
+.co-chips button.on { border-color: var(--accent); background: rgba(245,166,35,0.15); color: var(--accent); }
+.co-iban { font-size: 12px; margin-top: 3px; min-height: 15px; }
+#module-comercial .alm-estados { grid-template-columns: repeat(3, 1fr) !important; }
+@media (max-width: 520px) { #module-comercial .alm-estados .alm-estado { font-size: 12.5px; padding-left: 0.3rem; padding-right: 0.3rem; } }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -938,7 +950,7 @@ html.giro-fijo #screen-chat { height: 100% !important; }
       </div>
       <div id="home-hoy" class="home-hoy"></div>
       <div class="home-seccion">Día a día</div>
-      <div class="home-grid home-grid-3">
+      <div class="home-grid home-grid-3 home-grid-4c">
         <button class="home-card" id="home-btn-gasoil">
           <span class="hc-icon" style="background:rgba(245,166,35,0.15);">⛽</span>
           <span class="hc-name">Gasoil</span>
@@ -958,6 +970,12 @@ html.giro-fijo #screen-chat { height: 100% !important; }
           <span class="hc-name">Cartas de porte</span>
           <span class="hc-desc">DeCA con QR · ADR · Transportistas</span>
           <span id="home-info-cartas" class="hc-info"></span>
+        </button>
+        <button class="home-card" id="home-btn-comercial">
+          <span class="hc-icon" style="background:rgba(139,92,246,0.15);">💼</span>
+          <span class="hc-name">Comercial</span>
+          <span class="hc-desc">Partes de visita · Clientes</span>
+          <span id="home-info-comercial" class="hc-info"></span>
         </button>
       </div>
       <div class="home-seccion">Vehículos y conductores</div>
@@ -1461,6 +1479,18 @@ html.giro-fijo #screen-chat { height: 100% !important; }
 
     <!-- ═══════════ FIN MÓDULO ADR/CAP ═══════════ -->
 
+    <!-- ═══════════ MÓDULO COMERCIAL (partes de visita) ═══════════ -->
+    <div id="module-comercial" class="mod-nuevo" style="display:none;">
+      <div class="alm-estados" style="grid-template-columns:repeat(3,1fr)">
+        <button type="button" class="alm-estado on" id="co-tab-nueva" onclick="coTab('nueva')">➕ Parte de visita</button>
+        <button type="button" class="alm-estado" id="co-tab-lista" onclick="coTab('lista')">📋 Visitas <span class="alm-badge" id="co-n">0</span></button>
+        <button type="button" class="alm-estado" id="co-tab-clientes" onclick="coTab('clientes')">🏢 Clientes</button>
+      </div>
+      <div id="co-pane-nueva"></div>
+      <div id="co-pane-lista" style="display:none"></div>
+      <div id="co-pane-clientes" style="display:none"></div>
+    </div>
+
     <!-- ═══════════ MÓDULO CARTAS DE PORTE (DeCA) ═══════════ -->
     <div id="module-cartas" class="mod-nuevo" style="display:none;">
       <div class="alm-estados" style="grid-template-columns:repeat(4,1fr)">
@@ -1908,7 +1938,8 @@ let MODULO_CODIGOS = {
   seguros: '5555',
   almacen: '6666',
   formacion: '7777',
-  cartas: '8888'
+  cartas: '8888',
+  comercial: '9999'
 };
 const DEPOSITO_CAP = 10000;
 const ALERTA_MIN = 1000;
@@ -2395,7 +2426,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v97 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v98 · 01/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -6494,6 +6525,455 @@ Object.assign(window, { cpTab, cpRenderForm, cpEntrar, cpNuevaCarta, cpTextoAdr,
 Object.defineProperty(window, 'cpEstado', { get: () => cpEstado, set: v => { cpEstado = v; } });
 Object.defineProperty(window, 'cpResultado', { get: () => cpResultado });
 
+// ════════════════════════════════════════════════════════════════════════════
+// COMERCIAL · PARTES DE VISITA
+// Mismos apartados que la plantilla "PARTES DE VISITA" (Excel), pensados para el móvil.
+// Visitas en 'comercialVisitas'; fichas de cliente en 'comercialClientes'.
+// ════════════════════════════════════════════════════════════════════════════
+const CO_BORRADOR = 'nfComercialBorrador';
+const CO_OPC = {
+  traficos: ['Salidas', 'Llegadas', 'Salidas y llegadas'],
+  zonas: ['Provincial', 'Regional (Castilla-La Mancha)', 'Nacional', 'Peninsular', 'Baleares', 'Canarias', 'Portugal', 'Internacional'],
+  portes: ['Pagados', 'Debidos', 'Pagados y debidos'],
+  plazos: ['24 h', '48 h', '72 h', 'Más de 72 h'],
+  dias: ['L', 'M', 'X', 'J', 'V', 'S'],
+  pago: ['Transferencia', 'Recibo domiciliado', 'Confirming', 'Pagaré', 'Contado'],
+  plazoPago: ['Contado', '30 días', '45 días', '60 días', '90 días'],
+};
+// campos de la ficha del cliente (se guardan y se rellenan solos en la siguiente visita)
+const CO_CLIENTE = ['cliente','domicilio','poblacion','cp','provincia','cif','cuenta','telefono','movil','fax','email','atendido'];
+
+let coVisitas = [], coClientes = [], coUnsub = null, coEstado = null, coBusca = '';
+
+const coEsc = almEsc;
+const coHoy = () => new Date().toISOString().slice(0,10);
+const coNorm = t => String(t||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[.,]/g,'').replace(/\s+/g,' ').trim();
+const coMeses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const coFechaLarga = iso => { if (!iso) return ''; const [a,m,d] = iso.split('-').map(Number); return `${d} de ${coMeses[m-1]} de ${a}`; };
+const coFechaCorta = iso => { if (!iso) return ''; const [a,m,d] = iso.split('-'); return `${d}/${m}/${a}`; };
+
+function coNueva() {
+  return {
+    fecha: coHoy(), lugar: 'Ciudad Real', comercial: (typeof currentUser !== 'undefined' && currentUser?.name) || '',
+    cliente:'', domicilio:'', poblacion:'', cp:'', provincia:'', cif:'', cuenta:'', telefono:'', movil:'', fax:'', email:'', atendido:'',
+    traficos:'', traficosTxt:'', zonas:[], zonasTxt:'', portes:'', portesTxt:'', palets:'', paleteriaTxt:'',
+    paqueteria:'', paqueteriaPeriodo:'al mes', plazo:'', plazoTxt:'', medidas:'', producto:'', valor:'',
+    dias:[], horario:'', proveedores:'', pago:'', plazoPago:'', pagoTxt:'', observaciones:'',
+  };
+}
+
+// ── Entrada al módulo ──
+function coEntrar() {
+  if (!coEstado) {
+    try { const b = JSON.parse(localStorage.getItem(CO_BORRADOR) || 'null'); if (b && !b.id) coEstado = b; } catch(e) {}
+    if (!coEstado) coEstado = coNueva();
+  }
+  coTab('nueva');
+  if (!coUnsub) {
+    coUnsub = onSnapshot(query(collection(db,'comercialVisitas'), orderBy('fecha','desc')), snap => {
+      coVisitas = snap.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b) => (b.fecha||'').localeCompare(a.fecha||'') || (b.ts||0) - (a.ts||0));
+      const n = document.getElementById('co-n'); if (n) n.textContent = coVisitas.length;
+      if (document.getElementById('co-pane-lista')?.style.display !== 'none') coRenderLista();
+      const hi = document.getElementById('home-info-comercial');
+      if (hi) { const mes = coHoy().slice(0,7); const m = coVisitas.filter(v => (v.fecha||'').startsWith(mes)).length; hi.innerHTML = `💼 <strong>${m}</strong> visita${m===1?'':'s'} este mes`; }
+    }, e => console.warn('comercialVisitas', e));
+    onSnapshot(collection(db,'comercialClientes'), snap => {
+      coClientes = snap.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b) => (a.cliente||'').localeCompare(b.cliente||''));
+      if (document.getElementById('co-pane-clientes')?.style.display !== 'none') coRenderClientes();
+    }, e => console.warn('comercialClientes', e));
+  }
+}
+function coTab(t) {
+  ['nueva','lista','clientes'].forEach(x => {
+    document.getElementById('co-pane-'+x).style.display = x===t ? 'block' : 'none';
+    document.getElementById('co-tab-'+x).classList.toggle('on', x===t);
+  });
+  if (t==='nueva') coRenderForm();
+  if (t==='lista') coRenderLista();
+  if (t==='clientes') coRenderClientes();
+}
+
+// ── Borrador automático ──
+let coGuardaBorrador = null;
+function coBorrador() {
+  clearTimeout(coGuardaBorrador);
+  coGuardaBorrador = setTimeout(() => {
+    try { if (!coEstado.id) localStorage.setItem(CO_BORRADOR, JSON.stringify(coEstado)); } catch(e) {}
+    const el = document.getElementById('co-borrador'); if (el) el.textContent = '✓ Borrador guardado';
+  }, 600);
+}
+window.coSet = (k, v) => { coEstado[k] = v; coBorrador(); };
+
+// ── Piezas del formulario ──
+const coCampo = (k, etiqueta, o = {}) => `<div class="cp-campo ${o.ancho||''}">${etiqueta ? `<label for="co-${k}">${etiqueta}</label>` : ''}
+  ${o.area ? `<textarea id="co-${k}" rows="${o.filas||2}" placeholder="${coEsc(o.ph||'')}" oninput="coSet('${k}', this.value)">${coEsc(coEstado[k]||'')}</textarea>`
+           : `<input id="co-${k}" type="${o.tipo||'text'}" ${o.modo?`inputmode="${o.modo}"`:''} value="${coEsc(coEstado[k]||'')}" placeholder="${coEsc(o.ph||'')}" autocomplete="off"
+               oninput="coSet('${k}', this.value)${o.extra?'; '+o.extra:''}" ${o.attr||''}>`}</div>`;
+// botones de una opción (vuelve a tocar para quitar)
+const coUno = (k, opciones) => `<div class="co-chips">${opciones.map(op =>
+  `<button type="button" class="${coEstado[k]===op?'on':''}" onclick="coElegir('${k}', '${op.replace(/'/g,"\\'")}', false)">${coEsc(op)}</button>`).join('')}</div>`;
+// botones de varias opciones
+const coVarios = (k, opciones) => `<div class="co-chips">${opciones.map(op =>
+  `<button type="button" class="${(coEstado[k]||[]).includes(op)?'on':''}" onclick="coElegir('${k}', '${op.replace(/'/g,"\\'")}', true)">${coEsc(op)}</button>`).join('')}</div>`;
+window.coElegir = (k, op, varios) => {
+  if (varios) { const l = coEstado[k] || []; coEstado[k] = l.includes(op) ? l.filter(x => x !== op) : [...l, op]; }
+  else coEstado[k] = coEstado[k] === op ? '' : op;
+  coBorrador(); coRenderForm();
+};
+
+function coRenderForm() {
+  const el = document.getElementById('co-pane-nueva'); if (!el) return;
+  const e = coEstado;
+  const iban = coIban(e.cuenta);
+  el.innerHTML = `
+    <div class="refuel-card cp-card">
+      <div class="cp-tit">📅 Visita</div>
+      <div class="cp-fila">
+        ${coCampo('fecha','Fecha',{tipo:'date', ancho:'cp-c3'})}
+        ${coCampo('lugar','Lugar',{ancho:'cp-c3'})}
+        ${coCampo('comercial','Comercial',{ancho:'cp-c3'})}
+      </div>
+    </div>
+
+    <div class="refuel-card cp-card">
+      <div class="cp-tit">🏢 Cliente</div>
+      <div class="cp-campo"><label>Cliente ya visitado</label>
+        <select onchange="coElegirCliente(this.value)" style="font-size:16px;font-weight:600">
+          <option value="">— Elegir cliente, o rellenar uno nuevo abajo —</option>
+          ${coClientes.map(c => `<option value="${c.id}" ${coNorm(c.cliente)===coNorm(e.cliente)?'selected':''}>${coEsc(c.cliente)}${c.poblacion?' · '+coEsc(c.poblacion):''}</option>`).join('')}
+        </select></div>
+      ${coCampo('cliente','Cliente',{ph:'Nombre o razón social', extra:"this.value=this.value"})}
+      ${coCampo('domicilio','Domicilio')}
+      <div class="cp-fila">
+        <div class="cp-campo cp-c2" style="position:relative"><label for="co-poblacion">Población</label>
+          <input id="co-poblacion" value="${coEsc(e.poblacion||'')}" autocomplete="off" placeholder="Empieza a escribir el pueblo"
+            oninput="coSet('poblacion', this.value); coSugerirMuni(this.value)" onblur="setTimeout(()=>{const c=document.getElementById('co-muni-sug'); if(c && document.activeElement?.id!=='co-poblacion') c.style.display='none'},250)">
+          <div id="co-muni-sug" class="cp-sug"></div></div>
+        ${coCampo('cp','Código postal',{ancho:'cp-c4', modo:'numeric', attr:'maxlength="5"', extra:'coDesdeCp(this.value)'})}
+        ${coCampo('provincia','Provincia',{ancho:'cp-c4'})}
+      </div>
+      <div id="co-cp-elegir"></div>
+      <div class="cp-fila">
+        ${coCampo('cif','CIF - NIF',{ancho:'cp-c3', attr:'style="text-transform:uppercase"'})}
+        <div class="cp-campo" style="flex:2;min-width:220px"><label for="co-cuenta">Cuenta bancaria (IBAN)</label>
+          <input id="co-cuenta" value="${coEsc(e.cuenta||'')}" placeholder="ES00 0000 0000 0000 0000 0000" autocomplete="off" style="text-transform:uppercase;font-family:monospace"
+            oninput="coSet('cuenta', this.value); document.getElementById('co-iban').innerHTML = coIban(this.value).html" onblur="this.value = coIban(this.value).formato || this.value; coSet('cuenta', this.value)">
+          <div id="co-iban" class="co-iban">${iban.html}</div></div>
+      </div>
+      <div class="cp-fila">
+        ${coCampo('telefono','Teléfono',{tipo:'tel', ancho:'cp-c3'})}
+        ${coCampo('movil','Móvil',{tipo:'tel', ancho:'cp-c3'})}
+        ${coCampo('fax','Fax',{tipo:'tel', ancho:'cp-c3'})}
+      </div>
+      <div class="cp-fila">
+        ${coCampo('email','E-mail',{tipo:'email', ancho:'cp-c2'})}
+        ${coCampo('atendido','Atendido por',{ancho:'cp-c2', ph:'Persona de contacto'})}
+      </div>
+    </div>
+
+    <div class="refuel-card cp-card">
+      <div class="cp-tit">🚛 Transporte</div>
+      <div class="co-bloque"><div class="co-lab">Tráficos de salidas o llegadas</div>${coUno('traficos', CO_OPC.traficos)}
+        ${coCampo('traficosTxt','',{ph:'Detalle (orígenes, destinos habituales…)'})}</div>
+      <div class="co-bloque"><div class="co-lab">Zonas de envíos</div>${coVarios('zonas', CO_OPC.zonas)}
+        ${coCampo('zonasTxt','',{ph:'Provincias o zonas concretas'})}</div>
+      <div class="co-bloque"><div class="co-lab">Tipo de portes</div>${coUno('portes', CO_OPC.portes)}
+        ${coCampo('portesTxt','',{ph:'Detalle'})}</div>
+      <div class="cp-fila">
+        <div class="co-bloque cp-c2"><div class="co-lab">Envíos de palets al mes</div>
+          ${coCampo('palets','',{tipo:'number', modo:'numeric', ph:'Nº de palets'})}
+          ${coCampo('paleteriaTxt','',{ph:'Tipo de palet (europeo, americano…)'})}</div>
+        <div class="co-bloque cp-c2"><div class="co-lab">Envíos de paquetería</div>
+          <div class="cp-fila" style="flex-wrap:nowrap">
+            ${coCampo('paqueteria','',{tipo:'number', modo:'numeric', ph:'Nº de envíos'})}
+            <div class="cp-campo"><select onchange="coSet('paqueteriaPeriodo', this.value)">${['al día','a la semana','al mes'].map(p=>`<option ${e.paqueteriaPeriodo===p?'selected':''}>${p}</option>`).join('')}</select></div>
+          </div></div>
+      </div>
+      <div class="co-bloque"><div class="co-lab">Plazo de entregas</div>${coUno('plazo', CO_OPC.plazos)}
+        ${coCampo('plazoTxt','',{ph:'Detalle'})}</div>
+      ${coCampo('medidas','Medidas y pesos',{area:true, ph:'Medidas y pesos habituales de los envíos'})}
+      <div class="cp-fila">
+        ${coCampo('producto','Tipo de producto',{ancho:'cp-c2', ph:'Qué mercancía envía'})}
+        ${coCampo('valor','Valor de la mercancía',{ancho:'cp-c2', ph:'Ej.: 3.000 € por envío'})}
+      </div>
+      <div class="co-bloque"><div class="co-lab">Días y horarios de recogidas</div>${coVarios('dias', CO_OPC.dias)}
+        ${coCampo('horario','',{ph:'Horario (ej.: de 8:00 a 14:00)'})}</div>
+      ${coCampo('proveedores','Proveedores actuales de transporte',{area:true, ph:'Con quién trabaja ahora y en qué condiciones'})}
+      <div class="co-bloque"><div class="co-lab">Forma de pago y plazo</div>${coUno('pago', CO_OPC.pago)}${coUno('plazoPago', CO_OPC.plazoPago)}
+        ${coCampo('pagoTxt','',{ph:'Detalle'})}</div>
+      ${coCampo('observaciones','Observaciones',{area:true, filas:4})}
+    </div>
+
+    <div class="refuel-card cp-card" style="text-align:center">
+      <div id="co-aviso" class="alert" style="margin-bottom:0.75rem"></div>
+      <button class="btn btn-primary" style="font-size:17px;padding:1rem" onclick="coGuardar()">${e.id ? '💾 Guardar cambios' : '💾 Guardar parte de visita'}</button>
+      <div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;margin-top:0.6rem">
+        ${e.id ? `<button class="alm-accion" onclick="coVerPdf('${e.id}')">👁 Ver PDF</button>` : ''}
+        <button class="alm-accion" onclick="coLimpiar()">${e.id ? '➕ Parte nuevo' : '🧹 Vaciar formulario'}</button>
+      </div>
+      <div id="co-borrador" style="font-size:12px;color:var(--text-muted);margin-top:0.5rem">${e.id ? `Editando la visita a ${coEsc(e.cliente)} del ${coFechaCorta(e.fecha)}` : 'Lo que escribas se guarda como borrador por si se cierra la app.'}</div>
+    </div>`;
+}
+
+// ── Cliente: rellenar desde la ficha guardada ──
+window.coElegirCliente = (id) => {
+  const c = coClientes.find(x => x.id === id);
+  if (!c) return;
+  CO_CLIENTE.forEach(k => { if (c[k] !== undefined) coEstado[k] = c[k]; });
+  // y lo que se habló de transporte la última vez, como punto de partida
+  const ult = coVisitas.find(v => coNorm(v.cliente) === coNorm(c.cliente));
+  if (ult) ['traficos','traficosTxt','zonas','zonasTxt','portes','portesTxt','palets','paleteriaTxt','paqueteria','paqueteriaPeriodo','plazo','plazoTxt','medidas','producto','valor','dias','horario','proveedores','pago','plazoPago','pagoTxt']
+    .forEach(k => { if (ult[k] !== undefined) coEstado[k] = Array.isArray(ult[k]) ? [...ult[k]] : ult[k]; });
+  coBorrador(); coRenderForm();
+  mostrarMensajeFlotante?.(ult ? `Datos de ${c.cliente} y de su última visita (${coFechaCorta(ult.fecha)})` : `Datos de ${c.cliente}`);
+};
+
+// ── Población → CP y provincia (lista oficial de municipios, la misma de las cartas de porte) ──
+window.coSugerirMuni = async (v) => {
+  const cont = document.getElementById('co-muni-sug'); if (!cont) return;
+  const q = coNorm(v);
+  if (q.length < 2) { cont.style.display = 'none'; return; }
+  await cpCargarMuni();
+  if (!cpMuni) { cont.style.display = 'none'; return; }
+  const emp = cpMuni.filter(m => coNorm(m.nombre).startsWith(q)), con = cpMuni.filter(m => !coNorm(m.nombre).startsWith(q) && coNorm(m.nombre).includes(q));
+  const lista = [...emp, ...con].slice(0, 10);
+  cont.innerHTML = lista.map(m => `<div class="cp-sug-op" onmousedown="event.preventDefault(); coElegirMuni('${m.ine}', '${m.nombre.replace(/'/g,"\\'")}')">
+    <strong>${coEsc(m.nombre)}</strong><span>${coEsc(m.provincia)} · ${m.cps.length === 1 ? 'CP ' + m.cps[0] : m.cps.length + ' códigos postales'}</span></div>`).join('');
+  cont.style.display = lista.length ? 'block' : 'none';
+};
+window.coElegirMuni = (ine, nombre) => {
+  const m = cpMuni.find(x => x.ine === ine && x.nombre === nombre) || cpMuni.find(x => x.ine === ine); if (!m) return;
+  coEstado.poblacion = m.nombre; coEstado.provincia = m.provincia;
+  document.getElementById('co-poblacion').value = m.nombre;
+  document.getElementById('co-provincia').value = m.provincia;
+  document.getElementById('co-muni-sug').style.display = 'none';
+  const el = document.getElementById('co-cp-elegir');
+  if (m.cps.length === 1) { coEstado.cp = m.cps[0]; el.innerHTML = ''; }
+  else {
+    if (!m.cps.includes(coEstado.cp)) coEstado.cp = m.cps[0];
+    el.innerHTML = `<div style="font-size:12px;color:var(--text-muted);margin:0.2rem 0">${coEsc(m.nombre)} tiene ${m.cps.length} códigos postales. Toca el que corresponda:</div>
+      <div class="cp-mats">${m.cps.map(c => `<button type="button" class="${c===coEstado.cp?'on':''}" onclick="coEstado.cp='${c}'; document.getElementById('co-cp').value='${c}'; this.parentNode.querySelectorAll('button').forEach(b=>b.classList.toggle('on', b===this)); coBorrador()">${c}</button>`).join('')}</div>`;
+  }
+  document.getElementById('co-cp').value = coEstado.cp;
+  coBorrador();
+};
+window.coDesdeCp = async (v) => {
+  const cp = String(v||'').trim(); if (!/^\d{5}$/.test(cp)) return;
+  if (!coEstado.provincia && CP_PROVINCIAS[cp.slice(0,2)]) { coEstado.provincia = CP_PROVINCIAS[cp.slice(0,2)]; document.getElementById('co-provincia').value = coEstado.provincia; }
+  await cpCargarMuni();
+  const l = cpMuniPorCp && cpMuniPorCp.get(cp);
+  if (l && l.length === 1 && !coEstado.poblacion) { coEstado.poblacion = l[0].nombre; document.getElementById('co-poblacion').value = l[0].nombre; }
+  coBorrador();
+};
+
+// ── IBAN: formato en grupos de 4 y comprobación del dígito de control ──
+function coIban(v) {
+  const t = String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if (!t) return {html:'', formato:''};
+  const formato = t.replace(/(.{4})/g,'$1 ').trim();
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(t)) return {html:'<span style="color:var(--text-muted)">Sigue escribiendo… (ES + 22 números)</span>', formato};
+  if (t.startsWith('ES') && t.length !== 24) return {html:`<span style="color:var(--warning)">Un IBAN español tiene 24 caracteres (lleva ${t.length})</span>`, formato};
+  const reord = (t.slice(4) + t.slice(0,4)).split('').map(ch => /[A-Z]/.test(ch) ? String(ch.charCodeAt(0) - 55) : ch).join('');
+  let resto = 0; for (const d of reord) resto = (resto * 10 + Number(d)) % 97;
+  return resto === 1 ? {html:'<span style="color:var(--success)">✓ IBAN correcto</span>', formato}
+                     : {html:'<span style="color:var(--danger)">⚠ El IBAN no es correcto: revisa los números</span>', formato};
+}
+window.coIban = coIban;
+
+// ── Guardar, editar, eliminar ──
+window.coGuardar = async () => {
+  const e = coEstado, aviso = document.getElementById('co-aviso');
+  if (!(e.cliente||'').trim()) { showAlert(aviso, 'Falta el nombre del cliente', true); document.getElementById('co-cliente')?.focus(); return; }
+  if (!e.fecha) { showAlert(aviso, 'Falta la fecha', true); return; }
+  e.cliente = e.cliente.trim().toUpperCase();
+  e.cif = (e.cif||'').toUpperCase();
+  if (e.cuenta) e.cuenta = coIban(e.cuenta).formato || e.cuenta;
+  const datos = {...e, ts: e.ts || Date.now(), modTs: Date.now(), creadoPor: e.creadoPor || ((typeof currentUser!=='undefined' && currentUser?.name) || '')};
+  delete datos.id;
+  try {
+    if (e.id) await setDoc(doc(db,'comercialVisitas',e.id), datos);
+    else { const ref = await addDoc(collection(db,'comercialVisitas'), datos); e.id = ref.id; }
+    // ficha del cliente: se crea o se actualiza con los datos de esta visita
+    const ficha = {}; CO_CLIENTE.forEach(k => ficha[k] = e[k] || ''); ficha.ts = Date.now();
+    const ya = coClientes.find(c => coNorm(c.cliente) === coNorm(e.cliente));
+    if (ya) await updateDoc(doc(db,'comercialClientes',ya.id), ficha); else await addDoc(collection(db,'comercialClientes'), ficha);
+    try { localStorage.removeItem(CO_BORRADOR); } catch(x) {}
+    mostrarMensajeFlotante?.('💾 Parte de visita guardado');
+    coRenderForm();
+  } catch(err) { showAlert(aviso, 'No se ha podido guardar: ' + err.message, true); }
+};
+window.coLimpiar = () => {
+  if (!coEstado.id && (coEstado.cliente || coEstado.observaciones) && !confirm('¿Vaciar el formulario? Se perderá lo que no hayas guardado.')) return;
+  coEstado = coNueva();
+  try { localStorage.removeItem(CO_BORRADOR); } catch(e) {}
+  coRenderForm(); window.scrollTo(0,0);
+};
+window.coEditar = (id) => {
+  const v = coVisitas.find(x => x.id === id); if (!v) return;
+  coEstado = {...coNueva(), ...JSON.parse(JSON.stringify(v))};
+  coTab('nueva'); window.scrollTo(0,0);
+};
+window.coEliminar = async (id) => {
+  const v = coVisitas.find(x => x.id === id); if (!v) return;
+  if (!confirm(`¿Eliminar el parte de visita a ${v.cliente} del ${coFechaCorta(v.fecha)}?\n\nNo se puede deshacer.`)) return;
+  try { await deleteDoc(doc(db,'comercialVisitas',id)); if (coEstado?.id === id) coEstado = coNueva(); mostrarMensajeFlotante?.('🗑 Parte eliminado'); }
+  catch(e) { alert('No se ha podido eliminar: ' + e.message); }
+};
+
+// ── Listado de visitas ──
+function coRenderLista() {
+  const el = document.getElementById('co-pane-lista'); if (!el) return;
+  const q = coNorm(coBusca);
+  const lista = !q ? coVisitas : coVisitas.filter(v => coNorm([v.cliente, v.poblacion, v.comercial, v.atendido, coFechaCorta(v.fecha), v.observaciones].join(' ')).includes(q));
+  el.innerHTML = `
+    <div class="refuel-card" style="margin-bottom:0.6rem">
+      <input id="co-buscar" class="form-input" type="search" placeholder="🔎 Buscar por cliente, población, comercial o fecha" value="${coEsc(coBusca)}"
+        oninput="coBusca=this.value; coRenderLista(); const b=document.getElementById('co-buscar'); b.focus(); b.setSelectionRange(b.value.length,b.value.length)">
+      ${q ? `<div style="font-size:12px;color:var(--text-muted);margin-top:0.4rem">${lista.length} de ${coVisitas.length} visitas</div>` : ''}
+    </div>
+    ${!coVisitas.length ? `<div class="refuel-card"><div class="empty-state"><div class="empty-icon">💼</div>Todavía no hay partes de visita.</div></div>`
+    : !lista.length ? `<div class="refuel-card"><div class="empty-state"><div class="empty-icon">🔎</div>Ninguna visita coincide con la búsqueda.</div></div>`
+    : `<div class="refuel-card" style="padding:0">${lista.map(v => `
+      <div class="gs-fila">
+        <div class="fl-ico">💼</div>
+        <div class="gs-fila-info">
+          <div class="gs-tit">${coEsc(v.cliente)}</div>
+          <div class="gs-sub">📅 ${coFechaCorta(v.fecha)}${v.poblacion ? ' · 📍 ' + coEsc(v.poblacion) : ''}${v.comercial ? ' · 👤 ' + coEsc(v.comercial) : ''}</div>
+          <div class="gs-chips">
+            ${v.atendido ? `<span class="gs-chip">🤝 ${coEsc(v.atendido)}</span>` : ''}
+            ${v.palets ? `<span class="gs-chip">🟫 ${coEsc(v.palets)} palets/mes</span>` : ''}
+            ${v.paqueteria ? `<span class="gs-chip">📦 ${coEsc(v.paqueteria)} ${coEsc(v.paqueteriaPeriodo||'')}</span>` : ''}
+            ${(v.zonas||[]).length ? `<span class="gs-chip">🗺 ${coEsc(v.zonas.join(', '))}</span>` : ''}
+          </div>
+        </div>
+        <div class="gs-acciones">
+          <button class="alm-accion alm-accion-ver" onclick="coVerPdf('${v.id}')">👁 PDF</button>
+          <button class="alm-accion" onclick="coEditar('${v.id}')">✏️ Editar</button>
+          <button class="alm-accion alm-accion-borrar" onclick="coEliminar('${v.id}')" aria-label="Eliminar">🗑</button>
+        </div>
+      </div>`).join('')}</div>`}`;
+}
+
+// ── Clientes ──
+function coRenderClientes() {
+  const el = document.getElementById('co-pane-clientes'); if (!el) return;
+  el.innerHTML = !coClientes.length ? `<div class="refuel-card"><div class="empty-state"><div class="empty-icon">🏢</div>Los clientes se guardan solos al guardar su primer parte de visita.</div></div>`
+  : `<div class="refuel-card" style="padding:0">${coClientes.map(c => {
+      const n = coVisitas.filter(v => coNorm(v.cliente) === coNorm(c.cliente));
+      return `<div class="gs-fila">
+        <div class="fl-ico">🏢</div>
+        <div class="gs-fila-info">
+          <div class="gs-tit">${coEsc(c.cliente)}</div>
+          <div class="gs-sub">${coEsc([c.domicilio, [c.cp, c.poblacion].filter(Boolean).join(' '), c.provincia].filter(Boolean).join(' · ') || 'Sin dirección')}</div>
+          <div class="gs-chips">${c.telefono||c.movil ? `<span class="gs-chip">📞 ${coEsc(c.telefono||c.movil)}</span>` : ''}${c.atendido ? `<span class="gs-chip">🤝 ${coEsc(c.atendido)}</span>` : ''}
+            <span class="gs-chip">💼 ${n.length} visita${n.length===1?'':'s'}${n[0] ? ' · última ' + coFechaCorta(n[0].fecha) : ''}</span></div>
+        </div>
+        <div class="gs-acciones">
+          <button class="alm-accion alm-accion-ver" onclick="coEstado=coNueva(); coTab('nueva'); coElegirCliente('${c.id}')">➕ Nueva visita</button>
+          <button class="alm-accion alm-accion-borrar" onclick="coBorrarCliente('${c.id}')" aria-label="Borrar cliente">🗑</button>
+        </div>
+      </div>`; }).join('')}</div>`;
+}
+window.coBorrarCliente = async (id) => {
+  const c = coClientes.find(x => x.id === id); if (!c) return;
+  if (!confirm(`¿Borrar la ficha de ${c.cliente}?\n\nSus partes de visita no se borran.`)) return;
+  try { await deleteDoc(doc(db,'comercialClientes',id)); } catch(e) { alert(e.message); }
+};
+
+// ── PDF con el formato de la plantilla ──
+async function coConstruirPdf(v) {
+  const {PDFDocument, StandardFonts, rgb} = PDFLib;
+  const pdf = await PDFDocument.create();
+  pdf.setTitle(cpPdfTexto(`Parte de visita · ${v.cliente} · ${coFechaCorta(v.fecha)}`));
+  pdf.setAuthor('MANCHEGA DE TRANSPORTES, S.L.'); pdf.setCreator('MANCHEGA DE TRANSPORTES, S.L.'); pdf.setProducer('MANCHEGA DE TRANSPORTES, S.L.');
+  const fR = await pdf.embedFont(StandardFonts.Helvetica), fB = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const W = 595.28, H = 841.89, M = 34, FW = W - 2*M;
+  const negro = rgb(0,0,0), gris = rgb(0.4,0.4,0.42), linea = rgb(0.78,0.8,0.84), azul = rgb(0.12,0.16,0.23), fondo = rgb(0.95,0.96,0.97);
+  let p = pdf.addPage([W, H]);
+  const ancho = (t, s, b) => (b?fB:fR).widthOfTextAtSize(cpPdfTexto(t), s);
+  const esc = (t, x, y, o={}) => p.drawText(cpPdfTexto(t), {x, y, size:o.size||9.5, font:o.bold?fB:fR, color:o.color||negro});
+  const partir = (t, size, maxW) => {
+    const out = [];
+    cpPdfTexto(t).split('\n').forEach(par => { let l = ''; par.split(/(\s+)/).forEach(tr => { const pr = l + tr; if (ancho(pr, size) <= maxW || !l.trim()) l = pr; else { out.push(l.trimEnd()); l = tr.trimStart(); } }); out.push(l.trimEnd()); });
+    return out;
+  };
+  // cabecera
+  p.drawRectangle({x:M, y:H-M-46, width:FW, height:46, color:azul});
+  esc('PARTE DE VISITA', M+12, H-M-22, {size:16, bold:true, color:rgb(1,1,1)});
+  esc('MANCHEGA DE TRANSPORTES, S.L.', M+12, H-M-37, {size:8.5, color:rgb(0.8,0.84,0.92)});
+  const fechaTxt = `${v.lugar || 'Ciudad Real'}, ${coFechaLarga(v.fecha)}`;
+  esc(fechaTxt, M+FW-12-ancho(fechaTxt, 10, true), H-M-22, {size:10, bold:true, color:rgb(1,1,1)});
+  if (v.comercial) { const t = `Comercial: ${v.comercial}`; esc(t, M+FW-12-ancho(t, 8.5), H-M-37, {size:8.5, color:rgb(0.8,0.84,0.92)}); }
+  let y = H - M - 46 - 16;
+  const nuevaPagina = () => { p = pdf.addPage([W, H]); y = H - M; };
+  const seccion = (t) => { if (y < M + 60) nuevaPagina(); esc(t, M, y - 10, {size:10.5, bold:true, color:azul}); p.drawLine({start:{x:M, y:y-14}, end:{x:M+FW, y:y-14}, thickness:1.2, color:azul}); y -= 22; };
+  // fila: etiqueta a la izquierda y valor (puede ocupar varias líneas); admite dos campos en la misma fila
+  const fila = (campos) => {
+    const anchoCol = FW / campos.length, etqW = campos.length === 1 ? 175 : 95;
+    const partes = campos.map(([etq, val]) => partir(val || '', 9.5, anchoCol - etqW - 10));
+    const alto = Math.max(1, ...partes.map(l => l.length)) * 12.5 + 8;
+    if (y - alto < M + 20) nuevaPagina();
+    campos.forEach(([etq], i) => {
+      const x = M + i * anchoCol;
+      p.drawRectangle({x, y: y - alto, width: etqW, height: alto, color: fondo});
+      partir(etq, 7.6, etqW - 8).forEach((l, k) => esc(l, x + 5, y - 11.5 - k * 9.5, {size:7.6, bold:true, color:gris}));
+      partes[i].forEach((l, k) => esc(l, x + etqW + 6, y - 12 - k * 12.5, {size:9.5}));
+    });
+    p.drawLine({start:{x:M, y:y-alto}, end:{x:M+FW, y:y-alto}, thickness:0.5, color:linea});
+    y -= alto;
+  };
+  const juntar = (...xs) => xs.flat().filter(x => x && String(x).trim()).join(' · ');
+  seccion('DATOS DEL CLIENTE');
+  p.drawLine({start:{x:M, y}, end:{x:M+FW, y}, thickness:0.5, color:linea});
+  fila([['CLIENTE', v.cliente]]);
+  fila([['DOMICILIO', v.domicilio]]);
+  fila([['POBLACIÓN', juntar(v.poblacion, v.provincia ? `(${v.provincia})` : '')], ['CÓDIGO POSTAL', v.cp]]);
+  fila([['CIF - NIF', v.cif], ['CUENTA BANCARIA', v.cuenta]]);
+  fila([['TELÉFONO', v.telefono], ['MÓVIL', v.movil]]);
+  fila([['FAX', v.fax], ['E-MAIL', v.email]]);
+  fila([['ATENDIDO POR', v.atendido]]);
+  y -= 10;
+  seccion('INFORMACIÓN DE TRANSPORTE');
+  p.drawLine({start:{x:M, y}, end:{x:M+FW, y}, thickness:0.5, color:linea});
+  fila([['TRÁFICOS DE SALIDAS O LLEGADAS', juntar(v.traficos, v.traficosTxt)]]);
+  fila([['ZONAS DE ENVÍOS', juntar((v.zonas||[]).join(', '), v.zonasTxt)]]);
+  fila([['TIPO DE PORTES', juntar(v.portes, v.portesTxt)]]);
+  fila([['ENVÍOS DE PALETS MES', juntar(v.palets ? `${v.palets} palets al mes` : '', v.paleteriaTxt)]]);
+  fila([['ENVÍOS DE PAQUETERÍA', v.paqueteria ? `${v.paqueteria} envíos ${v.paqueteriaPeriodo||''}` : '']]);
+  fila([['PLAZO DE ENTREGAS', juntar(v.plazo, v.plazoTxt)]]);
+  fila([['MEDIDAS Y PESOS', v.medidas]]);
+  fila([['TIPO DE PRODUCTO Y VALOR DE LA MERCANCÍA', juntar(v.producto, v.valor ? `Valor: ${v.valor}` : '')]]);
+  const diasTxt = (v.dias||[]).length ? CO_OPC.dias.filter(d => v.dias.includes(d)).map(d => ({L:'Lunes',M:'Martes',X:'Miércoles',J:'Jueves',V:'Viernes',S:'Sábado'})[d]).join(', ') : '';
+  fila([['DÍAS Y HORARIOS DE RECOGIDAS', juntar(diasTxt, v.horario)]]);
+  fila([['PROVEEDORES ACTUALES DE TRANSPORTE', v.proveedores]]);
+  fila([['FORMA DE PAGO Y PLAZO', juntar(v.pago, v.plazoPago, v.pagoTxt)]]);
+  fila([['OBSERVACIONES', v.observaciones]]);
+  // pie
+  pdf.getPages().forEach((pg, i, todas) => pg.drawText(cpPdfTexto(`Parte de visita · ${v.cliente} · ${coFechaCorta(v.fecha)} · hoja ${i+1} de ${todas.length}`), {x:M, y:M-14, size:7, font:fR, color:gris}));
+  return await pdf.save();
+}
+window.coVerPdf = async (id) => {
+  const v = coVisitas.find(x => x.id === id) || (coEstado?.id === id ? coEstado : null); if (!v) return;
+  try { const bytes = await coConstruirPdf(v); cpVerPdf(bytes, `Parte de visita · ${v.cliente}`); coUltimoPdf = {bytes, nombre:`Parte_visita_${coNorm(v.cliente).replace(/ /g,'_')}_${v.fecha}.pdf`}; coAnadirDescarga(); }
+  catch(e) { alert('No se ha podido crear el PDF: ' + e.message); }
+};
+// botón de descargar dentro del visor
+let coUltimoPdf = null;
+function coAnadirDescarga() {
+  setTimeout(() => {
+    const pie = document.querySelector('.alm-sheet .alm-sheet-pie') || document.querySelector('.alm-sheet');
+    if (!pie || !coUltimoPdf || pie.querySelector('.co-descargar')) return;
+    const a = document.createElement('a');
+    a.className = 'btn btn-primary co-descargar'; a.textContent = '⬇ Descargar PDF'; a.style.textDecoration = 'none'; a.style.textAlign = 'center';
+    a.href = URL.createObjectURL(new Blob([coUltimoPdf.bytes], {type:'application/pdf'})); a.download = coUltimoPdf.nombre;
+    const cerrar = pie.querySelector('.btn-ghost');
+    if (cerrar && cerrar.parentNode) cerrar.parentNode.insertBefore(a, cerrar); else pie.appendChild(a);
+  }, 50);
+}
+
+Object.assign(window, { coTab, coEntrar, coNueva, coRenderForm, coRenderLista });
+Object.defineProperty(window, 'coEstado', { get: () => coEstado, set: v => { coEstado = v; } });
+
 // PEDIDO DE ROPA POR TEMPORADA
 // ════════════════════════════════════════════════════════════════════════════
 // Calcula cuánta ropa hay que pedir cada temporada según las tallas guardadas
@@ -6727,9 +7207,10 @@ async function initApp() {
       MODULO_CODIGOS.almacen = data.almacen || MODULO_CODIGOS.almacen;
       MODULO_CODIGOS.formacion = data.formacion || MODULO_CODIGOS.formacion;
       MODULO_CODIGOS.cartas = data.cartas || MODULO_CODIGOS.cartas;
+      MODULO_CODIGOS.comercial = data.comercial || MODULO_CODIGOS.comercial;
       MODULO_PEDIR = data.pedir || {};
       // Si faltaba algún código nuevo, se guarda
-      if (!data.almacen || !data.formacion || !data.cartas) await setDoc(doc(db,'configuracion','moduloCodigos'), MODULO_CODIGOS);
+      if (!data.almacen || !data.formacion || !data.cartas || !data.comercial) await setDoc(doc(db,'configuracion','moduloCodigos'), MODULO_CODIGOS);
     } else {
       await setDoc(doc(db, 'configuracion', 'moduloCodigos'), MODULO_CODIGOS);
     }
@@ -6847,6 +7328,7 @@ async function initApp() {
   document.getElementById('home-btn-gestion').addEventListener('click', ()=>switchModule('gestion'));
   document.getElementById('home-btn-formacion').addEventListener('click', ()=>switchModule('formacion'));
   document.getElementById('home-btn-cartas').addEventListener('click', ()=>switchModule('cartas'));
+  document.getElementById('home-btn-comercial').addEventListener('click', ()=>switchModule('comercial'));
   document.getElementById('btn-cambiar-modulo').addEventListener('click', volverASeleccionModulo);
   document.getElementById('rtab-btn-entregar').addEventListener('click', ()=>switchRopaTab('entregar'));
   document.getElementById('rtab-btn-historial').addEventListener('click', ()=>switchRopaTab('historial'));
@@ -9285,8 +9767,9 @@ function switchModule(mod) {
   document.getElementById('module-gestion').style.display = mod==='gestion' ? 'block' : 'none';
   document.getElementById('module-formacion').style.display = mod==='formacion' ? 'block' : 'none';
   document.getElementById('module-cartas').style.display = mod==='cartas' ? 'block' : 'none';
+  document.getElementById('module-comercial').style.display = mod==='comercial' ? 'block' : 'none';
   document.getElementById('btn-cambiar-modulo').style.display = 'inline-block';
-  const titulos = {gasoil:'⛽ Gasoil', fleet:'🚛 Flota', ropa:'👔 Ropa', adrcap:'🪪 ADR/CAP', seguros:'🛡️ Seguros', almacen:'📦 Almacén', gestion:'⚙️ Configuración', formacion:'🎓 Formación', cartas:'📄 Cartas de porte'};
+  const titulos = {gasoil:'⛽ Gasoil', fleet:'🚛 Flota', ropa:'👔 Ropa', adrcap:'🪪 ADR/CAP', seguros:'🛡️ Seguros', almacen:'📦 Almacén', gestion:'⚙️ Configuración', formacion:'🎓 Formación', cartas:'📄 Cartas de porte', comercial:'💼 Comercial'};
   document.getElementById('admin-topbar-title').textContent = titulos[mod]||'';
   if (mod==='gasoil') { renderAdminStats(); renderAdminRecords(); renderDeposito(); }
   if (mod==='fleet') { populateHistMatriculas(); renderHistorial(); renderMantenimiento(); updateFleetBadge(); populateHistMantMatriculas(); renderHistorialMant(); flRenderResumen(); }
@@ -9326,6 +9809,7 @@ function switchModule(mod) {
   if (mod==='gestion') { switchGestionTab('conductores'); modAbrirListas(); }
   if (mod==='formacion') { populateCreditosSelects(); renderCreditosResumen(); renderCursosFormacionList(); }
   if (mod==='cartas') { cpEntrar(); }
+  if (mod==='comercial') { coEntrar(); }
 }
 
 function volverASeleccionModulo() {
@@ -9352,10 +9836,10 @@ function volverASeleccionModulo() {
 let MODULO_PEDIR = {};
 const MODULOS_CON_CODIGO = [
   ['gasoil','⛽ Gasoil'], ['fleet','🚛 Flota'], ['ropa','👔 Ropa'], ['adrcap','🪪 ADR/CAP'],
-  ['seguros','🛡️ Seguros'], ['formacion','🎓 Formación'], ['cartas','📄 Cartas de porte'],
+  ['seguros','🛡️ Seguros'], ['formacion','🎓 Formación'], ['cartas','📄 Cartas de porte'], ['comercial','💼 Comercial'],
 ];
 function pedirCodigoModulo(mod) {
-  const nombres = {gasoil:'⛽ Gasoil', fleet:'🚛 Flota', ropa:'👔 Ropa', adrcap:'🪪 ADR/CAP', seguros:'🛡️ Seguros', formacion:'🎓 Formación', cartas:'📄 Cartas de porte'};
+  const nombres = {gasoil:'⛽ Gasoil', fleet:'🚛 Flota', ropa:'👔 Ropa', adrcap:'🪪 ADR/CAP', seguros:'🛡️ Seguros', formacion:'🎓 Formación', cartas:'📄 Cartas de porte', comercial:'💼 Comercial'};
   const modal = document.createElement('div');
   modal.id = 'codigo-modulo-modal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:999;display:flex;align-items:center;justify-content:center;padding:1rem;';
