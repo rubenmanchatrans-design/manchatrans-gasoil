@@ -733,6 +733,45 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .inv-filtro button { background: var(--input-bg); border: 1px solid var(--card-border); color: var(--text); border-radius: 18px; padding: 0.4rem 0.8rem; font-size: 13px; font-weight: 600; cursor: pointer; }
 .inv-filtro button b { color: var(--accent); margin-left: 3px; }
 .inv-filtro button.on { border-color: var(--accent); background: rgba(245,166,35,0.15); color: var(--accent); }
+
+.inv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 0.85rem; align-items: start; }
+@media (max-width: 520px) { .inv-grid { grid-template-columns: 1fr; } }
+.inv-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 14px; overflow: hidden; }
+.inv-card-cab { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.85rem 1rem; border-bottom: 1px solid var(--card-border); background: rgba(255,255,255,0.02); }
+.inv-card-tit { display: flex; align-items: center; gap: 0.7rem; min-width: 0; }
+.inv-card-ico { width: 38px; height: 38px; border-radius: 10px; background: var(--navy-light); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+.inv-card-nom { font-weight: 800; font-size: 15px; }
+.inv-card-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+.inv-txt-bajo { color: var(--warning); font-weight: 700; }
+.inv-txt-agot { color: var(--danger); font-weight: 700; }
+.inv-card-total { text-align: right; line-height: 1.05; flex-shrink: 0; }
+.inv-card-total b { display: block; font-size: 22px; color: var(--accent); }
+.inv-card-total span { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.inv-tabla { width: 100%; border-collapse: collapse; font-size: 14px; }
+.inv-tabla th { text-align: left; font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; padding: 0.45rem 0.6rem; }
+.inv-tabla td { padding: 0.4rem 0.6rem; border-top: 1px solid rgba(255,255,255,0.05); vertical-align: middle; }
+.inv-tabla .num { text-align: right; }
+.inv-tabla .acc { text-align: right; width: 1%; white-space: nowrap; }
+.inv-tabla tbody tr:hover { background: rgba(255,255,255,0.025); }
+.inv-talla { font-weight: 800; font-size: 15px; width: 60px; }
+.inv-nivel { width: 35%; }
+.inv-barra { height: 7px; border-radius: 4px; background: rgba(255,255,255,0.07); overflow: hidden; }
+.inv-barra > div { height: 100%; border-radius: 4px; background: var(--success); }
+.inv-bajo .inv-barra > div { background: var(--warning); }
+.inv-cant { font-weight: 800; font-size: 16px; font-variant-numeric: tabular-nums; }
+.inv-ok .inv-cant { color: var(--text); }
+.inv-bajo .inv-cant { color: var(--warning); }
+.inv-agot .inv-cant { color: var(--danger); }
+.inv-estado { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+.inv-ok .inv-estado { color: var(--success); background: rgba(46,204,113,0.12); }
+.inv-bajo .inv-estado { color: var(--warning); background: rgba(243,156,18,0.14); }
+.inv-agot .inv-estado { color: var(--danger); background: rgba(231,76,60,0.14); }
+.inv-acc { display: inline-flex; gap: 4px; }
+.inv-acc button { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--card-border); background: var(--navy-light); color: var(--text); font-size: 15px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+.inv-acc button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.inv-acc button:disabled { opacity: 0.35; cursor: default; }
+.inv-acc .inv-del:hover { border-color: var(--danger) !important; }
+@media (max-width: 520px) { .inv-nivel { display: none; } .inv-tabla th:nth-child(2) { display: none; } .inv-acc button { width: 28px; height: 28px; } }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2356,7 +2395,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v96 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v97 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -12914,32 +12953,47 @@ function renderInventarioRopa() {
     return;
   }
 
-  list.innerHTML = ROPA_ARTICULOS.filter(a => porArticulo[a.id]).map(art => {
+  // Una tarjeta por prenda, con una fila por talla (tabla de inventario)
+  list.innerHTML = '<div class="inv-grid">' + ROPA_ARTICULOS.filter(a => porArticulo[a.id]).map(art => {
     const items = porArticulo[art.id].sort((a,b)=>compararTallas(a.talla,b.talla));
-    return `<div style="background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:0.85rem 1rem;margin-bottom:0.5rem;">
-      <div style="font-weight:700;font-size:15px;margin-bottom:0.6rem;display:flex;justify-content:space-between;gap:0.5rem;"><span>${ROPA_ARTICULOS_ICONOS[art.id]||'👔'} ${art.label}</span><span style="color:var(--text-muted);font-weight:600;font-size:13px;">${items.reduce((s,x)=>s+(x.cantidad||0),0)} uds.</span></div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:0.7rem;">
-        ${items.map(item => {
-          const agotado = item.cantidad <= 0;
-          const bajo = !agotado && item.cantidad <= ROPA_STOCK_BAJO_UMBRAL;
-          const color = agotado?'var(--danger)':bajo?'var(--warning)':'var(--success)';
-          return `<div style="position:relative;background:var(--navy-light);border:2px solid ${color};border-radius:var(--radius-sm);padding:1.7rem 0.6rem 0.7rem;text-align:center;">
-            <button class="btn-sm btn-sm-danger" onclick="eliminarStockRopa('${item.id}')" title="Eliminar" style="position:absolute;top:4px;right:4px;width:24px;height:24px;padding:0;font-size:12px;line-height:1;border-radius:50%;display:flex;align-items:center;justify-content:center;">✕</button>
-            <div style="font-size:14px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Talla ${item.talla}</div>
-            <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
-              <button onclick="ajustarStockRopa('${item.id}',-1)" title="Quitar 1" style="width:26px;height:26px;border-radius:50%;border:1px solid ${color};background:none;color:${color};font-size:16px;font-weight:700;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">−</button>
-              <div style="font-size:26px;font-weight:800;color:${color};line-height:1;min-width:32px;">${item.cantidad}</div>
-              <button onclick="ajustarStockRopa('${item.id}',1)" title="Añadir 1" style="width:26px;height:26px;border-radius:50%;border:1px solid ${color};background:none;color:${color};font-size:16px;font-weight:700;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">+</button>
-            </div>
-            ${(agotado||bajo)
-              ? `<div style="font-size:11px;font-weight:700;color:${color};margin-top:4px;margin-bottom:8px;">⚠️ ${agotado?'AGOTADO':'STOCK BAJO'}</div>`
-              : `<div style="font-size:12px;color:var(--text-muted);margin-top:4px;margin-bottom:8px;">unidades</div>`}
-            <button class="btn-sm" onclick="editarStockRopa('${item.id}')" style="width:100%;padding:7px 0;font-size:13px;">✏️ Editar</button>
-          </div>`;
-        }).join('')}
+    const total = items.reduce((s,x)=>s+(x.cantidad||0),0);
+    const maxCant = Math.max(...items.map(x => x.cantidad||0), ROPA_STOCK_BAJO_UMBRAL * 3, 1);
+    const nAgot = items.filter(x => (x.cantidad||0) <= 0).length;
+    const nBajo = items.filter(x => x.cantidad > 0 && x.cantidad <= ROPA_STOCK_BAJO_UMBRAL).length;
+    return `<div class="inv-card">
+      <div class="inv-card-cab">
+        <div class="inv-card-tit"><span class="inv-card-ico">${ROPA_ARTICULOS_ICONOS[art.id]||'👔'}</span>
+          <div><div class="inv-card-nom">${art.label.split(' (')[0]}</div>
+          <div class="inv-card-sub">${items.length} talla${items.length===1?'':'s'}${nBajo ? ` · <span class="inv-txt-bajo">${nBajo} con stock bajo</span>` : ''}${nAgot ? ` · <span class="inv-txt-agot">${nAgot} agotada${nAgot===1?'':'s'}</span>` : ''}</div></div>
+        </div>
+        <div class="inv-card-total"><b>${total}</b><span>unidades</span></div>
       </div>
+      <table class="inv-tabla">
+        <thead><tr><th>Talla</th><th>Nivel</th><th class="num">Uds.</th><th>Estado</th><th class="acc"></th></tr></thead>
+        <tbody>
+        ${items.map(item => {
+          const c = item.cantidad||0;
+          const est = c <= 0 ? 'agot' : c <= ROPA_STOCK_BAJO_UMBRAL ? 'bajo' : 'ok';
+          const pct = Math.max(c > 0 ? 6 : 0, Math.round(c / maxCant * 100));
+          return `<tr class="inv-${est}">
+            <td class="inv-talla">${item.talla}</td>
+            <td class="inv-nivel"><div class="inv-barra"><div style="width:${Math.min(100,pct)}%"></div></div></td>
+            <td class="num inv-cant">${c}</td>
+            <td><span class="inv-estado">${est==='ok' ? 'Correcto' : est==='bajo' ? 'Stock bajo' : 'Agotado'}</span></td>
+            <td class="acc">
+              <div class="inv-acc">
+                <button onclick="ajustarStockRopa('${item.id}',-1)" title="Quitar 1" aria-label="Quitar 1" ${c<=0?'disabled':''}>−</button>
+                <button onclick="ajustarStockRopa('${item.id}',1)" title="Añadir 1" aria-label="Añadir 1">+</button>
+                <button onclick="editarStockRopa('${item.id}')" title="Editar cantidad" aria-label="Editar">✏️</button>
+                <button class="inv-del" onclick="eliminarStockRopa('${item.id}')" title="Eliminar esta talla" aria-label="Eliminar">🗑</button>
+              </div>
+            </td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table>
     </div>`;
-  }).join('');
+  }).join('') + '</div>';
 }
 
 // Ajusta la cantidad en +1 / -1 directamente desde la tarjeta, sin abrir el modal de editar.
