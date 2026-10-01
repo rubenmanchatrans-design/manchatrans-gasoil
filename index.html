@@ -2429,7 +2429,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v100 · 01/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v101 · 01/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -6570,7 +6570,7 @@ const CO_OPC = {
   plazoPago: ['Contado', '30 días', '45 días', '60 días', '90 días'],
 };
 // campos de la ficha del cliente (se guardan y se rellenan solos en la siguiente visita)
-const CO_CLIENTE = ['cliente','domicilio','poblacion','cp','provincia','cif','cuenta','telefono','movil','fax','email','atendido'];
+const CO_CLIENTE = ['cliente','domicilio','poblacion','cp','provincia','cif','cuenta','telefono','movil','email','atendido'];
 
 let coVisitas = [], coClientes = [], coUnsub = null, coEstado = null, coBusca = '';
 
@@ -6586,7 +6586,7 @@ function coNueva() {
     fecha: coHoy(), lugar: 'Ciudad Real', comercial: (typeof currentUser !== 'undefined' && currentUser?.name) || '',
     cliente:'', domicilio:'', poblacion:'', cp:'', provincia:'', cif:'', cuenta:'', telefono:'', movil:'', fax:'', email:'', atendido:'',
     traficos:'', traficosTxt:'', zonas:[], zonasTxt:'', portes:'', portesTxt:'', palets:'', paleteriaTxt:'',
-    paqueteria:'', paqueteriaPeriodo:'al mes', plazo:'', plazoTxt:'', medidas:'', producto:'', valor:'',
+    paqueteria:'', paqueteriaPeriodo:'al mes', plazo:[], plazoTxt:'', medidas:'', producto:'', valor:'',
     dias:[], horario:'', proveedores:'', pago:'', plazoPago:'', pagoTxt:'', observaciones:'',
   };
 }
@@ -6642,10 +6642,11 @@ const coCampo = (k, etiqueta, o = {}) => `<div class="cp-campo ${o.ancho||''}">$
 const coUno = (k, opciones) => `<div class="co-chips">${opciones.map(op =>
   `<button type="button" class="${coEstado[k]===op?'on':''}" onclick="coElegir('${k}', '${op.replace(/'/g,"\\'")}', false)">${coEsc(op)}</button>`).join('')}</div>`;
 // botones de varias opciones
+const coLista = x => Array.isArray(x) ? x : (x ? [x] : []);     // los partes antiguos guardaban un solo valor
 const coVarios = (k, opciones) => `<div class="co-chips">${opciones.map(op =>
-  `<button type="button" class="${(coEstado[k]||[]).includes(op)?'on':''}" onclick="coElegir('${k}', '${op.replace(/'/g,"\\'")}', true)">${coEsc(op)}</button>`).join('')}</div>`;
+  `<button type="button" class="${coLista(coEstado[k]).includes(op)?'on':''}" onclick="coElegir('${k}', '${op.replace(/'/g,"\\'")}', true)">${coEsc(op)}</button>`).join('')}</div>`;
 window.coElegir = (k, op, varios) => {
-  if (varios) { const l = coEstado[k] || []; coEstado[k] = l.includes(op) ? l.filter(x => x !== op) : [...l, op]; }
+  if (varios) { const l = Array.isArray(coEstado[k]) ? coEstado[k] : (coEstado[k] ? [coEstado[k]] : []); coEstado[k] = l.includes(op) ? l.filter(x => x !== op) : [...l, op]; }
   else coEstado[k] = coEstado[k] === op ? '' : op;
   coBorrador(); coRenderForm();
 };
@@ -6690,9 +6691,8 @@ function coRenderForm() {
           <div id="co-iban" class="co-iban">${iban.html}</div></div>
       </div>
       <div class="cp-fila">
-        ${coCampo('telefono','Teléfono',{tipo:'tel', ancho:'cp-c3'})}
-        ${coCampo('movil','Móvil',{tipo:'tel', ancho:'cp-c3'})}
-        ${coCampo('fax','Fax',{tipo:'tel', ancho:'cp-c3'})}
+        ${coCampo('telefono','Teléfono',{tipo:'tel', ancho:'cp-c2'})}
+        ${coCampo('movil','Móvil',{tipo:'tel', ancho:'cp-c2'})}
       </div>
       <div class="cp-fila">
         ${coCampo('email','E-mail',{tipo:'email', ancho:'cp-c2'})}
@@ -6718,7 +6718,7 @@ function coRenderForm() {
             <div class="cp-campo"><select onchange="coSet('paqueteriaPeriodo', this.value)">${['al día','a la semana','al mes'].map(p=>`<option ${e.paqueteriaPeriodo===p?'selected':''}>${p}</option>`).join('')}</select></div>
           </div></div>
       </div>
-      <div class="co-bloque"><div class="co-lab">Plazo de entregas</div>${coUno('plazo', CO_OPC.plazos)}
+      <div class="co-bloque"><div class="co-lab">Plazo de entregas (puedes marcar varios)</div>${coVarios('plazo', CO_OPC.plazos)}
         ${coCampo('plazoTxt','',{ph:'Detalle'})}</div>
       ${coCampo('medidas','Medidas y pesos',{area:true, ph:'Medidas y pesos habituales de los envíos'})}
       <div class="cp-fila">
@@ -6940,50 +6940,82 @@ async function coConstruirPdf(v) {
   const fechaTxt = `${v.lugar || 'Ciudad Real'}, ${coFechaLarga(v.fecha)}`;
   esc(fechaTxt, M+FW-12-ancho(fechaTxt, 10, true), H-M-22, {size:10, bold:true, color:rgb(1,1,1)});
   if (v.comercial) { const t = `Comercial: ${v.comercial}`; esc(t, M+FW-12-ancho(t, 8.5), H-M-37, {size:8.5, color:rgb(0.8,0.84,0.92)}); }
-  let y = H - M - 46 - 16;
-  const nuevaPagina = () => { p = pdf.addPage([W, H]); y = H - M; };
-  const seccion = (t) => { if (y < M + 60) nuevaPagina(); esc(t, M, y - 10, {size:10.5, bold:true, color:azul}); p.drawLine({start:{x:M, y:y-14}, end:{x:M+FW, y:y-14}, thickness:1.2, color:azul}); y -= 22; };
-  // fila: etiqueta a la izquierda y valor (puede ocupar varias líneas); admite dos campos en la misma fila
-  const fila = (campos) => {
-    const anchoCol = FW / campos.length, etqW = campos.length === 1 ? 175 : 95;
-    const partes = campos.map(([etq, val]) => partir(val || '', 9.5, anchoCol - etqW - 10));
-    const alto = Math.max(1, ...partes.map(l => l.length)) * 12.5 + 8;
-    if (y - alto < M + 20) nuevaPagina();
-    campos.forEach(([etq], i) => {
-      const x = M + i * anchoCol;
-      p.drawRectangle({x, y: y - alto, width: etqW, height: alto, color: fondo});
-      partir(etq, 7.6, etqW - 8).forEach((l, k) => esc(l, x + 5, y - 11.5 - k * 9.5, {size:7.6, bold:true, color:gris}));
-      partes[i].forEach((l, k) => esc(l, x + etqW + 6, y - 12 - k * 12.5, {size:9.5}));
-    });
-    p.drawLine({start:{x:M, y:y-alto}, end:{x:M+FW, y:y-alto}, thickness:0.5, color:linea});
-    y -= alto;
-  };
   const juntar = (...xs) => xs.flat().filter(x => x && String(x).trim()).join(' · ');
-  seccion('DATOS DEL CLIENTE');
-  p.drawLine({start:{x:M, y}, end:{x:M+FW, y}, thickness:0.5, color:linea});
-  fila([['CLIENTE', v.cliente]]);
-  fila([['DOMICILIO', v.domicilio]]);
-  fila([['POBLACIÓN', juntar(v.poblacion, v.provincia ? `(${v.provincia})` : '')], ['CÓDIGO POSTAL', v.cp]]);
-  fila([['CIF - NIF', v.cif], ['CUENTA BANCARIA', v.cuenta]]);
-  fila([['TELÉFONO', v.telefono], ['MÓVIL', v.movil]]);
-  fila([['FAX', v.fax], ['E-MAIL', v.email]]);
-  fila([['ATENDIDO POR', v.atendido]]);
-  y -= 10;
-  seccion('INFORMACIÓN DE TRANSPORTE');
-  p.drawLine({start:{x:M, y}, end:{x:M+FW, y}, thickness:0.5, color:linea});
-  fila([['TRÁFICOS DE SALIDAS O LLEGADAS', juntar(v.traficos, v.traficosTxt)]]);
-  fila([['ZONAS DE ENVÍOS', juntar((v.zonas||[]).join(', '), v.zonasTxt)]]);
-  fila([['TIPO DE PORTES', juntar(v.portes, v.portesTxt)]]);
-  fila([['ENVÍOS DE PALETS MES', juntar(v.palets ? `${v.palets} palets al mes` : '', v.paleteriaTxt)]]);
-  fila([['ENVÍOS DE PAQUETERÍA', v.paqueteria ? `${v.paqueteria} envíos ${v.paqueteriaPeriodo||''}` : '']]);
-  fila([['PLAZO DE ENTREGAS', juntar(v.plazo, v.plazoTxt)]]);
-  fila([['MEDIDAS Y PESOS', v.medidas]]);
-  fila([['TIPO DE PRODUCTO Y VALOR DE LA MERCANCÍA', juntar(v.producto, v.valor ? `Valor: ${v.valor}` : '')]]);
   const diasTxt = (v.dias||[]).length ? CO_OPC.dias.filter(d => v.dias.includes(d)).map(d => ({L:'Lunes',M:'Martes',X:'Miércoles',J:'Jueves',V:'Viernes',S:'Sábado'})[d]).join(', ') : '';
-  fila([['DÍAS Y HORARIOS DE RECOGIDAS', juntar(diasTxt, v.horario)]]);
-  fila([['PROVEEDORES ACTUALES DE TRANSPORTE', v.proveedores]]);
-  fila([['FORMA DE PAGO Y PLAZO', juntar(v.pago, v.plazoPago, v.pagoTxt)]]);
-  fila([['OBSERVACIONES', v.observaciones]]);
+  // Contenido: secciones y filas. "peso" = cuánto crece la fila para llenar la hoja.
+  const items = [
+    {sec:'DATOS DEL CLIENTE'},
+    {campos:[['CLIENTE', v.cliente]]},
+    {campos:[['DOMICILIO', v.domicilio]]},
+    {campos:[['POBLACIÓN', juntar(v.poblacion, v.provincia ? `(${v.provincia})` : '')], ['CÓDIGO POSTAL', v.cp]]},
+    {campos:[['CIF - NIF', v.cif], ['CUENTA BANCARIA', v.cuenta]]},
+    {campos:[['TELÉFONO', v.telefono], ['MÓVIL', v.movil]]},
+    {campos:[['E-MAIL', v.email], ['ATENDIDO POR', v.atendido]]},
+    {sec:'INFORMACIÓN DE TRANSPORTE', hueco:12},
+    {campos:[['TRÁFICOS DE SALIDAS O LLEGADAS', juntar(v.traficos, v.traficosTxt)]]},
+    {campos:[['ZONAS DE ENVÍOS', juntar(coLista(v.zonas).join(', '), v.zonasTxt)]]},
+    {campos:[['TIPO DE PORTES', juntar(v.portes, v.portesTxt)]]},
+    {campos:[['ENVÍOS DE PALETS MES', juntar(v.palets ? `${v.palets} palets al mes` : '', v.paleteriaTxt)]]},
+    {campos:[['ENVÍOS DE PAQUETERÍA', v.paqueteria ? `${v.paqueteria} envíos ${v.paqueteriaPeriodo||''}` : '']]},
+    {campos:[['PLAZO DE ENTREGAS', juntar(coLista(v.plazo).join(', '), v.plazoTxt)]]},
+    {campos:[['MEDIDAS Y PESOS', v.medidas]], peso:2},
+    {campos:[['TIPO DE PRODUCTO Y VALOR DE LA MERCANCÍA', juntar(v.producto, v.valor ? `Valor: ${v.valor}` : '')]]},
+    {campos:[['DÍAS Y HORARIOS DE RECOGIDAS', juntar(diasTxt, v.horario)]]},
+    {campos:[['PROVEEDORES ACTUALES DE TRANSPORTE', v.proveedores]], peso:2},
+    {campos:[['FORMA DE PAGO Y PLAZO', juntar(v.pago, v.plazoPago, v.pagoTxt)]]},
+    {campos:[['OBSERVACIONES', v.observaciones]], peso:7},
+  ];
+  const LIN = 12.5, SEC = 24;
+  // 1ª pasada: alto natural de cada fila
+  items.forEach(it => {
+    if (it.sec) { it.alto = SEC + (it.hueco||0); return; }
+    const anchoCol = FW / it.campos.length, etqW = it.campos.length === 1 ? 175 : 95;
+    it.etqW = etqW; it.anchoCol = anchoCol;
+    it.lineas = it.campos.map(([, val]) => partir(val || '', 9.5, anchoCol - etqW - 12));
+    it.etiquetas = it.campos.map(([etq]) => partir(etq, 7.6, etqW - 10));
+    const nLin = Math.max(1, ...it.lineas.map(l => l.length));
+    const nEtq = Math.max(1, ...it.etiquetas.map(l => l.length));
+    it.alto = Math.max(nLin * LIN + 10, nEtq * 9.5 + 9, 24);
+  });
+  // 2ª pasada: si cabe en una hoja, el hueco que sobra se reparte para llenarla
+  const yIni = H - M - 46 - 14, yFin = M + 4;
+  const natural = items.reduce((s, it) => s + it.alto, 0);
+  const disponible = yIni - yFin;
+  if (natural <= disponible) {
+    const filas = items.filter(it => !it.sec);
+    const pesos = filas.reduce((s, it) => s + (it.peso || 1), 0);
+    const sobra = disponible - natural;
+    filas.forEach(it => { it.alto += sobra * (it.peso || 1) / pesos; });
+  }
+  // dibujo
+  let y = yIni;
+  const nuevaPagina = () => { p = pdf.addPage([W, H]); y = H - M; };
+  items.forEach(it => {
+    if (it.sec) {
+      if (y - it.alto < yFin + 40) nuevaPagina();
+      y -= (it.hueco || 0);
+      esc(it.sec, M, y - 12, {size:10.5, bold:true, color:azul});
+      p.drawLine({start:{x:M, y:y-17}, end:{x:M+FW, y:y-17}, thickness:1.3, color:azul});
+      y -= SEC;
+      p.drawLine({start:{x:M, y}, end:{x:M+FW, y}, thickness:0.5, color:linea});
+      return;
+    }
+    if (y - it.alto < yFin) nuevaPagina();
+    const grande = (it.peso || 1) > 1;               // las filas grandes, texto arriba; el resto, centrado
+    it.campos.forEach((_, i) => {
+      const x = M + i * it.anchoCol;
+      p.drawRectangle({x, y: y - it.alto, width: it.etqW, height: it.alto, color: fondo});
+      if (i > 0) p.drawLine({start:{x, y}, end:{x, y:y-it.alto}, thickness:0.5, color:linea});
+      const etq = it.etiquetas[i], lin = it.lineas[i];
+      // primera línea de cada bloque: arriba en las filas grandes, centrado en el resto
+      const primera = (n, alto, size) => grande ? y - 15 : y - it.alto/2 + (n - 1) * alto / 2 - size * 0.35;
+      const yEtq = primera(etq.length, 9.5, 7.6), yTxt = primera(lin.length, LIN, 9.5);
+      etq.forEach((l, k) => esc(l, x + 6, yEtq - k * 9.5, {size:7.6, bold:true, color:gris}));
+      lin.forEach((l, k) => esc(l, x + it.etqW + 7, yTxt - k * LIN, {size:9.5}));
+    });
+    p.drawLine({start:{x:M, y:y-it.alto}, end:{x:M+FW, y:y-it.alto}, thickness:0.5, color:linea});
+    y -= it.alto;
+  });
   // pie
   pdf.getPages().forEach((pg, i, todas) => pg.drawText(cpPdfTexto(`Parte de visita · ${v.cliente} · ${coFechaCorta(v.fecha)} · hoja ${i+1} de ${todas.length}`), {x:M, y:M-14, size:7, font:fR, color:gris}));
   return await pdf.save();
