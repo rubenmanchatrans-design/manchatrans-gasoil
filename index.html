@@ -2356,7 +2356,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v94 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v95 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -13370,7 +13370,19 @@ window.vincularTallasManualmente = async () => {
 function resolverEmpleadoRopa(e) {
   if (e.conductorCode) {
     const d = driversCache.find(x => x.code === e.conductorCode);
-    if (d) return { ...e, nombre: d.name, empresa: d.empresa||'', categoria: d.categoria||'', activo: d.activo!==false, vinculado: true };
+    if (d) {
+      const r = { ...e, nombre: d.name, empresa: d.empresa||'', categoria: d.categoria||'', activo: d.activo!==false, vinculado: true };
+      // Si la plantilla guardada lleva impreso OTRO nombre (p. ej. el código pasó de un empleado
+      // a otro) o otra empresa, se usa la plantilla genérica y se escriben los datos actuales.
+      const norm = t => String(t||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9]/g,'');
+      const otroNombre = e.nombre && norm(e.nombre) !== norm(d.name);
+      const otraEmpresa = e.empresa && d.empresa && norm(e.empresa) !== norm(d.empresa);
+      if (!e.usaPlantillaGenerica && (otroNombre || otraEmpresa || !e.pdfBase64)) {
+        r.pdfBase64 = ROPA_PLANTILLA_GENERICA;
+        r.usaPlantillaGenerica = true;
+      }
+      return r;
+    }
   }
   return { ...e, vinculado: false };
 }
