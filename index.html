@@ -728,6 +728,11 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .cp-desglose tr.cp-total td { border-top: 1px solid var(--card-border); font-weight: 800; }
 .emp-buscar { margin-bottom: 0.9rem; }
 .emp-buscar input { font-size: 16px; padding: 0.75rem 0.9rem; }
+
+.inv-filtro { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.85rem; }
+.inv-filtro button { background: var(--input-bg); border: 1px solid var(--card-border); color: var(--text); border-radius: 18px; padding: 0.4rem 0.8rem; font-size: 13px; font-weight: 600; cursor: pointer; }
+.inv-filtro button b { color: var(--accent); margin-left: 3px; }
+.inv-filtro button.on { border-color: var(--accent); background: rgba(245,166,35,0.15); color: var(--accent); }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -1742,8 +1747,9 @@ html.giro-fijo #screen-chat { height: 100% !important; }
               <div id="inv-alertas-bajo"></div>
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem;flex-wrap:wrap;gap:0.5rem;">
                 <div class="section-title" style="margin-bottom:0;">Stock actual</div>
-                <button class="btn-sm" id="btn-toggle-inv-todos" onclick="toggleMostrarTodoInventario()">Ver todos</button>
+                <div id="inv-total" style="font-size:13px;color:var(--text-muted);"></div>
               </div>
+              <div id="inv-filtro" class="inv-filtro"></div>
               <div id="inv-list"></div>
             </div>
             <div id="ri-añadir" class="mod-pane">
@@ -2350,7 +2356,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v93 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v94 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -12740,7 +12746,8 @@ function inventarioKey(articuloId, talla) {
 }
 
 let inventarioArticuloSeleccionado = null;
-let mostrarTodoInventario = false;
+let mostrarTodoInventario = true;
+let invFiltroStock = '';          // '' = todas las prendas; si no, el id de la prenda
 
 // Tallas fijas en desplegable para pantalones (largos/cortos) y para polos/sudadera/chaqueta.
 // Guantes, chaleco y botas se quedan con el campo de texto libre (no tienen talla estándar).
@@ -12801,12 +12808,12 @@ function populateInventarioSelect() {
 
 window.seleccionarArticuloInventario = (id) => {
   inventarioArticuloSeleccionado = id;
-  mostrarTodoInventario = false;
   marcarArticuloSeleccionadoInventario();
   renderTallaInputInventario();
   renderInventarioRopa();
 };
 
+window.filtrarStockRopa = (id) => { invFiltroStock = id; renderInventarioRopa(); };
 window.toggleMostrarTodoInventario = () => {
   mostrarTodoInventario = !mostrarTodoInventario;
   renderInventarioRopa();
@@ -12857,14 +12864,18 @@ function renderInventarioRopa() {
   const alertasEl = document.getElementById('inv-alertas-bajo');
   if (!list) return;
 
-  const btnToggle = document.getElementById('btn-toggle-inv-todos');
-  if (btnToggle) btnToggle.textContent = mostrarTodoInventario ? 'Ver solo seleccionado' : 'Ver todos';
-
-  // Por defecto solo se muestra el stock del artículo seleccionado en el grid de arriba.
-  // El botón "Ver todos" permite ver el inventario completo.
-  const cacheFiltrada = mostrarTodoInventario
-    ? ropaInventarioCache
-    : ropaInventarioCache.filter(x => x.articuloId === inventarioArticuloSeleccionado);
+  // Por defecto se ve TODO el stock, agrupado por prenda; los botones de arriba filtran por prenda
+  const totalDe = id => ropaInventarioCache.filter(x => x.articuloId === id).reduce((s,x) => s + (x.cantidad||0), 0);
+  const filtroEl = document.getElementById('inv-filtro');
+  if (filtroEl) {
+    const conStock = ROPA_ARTICULOS.filter(a => ropaInventarioCache.some(x => x.articuloId === a.id));
+    if (invFiltroStock && !conStock.some(a => a.id === invFiltroStock)) invFiltroStock = '';
+    filtroEl.innerHTML = conStock.length ? `<button type="button" class="${!invFiltroStock?'on':''}" onclick="filtrarStockRopa('')">Todas</button>` +
+      conStock.map(a => `<button type="button" class="${invFiltroStock===a.id?'on':''}" onclick="filtrarStockRopa('${a.id}')">${ROPA_ARTICULOS_ICONOS[a.id]||'👔'} ${a.label.split(' (')[0]} <b>${totalDe(a.id)}</b></button>`).join('') : '';
+  }
+  const totalEl = document.getElementById('inv-total');
+  if (totalEl) { const t = ropaInventarioCache.reduce((s,x) => s + (x.cantidad||0), 0); totalEl.textContent = ropaInventarioCache.length ? `${t} prendas en total` : ''; }
+  const cacheFiltrada = invFiltroStock ? ropaInventarioCache.filter(x => x.articuloId === invFiltroStock) : ropaInventarioCache;
 
   // El aviso de stock bajo/agotado ya no se repite en una lista aparte: se muestra
   // directamente dentro de la tarjeta de cada talla afectada (ver más abajo).
@@ -12888,13 +12899,13 @@ function renderInventarioRopa() {
   list.innerHTML = ROPA_ARTICULOS.filter(a => porArticulo[a.id]).map(art => {
     const items = porArticulo[art.id].sort((a,b)=>compararTallas(a.talla,b.talla));
     return `<div style="background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:0.85rem 1rem;margin-bottom:0.5rem;">
-      ${mostrarTodoInventario ? `<div style="font-weight:700;font-size:15px;margin-bottom:0.6rem;">${art.label}</div>` : ''}
+      <div style="font-weight:700;font-size:15px;margin-bottom:0.6rem;display:flex;justify-content:space-between;gap:0.5rem;"><span>${ROPA_ARTICULOS_ICONOS[art.id]||'👔'} ${art.label}</span><span style="color:var(--text-muted);font-weight:600;font-size:13px;">${items.reduce((s,x)=>s+(x.cantidad||0),0)} uds.</span></div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:0.7rem;">
         ${items.map(item => {
           const agotado = item.cantidad <= 0;
           const bajo = !agotado && item.cantidad <= ROPA_STOCK_BAJO_UMBRAL;
           const color = agotado?'var(--danger)':bajo?'var(--warning)':'var(--success)';
-          return `<div style="position:relative;background:var(--navy-light);border:2px solid ${color};border-radius:var(--radius-sm);padding:0.9rem 0.6rem 0.7rem;text-align:center;">
+          return `<div style="position:relative;background:var(--navy-light);border:2px solid ${color};border-radius:var(--radius-sm);padding:1.7rem 0.6rem 0.7rem;text-align:center;">
             <button class="btn-sm btn-sm-danger" onclick="eliminarStockRopa('${item.id}')" title="Eliminar" style="position:absolute;top:4px;right:4px;width:24px;height:24px;padding:0;font-size:12px;line-height:1;border-radius:50%;display:flex;align-items:center;justify-content:center;">✕</button>
             <div style="font-size:14px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Talla ${item.talla}</div>
             <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
