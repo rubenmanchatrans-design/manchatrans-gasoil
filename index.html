@@ -726,6 +726,8 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .cp-desglose td:last-child, .cp-desglose th:last-child { text-align: right; font-weight: 800; }
 .cp-desglose tr.cp-vacio td { opacity: 0.45; }
 .cp-desglose tr.cp-total td { border-top: 1px solid var(--card-border); font-weight: 800; }
+.emp-buscar { margin-bottom: 0.9rem; }
+.emp-buscar input { font-size: 16px; padding: 0.75rem 0.9rem; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -1102,6 +1104,11 @@ html.giro-fijo #screen-chat { height: 100% !important; }
           <button class="btn btn-ghost" id="btn-borrar-driver" type="button">🗑 Borrar</button>
         </div>
       </div>
+      </div>
+      <div class="emp-buscar">
+        <input class="form-input" type="search" id="empleado-buscar" placeholder="🔎 Buscar empleado por nombre, DNI, teléfono o código" autocomplete="off"
+          oninput="buscarEmpleado(this.value)">
+        <div id="empleado-buscar-info" style="font-size:12px;color:var(--text-muted);margin-top:0.35rem;"></div>
       </div>
       <button class="btn btn-secondary" id="btn-toggle-drivers" style="margin-bottom:1rem;">📋 Ver empleados activos (<span id="driver-count">0</span>)</button>
       <div id="driver-list-wrapper" style="display:none;">
@@ -2343,7 +2350,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v92 · 30/09';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v93 · 30/09';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -8422,17 +8429,42 @@ window.verDetalleMatricula = (mat) => {
   document.body.appendChild(modal);
 };
 
+// Buscador de empleados (nombre, DNI, teléfonos, código, email, empresa), sin tildes ni mayúsculas
+let empleadoBusqueda = '';
+const normEmp = t => String(t||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+function empleadoCoincide(d) {
+  const q = normEmp(empleadoBusqueda);
+  if (!q) return true;
+  const texto = normEmp([d.name, d.dni, d.code, d.telParticular, d.telEmpresa, d.extension, d.email, d.empresa].join(' '));
+  const sinEspacios = texto.replace(/\s/g,'');
+  return q.split(' ').every(p => texto.includes(p) || sinEspacios.includes(p));
+}
+window.buscarEmpleado = (v) => {
+  empleadoBusqueda = v;
+  if (v.trim()) {
+    const w = document.getElementById('driver-list-wrapper'); if (w) w.style.display = 'block';
+    const hayBaja = driversCache.some(d => d.activo === false && empleadoCoincide(d));
+    const wb = document.getElementById('driver-baja-wrapper'); if (wb && hayBaja) wb.style.display = 'block';
+  }
+  renderDriverList();
+};
+
 function renderDriverList() {
   const list=document.getElementById('driver-list');
   const bajaList=document.getElementById('driver-baja-list');
   const todosActivos = driversCache.filter(d=>d.activo!==false).sort((a,b)=>a.name.localeCompare(b.name));
-  const activos = todosActivos.filter(d => (!empleadoFiltroCategoria || d.categoria===empleadoFiltroCategoria) && (!empleadoFiltroEmpresa || d.empresa===empleadoFiltroEmpresa));
-  const bajas = driversCache.filter(d=>d.activo===false).sort((a,b)=>a.name.localeCompare(b.name));
+  const activos = todosActivos.filter(d => (!empleadoFiltroCategoria || d.categoria===empleadoFiltroCategoria) && (!empleadoFiltroEmpresa || d.empresa===empleadoFiltroEmpresa) && empleadoCoincide(d));
+  const todasBajas = driversCache.filter(d=>d.activo===false).sort((a,b)=>a.name.localeCompare(b.name));
+  const bajas = todasBajas.filter(empleadoCoincide);
+  const info = document.getElementById('empleado-buscar-info');
+  if (info) info.textContent = empleadoBusqueda.trim()
+    ? `${activos.length} activo${activos.length===1?'':'s'}${bajas.length ? ` y ${bajas.length} de baja` : ''} ${activos.length + bajas.length === 1 ? 'coincide' : 'coinciden'} con «${empleadoBusqueda.trim()}»`
+    : '';
   document.getElementById('driver-count').textContent = todosActivos.length;
-  document.getElementById('driver-baja-count').textContent = bajas.length;
+  document.getElementById('driver-baja-count').textContent = todasBajas.length;
 
   list.innerHTML = !activos.length
-    ? '<div class="empty-state" style="padding:1.5rem;"><div class="empty-icon">👤</div>Ningún empleado coincide con ese filtro</div>'
+    ? `<div class="empty-state" style="padding:1.5rem;"><div class="empty-icon">👤</div>${empleadoBusqueda.trim() ? 'Ningún empleado activo coincide con la búsqueda' : 'Ningún empleado coincide con ese filtro'}</div>`
     : activos.map(d=>{
     const catLabel = d.categoria ? (CATEGORIAS_EMPLEADO.find(c=>c.id===d.categoria)||{}).label : null;
     const datosExtra = [
@@ -8469,7 +8501,7 @@ function renderDriverList() {
   }).join('');
 
   bajaList.innerHTML = bajas.length === 0
-    ? '<div class="empty-state" style="padding:1.5rem;"><div class="empty-icon">✅</div>No hay empleados de baja</div>'
+    ? `<div class="empty-state" style="padding:1.5rem;"><div class="empty-icon">✅</div>${empleadoBusqueda.trim() && todasBajas.length ? 'Ningún empleado de baja coincide con la búsqueda' : 'No hay empleados de baja'}</div>`
     : bajas.map(d=>`
     <div class="driver-list-item" style="opacity:0.7;">
       <div><div class="driver-info">${d.name}</div><div class="driver-code">${d.sinCodigo ? 'Sin código de acceso' : 'Código: '+d.code}</div></div>
