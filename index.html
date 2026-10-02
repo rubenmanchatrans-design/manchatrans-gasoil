@@ -2570,7 +2570,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v112 · 02/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v113 · 02/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -9336,6 +9336,27 @@ async function desvincularRopaDeCodigo(code) {
   }
 }
 
+// Deja libre un código que tenía un empleado de baja, para dárselo a otro:
+// · la ficha del de baja se guarda aparte (sigue en "Empleados de baja", sin código de acceso)
+// · su ADR/CAP y su perfil de ropa se van con él (el nuevo empieza limpio)
+async function liberarCodigoDeBaja(code) {
+  const anterior = driversCache.find(d => d.code === code && d.activo === false);
+  if (anterior) {
+    const idArchivo = `BAJA_${code}_${Date.now()}`;
+    await setDoc(doc(db,'conductores',idArchivo), {...anterior, code:idArchivo, codigoAnterior:code, sinCodigo:true, activo:false});
+    const mc = mantConductoresCache.find(x => x.id === code);
+    if (mc) {
+      const {id, ...datosMc} = mc;
+      await setDoc(doc(dbFleet,'mantenimientoConductores',idArchivo), datosMc);
+      await deleteDoc(doc(dbFleet,'mantenimientoConductores',code));
+    }
+    // en la lista local, el de baja pasa a su código de archivo
+    anterior.code = idArchivo; anterior.codigoAnterior = code; anterior.sinCodigo = true;
+  }
+  await desvincularRopaDeCodigo(code);
+}
+window.liberarCodigoDeBaja = liberarCodigoDeBaja;
+
 window.eliminarDriverDefinitivo = async (code) => {
   const d = driversCache.find(x=>x.code===code);
   if (!d) return;
@@ -9455,22 +9476,7 @@ window.addDriver = async () => {
   btnAdd.disabled = true; const textoBtnOriginal = btnAdd.textContent; btnAdd.textContent = 'Guardando...';
   try {
     const nuevo = {name,code,activo:true,limpieza,dni,categoria,empresa,telParticular,telEmpresa,extension,email,permisoGasoil,sinCodigo:!tieneCodigoReal};
-    // Si el código lo tenía un empleado de baja, su ficha se guarda aparte (sigue en "empleados de
-    // baja", sin código de acceso) en vez de quedar sobrescrita por el nuevo.
-    const anterior = driversCache.find(d => d.code === code && d.activo === false);
-    if (anterior) {
-      const idArchivo = `BAJA_${code}_${Date.now()}`;
-      await setDoc(doc(db,'conductores',idArchivo), {...anterior, code:idArchivo, codigoAnterior:code, sinCodigo:true, activo:false});
-      // su ADR/CAP se va con él (si no, el nuevo heredaría sus fechas)
-      const mc = mantConductoresCache.find(x => x.id === code);
-      if (mc) {
-        const {id, ...datosMc} = mc;
-        await setDoc(doc(dbFleet,'mantenimientoConductores',idArchivo), datosMc);
-        await deleteDoc(doc(dbFleet,'mantenimientoConductores',code));
-      }
-    }
-    // y cualquier perfil de ropa que siguiera pegado a ese código se desvincula
-    await desvincularRopaDeCodigo(code);
+    await liberarCodigoDeBaja(code);
     await setDoc(doc(db,'conductores',code),nuevo);
     // No tocamos driversCache a mano: el listener onSnapshot de conductores ya lo
     // actualiza solo. Si lo hacemos aquí también, el empleado aparece duplicado.
@@ -9660,6 +9666,8 @@ window.editDriver = (code) => {
     const tieneCodigoReal = !!newCode;
     if (!newCode) newCode = 'SC' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2,5).toUpperCase();
     try {
+      // el código nuevo lo tenía un empleado de baja: se libera (sin sobrescribir su ficha)
+      if (newCode !== code && driversCache.find(x => x.code === newCode && x.activo === false)) await liberarCodigoDeBaja(newCode);
       const { doc: fbDoc, setDoc: fbSet, deleteDoc: fbDel } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
       // Partimos del objeto completo "d" (conserva activo y cualquier otro campo) y solo
       // sobreescribimos lo editado, para no perder el estado de baja al guardar cambios.
