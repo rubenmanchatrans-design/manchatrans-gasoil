@@ -889,6 +889,13 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .ren-etq { font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
 .ren-fecha { font-size: 15px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
 .ren-dias { font-size: 12px; font-weight: 600; }
+
+.emp-cero { margin-top: 0.9rem; padding: 0.8rem; border: 1px dashed var(--warning); border-radius: 10px; background: rgba(243,156,18,0.06); }
+.emp-cero-tit { font-weight: 800; font-size: 13.5px; margin-bottom: 0.35rem; }
+.emp-cero-txt { font-size: 12.5px; line-height: 1.5; margin-bottom: 0.45rem; }
+.emp-cero-btn { width: 100%; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--warning); background: transparent; color: var(--warning); font-weight: 700; font-size: 14px; cursor: pointer; }
+.emp-cero-btn:hover { background: rgba(243,156,18,0.12); }
+.emp-aviso-otro { font-size: 12px; color: var(--warning); font-weight: 700; margin-top: 4px; cursor: pointer; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2570,7 +2577,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v113 · 02/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v115 · 02/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -9249,6 +9256,11 @@ window.buscarEmpleado = (v) => {
   renderDriverList();
 };
 
+// ¿Tiene este código ropa a nombre de otra persona? (código reutilizado sin limpiar)
+function empDatosDeOtro(d) {
+  const r = ropaEmpleadosCache.find(e => e.conductorCode === d.code && e.nombre);
+  return r && normEmp(r.nombre) !== normEmp(d.name) ? r.nombre : '';
+}
 function renderDriverList() {
   const list=document.getElementById('driver-list');
   const bajaList=document.getElementById('driver-baja-list');
@@ -9287,6 +9299,7 @@ function renderDriverList() {
         <div class="driver-code">${d.sinCodigo ? 'Sin código de acceso' : 'Código: '+d.code}${d.limpieza?' · 🧹 Limpieza':''}</div>
         ${datosExtra ? `<div style="font-size:12px;color:var(--accent);margin-top:4px;">${datosExtra}</div>` : ''}
         ${sinGasoil}
+        ${empDatosDeOtro(d) ? `<div class="emp-aviso-otro" onclick="editDriver('${d.code}')">⚠️ Tiene la ropa de ${almEsc(empDatosDeOtro(d))} (código reutilizado) · Editar → 🧹 Empezar de cero</div>` : ''}
         ${tallasTxt ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px;">📏 ${tallasTxt}</div>` : ''}
         <div style="font-size:12px;margin-top:4px;" id="salario-line-${d.code}">
           <button onclick="verSalarioEmpleado('${d.code}')" style="background:none;border:none;color:var(--text-muted);font-size:12px;cursor:pointer;padding:0;">🔒 Ver salario y cuenta bancaria</button>
@@ -9336,6 +9349,30 @@ async function desvincularRopaDeCodigo(code) {
   }
 }
 
+// Pasa al código de archivo el historial que va unido al código: repostajes de gasoil y cursos
+// de formación. Con "nombreActual", solo los repostajes hechos por OTRA persona (el nombre se
+// guarda en cada repostaje); los cursos no llevan nombre, así que solo se mueven al liberar el código.
+async function archivarHistorialDeCodigo(code, idArchivo, nombreActual = null) {
+  const norm = t => String(t||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+  let nRep = 0, nCur = 0;
+  try {
+    const snap = await getDocs(query(collection(db,'repostajes'), where('driverCode','==',code)));
+    const mover = snap.docs.filter(d => !nombreActual || norm(d.data().driverName) !== norm(nombreActual));
+    for (let i = 0; i < mover.length; i += 25)
+      await Promise.all(mover.slice(i, i+25).map(d => updateDoc(doc(db,'repostajes',d.id), {driverCode: idArchivo, codigoAnterior: code})));
+    nRep = mover.length;
+    mover.forEach(d => { const r = recordsCache.find(x => x.id === d.id); if (r) { r.driverCode = idArchivo; r.codigoAnterior = code; } });
+  } catch(e) { console.warn('Archivar repostajes:', e); }
+  if (!nombreActual) {
+    try {
+      const snap = await getDocs(query(collection(dbFleet,'cursosFormacion'), where('conductorCode','==',code)));
+      await Promise.all(snap.docs.map(d => updateDoc(doc(dbFleet,'cursosFormacion',d.id), {conductorCode: idArchivo, codigoAnterior: code})));
+      nCur = snap.docs.length;
+    } catch(e) { console.warn('Archivar cursos:', e); }
+  }
+  return {nRep, nCur};
+}
+
 // Deja libre un código que tenía un empleado de baja, para dárselo a otro:
 // · la ficha del de baja se guarda aparte (sigue en "Empleados de baja", sin código de acceso)
 // · su ADR/CAP y su perfil de ropa se van con él (el nuevo empieza limpio)
@@ -9350,6 +9387,8 @@ async function liberarCodigoDeBaja(code) {
       await setDoc(doc(dbFleet,'mantenimientoConductores',idArchivo), datosMc);
       await deleteDoc(doc(dbFleet,'mantenimientoConductores',code));
     }
+    // sus repostajes y cursos también se van con él
+    await archivarHistorialDeCodigo(code, idArchivo);
     // en la lista local, el de baja pasa a su código de archivo
     anterior.code = idArchivo; anterior.codigoAnterior = code; anterior.sinCodigo = true;
   }
@@ -9612,28 +9651,40 @@ window.editDriver = (code) => {
     </div>`;
   document.body.appendChild(modal);
 
-  // Botón para limpiar el perfil de ropa vinculado a este código (útil al reutilizar código)
-  const ropaVinculada = ropaEmpleadosCache.find(e=>e.conductorCode===code);
-  if (ropaVinculada) {
-    const btnLimpiar = document.createElement('button');
-    btnLimpiar.textContent = '🔄 Limpiar perfil de Ropa (código reutilizado)';
-    btnLimpiar.style.cssText = 'width:100%;padding:8px;margin-top:8px;background:none;color:var(--warning);border:1px solid var(--warning);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;';
-    btnLimpiar.onclick = async () => {
-      if (!(await confirmarAccion(`¿Desvincular el perfil de ropa del código ${code}?\n\nEl historial de entregas firmadas se conserva. Solo se liberan las tallas para el nuevo empleado.`))) return;
+  // ── Empezar de cero: quitar de este código lo que traiga de un empleado anterior ──
+  const ropaVinc = ropaEmpleadosCache.filter(e => e.conductorCode === code);
+  const mcVinc = mantConductoresCache.find(x => x.id === code);
+  const fechasMc = mcVinc ? REVISIONES_CONDUCTOR.filter(rev => mcVinc[revKey(rev)] || mcVinc[revKey(rev)+'_ultima']) : [];
+  if (ropaVinc.length || fechasMc.length) {
+    const otro = ropaVinc.find(e => e.nombre && normEmp(e.nombre) !== normEmp(d.name));
+    const caja = document.createElement('div');
+    caja.className = 'emp-cero';
+    caja.innerHTML = `
+      <div class="emp-cero-tit">🧹 Datos guardados con este código</div>
+      <div class="emp-cero-txt">
+        ${ropaVinc.length ? `• Ropa: tallas y entregas${otro ? ` <strong style="color:var(--warning)">a nombre de ${almEsc(otro.nombre)}</strong>` : ''}<br>` : ''}
+        ${fechasMc.length ? `• ${fechasMc.join(' y ')}: fechas de renovación<br>` : ''}
+      </div>
+      <div class="emp-cero-txt" style="color:var(--text-muted)">Si este código era de otro empleado, pulsa el botón para que ${almEsc(d.name)} empiece de cero. Lo anterior no se borra: queda archivado con el empleado antiguo.</div>
+      <button type="button" class="emp-cero-btn">🧹 Empezar de cero</button>`;
+    caja.querySelector('.emp-cero-btn').onclick = async () => {
+      if (!(await confirmarAccion(`¿Quitar del código ${code} la ropa${fechasMc.length ? ' y el ' + fechasMc.join('/') : ''} que tiene guardados?\n\n${d.name} empezará de cero. Los datos anteriores quedan archivados (no se borran).`, 'Sí, empezar de cero'))) return;
       try {
-        const codigoArchivo = `BAJA_${code}_${Date.now()}`;
-        const datosActualizados = {...ropaVinculada, conductorCode: codigoArchivo};
-        delete datosActualizados.id;
-        await setDoc(doc(db,'ropaEmpleados',ropaVinculada.id), datosActualizados);
-        const idx = ropaEmpleadosCache.findIndex(e=>e.id===ropaVinculada.id);
-        if (idx>=0) ropaEmpleadosCache[idx] = {...ropaVinculada, conductorCode: codigoArchivo};
-        btnLimpiar.textContent = '✓ Perfil de ropa liberado';
-        btnLimpiar.disabled = true;
-        btnLimpiar.style.color = 'var(--success)';
-        btnLimpiar.style.borderColor = 'var(--success)';
-      } catch(e) { alert('Error: '+e.message); }
+        const archivo = `BAJA_${code}_${Date.now()}`;
+        if (mcVinc) {
+          const {id, ...datosMc} = mcVinc;
+          await setDoc(doc(dbFleet,'mantenimientoConductores',archivo), {...datosMc, codigoAnterior: code, archivadoTs: Date.now()});
+          await deleteDoc(doc(dbFleet,'mantenimientoConductores',code));
+          mantConductoresCache = mantConductoresCache.filter(x => x.id !== code);
+        }
+        await desvincularRopaDeCodigo(code);
+        const {nRep} = await archivarHistorialDeCodigo(code, archivo, d.name);
+        caja.innerHTML = `<div class="emp-cero-tit" style="color:var(--success)">✓ ${almEsc(d.name)} empieza de cero</div><div class="emp-cero-txt">Ya no tiene tallas ni fechas de ADR/CAP${nRep ? `, y ${nRep} repostaje${nRep===1?'':'s'} de la persona anterior ya no cuentan como suyos` : ''}. Dáselas de alta cuando las tengas.</div>`;
+        renderDriverList();
+        if (typeof updateAdrCapBadge === 'function') updateAdrCapBadge();
+      } catch(e) { alert('No se ha podido hacer: ' + e.message); }
     };
-    modal.querySelector('.refuel-card').appendChild(btnLimpiar);
+    modal.firstElementChild.appendChild(caja);
   }
 
   let salarioDesbloqueado = false;
@@ -10714,6 +10765,7 @@ function populateHistMantCondConductores() {
 }
 
 function nombreConductorPorCodigo(cod) {
+  if (String(cod||'').startsWith('BAJA_')) { const d = driversCache.find(x => x.code === cod); if (d) return d.name + ' (baja)'; }
   const d = driversCache.find(x=>x.code===cod);
   return d ? d.name : cod;
 }
