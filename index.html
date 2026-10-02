@@ -883,6 +883,12 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .alm-cmp-rojo { color: #ff8b80; }
 @media (max-width: 520px) { .alm-cmp { column-gap: 0.6rem; grid-template-columns: auto repeat(3, auto); font-size: 12px; } }
 .fm-actualizar { background: none; border: none; color: var(--accent); font-size: inherit; font-weight: 700; cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 2px; }
+
+.ren-fechas { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; margin-top: 2px; }
+.ren-dato { display: flex; flex-direction: column; line-height: 1.25; }
+.ren-etq { font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
+.ren-fecha { font-size: 15px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+.ren-dias { font-size: 12px; font-weight: 600; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -1969,6 +1975,9 @@ html.giro-fijo #screen-chat { height: 100% !important; }
 
 <!-- Firebase SDKs -->
 <script type="module">
+// Fecha como 04/11/2028
+window.fechaCorta = (d) => { if (!(d instanceof Date) || isNaN(d)) return ''; return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; };
+const fechaCorta = window.fechaCorta;
 // ── Autoría: se añade a todos los PDF y Excel que genera la aplicación ──
 document.querySelectorAll('.fm-anio').forEach(e => e.textContent = new Date().getFullYear());
 setTimeout(() => document.querySelectorAll('.fm-version').forEach(e => e.textContent = ALM_VERSION.replace('Almacén ', '')), 0);   // cuando ya está definida la versión
@@ -2561,7 +2570,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v110 · 01/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v111 · 02/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -10425,8 +10434,8 @@ function renderMantenimiento() {
           <div class="fl-estado" style="background:${e.color}">${FL_ETQ[e.tipo]}</div>
           <div class="gs-fila-info">
             <div class="gs-mat">${almEsc(mat)} <span class="fl-rev-etq">· ${rev}</span></div>
-            <div class="gs-sub" style="color:${e.color};font-weight:700">${e.txt}${e.fecha?' · '+e.fecha.toLocaleDateString('es-ES'):''}</div>
-            ${e.ultima ? `<div class="gs-sub">Última vez: ${e.ultima.toLocaleDateString('es-ES')}</div>` : ''}
+            <div class="gs-sub" style="color:${e.color};font-weight:700">${e.txt}${e.fecha?' · 📅 próxima: '+fechaCorta(e.fecha):''}</div>
+            ${e.ultima ? `<div class="gs-sub">✅ Última vez que se pasó: ${fechaCorta(e.ultima)}</div>` : ''}
           </div>
           <div class="gs-acciones"><button class="alm-accion alm-accion-ver" onclick="event.stopPropagation();editMant('${almEsc(mat)}','${rev}')">✏️ Actualizar</button></div>
         </div>`).join('')}</div>`;
@@ -10756,13 +10765,18 @@ function renderMantenimientoConductores() {
           <div style="display:flex;justify-content:space-between;width:100%;align-items:center;">
             <span style="font-weight:500;">${rev} ${dias!==null && dias<=DIAS_AVISO_CONDUCTOR?`<span style="background:${color};color:#111;padding:1px 8px;border-radius:10px;font-size:10px;font-weight:700;margin-left:4px;">${dias<0?'VENCIDA':'PRÓXIMA'}</span>`:''}</span>
             <div style="display:flex;align-items:center;gap:0.5rem;">
-              <span style="color:${noAplica?'var(--text-muted)':color};font-size:13px;font-style:${noAplica?'italic':'normal'};">${fecha?fecha.toLocaleDateString('es-ES'):(noAplica?`No tiene ${rev}`:'Sin fecha')}</span>
+              ${noAplica || !fecha ? `<span style="color:var(--text-muted);font-size:13px;font-style:italic;">${noAplica?`No tiene ${rev}`:'Sin fecha'}</span>` : ''}
               <button class="btn-sm" onclick="editMantCond('${cod}','${rev}')">Editar</button>
             </div>
           </div>
           ${empresaRev?`<div style="font-size:11px;color:var(--accent);">🏭 ${empresaRev}</div>`:''}
-          ${dias!==null?`<div style="font-size:12px;color:${color};font-weight:600;">${dias<0?`Vencida hace ${Math.abs(dias)} días`:dias===0?'Vence hoy':`Vence en ${dias} días`}</div>`:''}
-          ${fechaUltimaStr?`<div style="font-size:11px;color:var(--text-muted);">Última vez: ${new Date(fechaUltimaStr).toLocaleDateString('es-ES')}</div>`:''}
+          ${fecha || fechaUltimaStr ? `<div class="ren-fechas">
+            ${fecha ? `<div class="ren-dato"><span class="ren-etq">${dias<0?'⚠️ Venció el':'📅 Próxima renovación'}</span>
+              <span class="ren-fecha" style="color:${color}">${fechaCorta(fecha)}</span>
+              <span class="ren-dias" style="color:${color}">${dias<0?`hace ${Math.abs(dias)} días`:dias===0?'vence hoy':`dentro de ${dias} días`}</span></div>` : ''}
+            ${fechaUltimaStr ? `<div class="ren-dato"><span class="ren-etq">✅ Última renovación</span>
+              <span class="ren-fecha">${fechaCorta(new Date(fechaUltimaStr))}</span></div>` : ''}
+          </div>` : ''}
           ${!fecha && !noAplica ? `<button class="btn-sm" onclick="marcarNoTieneCond('${cod}','${rev}')" style="font-size:11px;">🚫 No tiene ${rev}</button>` : ''}
           ${noAplica ? `<button class="btn-sm" onclick="quitarNoTieneCond('${cod}','${rev}')" style="font-size:11px;">↩️ Sí lo necesita</button>` : ''}
         </div>`;
