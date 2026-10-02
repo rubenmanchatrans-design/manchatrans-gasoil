@@ -1596,7 +1596,8 @@ html.giro-fijo #screen-chat { height: 100% !important; }
           <input class="form-input" type="search" id="mantcond-buscar" placeholder="🔎 Buscar conductor por nombre" autocomplete="off" oninput="adrBuscar(this.value)">
           <div class="adr-orden"><span>Ordenar:</span>
             <button type="button" id="adr-orden-nombre" class="on" onclick="adrOrdenar('nombre')">Por nombre</button>
-            <button type="button" id="adr-orden-vence" onclick="adrOrdenar('vence')">Lo que vence antes</button>
+            <button type="button" id="adr-orden-ADR" onclick="adrOrdenar('ADR')">ADR que vence antes</button>
+            <button type="button" id="adr-orden-CAP" onclick="adrOrdenar('CAP')">CAP que vence antes</button>
           </div>
         </div>
         <div id="mantcond-list"></div>
@@ -2606,7 +2607,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v116 · 02/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v117 · 02/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -10849,14 +10850,15 @@ function renderMantenimientoConductores() {
         const dias = f ? Math.ceil((f - hoy) / 86400000) : null;
         return {rev, fecha: f, dias, ultima: m[key+'_ultima'] ? new Date(m[key+'_ultima']) : null, noAplica: !f && !!m[key+'_noaplica']};
       });
-      const minDias = Math.min(...revs.filter(r => r.dias !== null).map(r => r.dias), Infinity);
-      return {d, revs, minDias};
+      return {d, revs};
     });
-  filas.sort(mantCondOrden === 'vence'
-    ? (a, b) => (a.minDias - b.minDias) || a.d.name.localeCompare(b.d.name)
+  // orden: por nombre, o por lo que vence antes del ADR o del CAP (los que no tienen fecha, al final)
+  const diasDe = (fila, rev) => { const r = fila.revs.find(x => x.rev === rev); return r && r.dias !== null ? r.dias : Infinity; };
+  filas.sort(REVISIONES_CONDUCTOR.includes(mantCondOrden)
+    ? (a, b) => (diasDe(a, mantCondOrden) - diasDe(b, mantCondOrden)) || a.d.name.localeCompare(b.d.name)
     : (a, b) => a.d.name.localeCompare(b.d.name));
-  document.getElementById('adr-orden-nombre')?.classList.toggle('on', mantCondOrden !== 'vence');
-  document.getElementById('adr-orden-vence')?.classList.toggle('on', mantCondOrden === 'vence');
+  document.getElementById('adr-orden-nombre')?.classList.toggle('on', !REVISIONES_CONDUCTOR.includes(mantCondOrden));
+  REVISIONES_CONDUCTOR.forEach(rev => document.getElementById('adr-orden-' + rev)?.classList.toggle('on', mantCondOrden === rev));
 
   const celda = (cod, r) => {
     let color = 'var(--text-muted)', estado = '';
