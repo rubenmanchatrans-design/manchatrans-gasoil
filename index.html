@@ -896,6 +896,31 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .emp-cero-btn { width: 100%; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--warning); background: transparent; color: var(--warning); font-weight: 700; font-size: 14px; cursor: pointer; }
 .emp-cero-btn:hover { background: rgba(243,156,18,0.12); }
 .emp-aviso-otro { font-size: 12px; color: var(--warning); font-weight: 700; margin-top: 4px; cursor: pointer; }
+
+.adr-herr { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; margin: 0.75rem 0; }
+.adr-herr input { flex: 1; min-width: 220px; font-size: 15px; }
+.adr-orden { display: flex; align-items: center; gap: 0.35rem; font-size: 12px; color: var(--text-muted); }
+.adr-orden button { background: var(--input-bg); border: 1px solid var(--card-border); color: var(--text); border-radius: 16px; padding: 0.4rem 0.75rem; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.adr-orden button.on { border-color: var(--accent); color: var(--accent); background: rgba(245,166,35,0.12); }
+.adr-cont { background: var(--card); border: 1px solid var(--card-border); border-radius: 14px; overflow: hidden; }
+.adr-total { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; padding: 0.55rem 1rem; border-bottom: 1px solid var(--card-border); }
+.adr-fila { display: grid; grid-template-columns: minmax(170px, 1.3fr) 1fr 1fr; gap: 0.6rem; align-items: stretch; padding: 0.6rem 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.3s; }
+.adr-fila:last-child { border-bottom: none; }
+.adr-fila.adr-resalta { background: rgba(245,166,35,0.14); }
+.adr-nom { font-weight: 800; font-size: 14px; display: flex; flex-direction: column; justify-content: center; }
+.adr-nom span { font-size: 11px; font-weight: 500; color: var(--text-muted); margin-top: 2px; }
+.adr-celda { display: flex; flex-direction: column; justify-content: center; padding: 0.4rem 0.6rem; border-radius: 10px; background: var(--navy-light); border: 1px solid transparent; cursor: pointer; line-height: 1.25; }
+.adr-celda:hover { border-color: var(--accent); }
+.adr-celda.adr-vencido { background: rgba(231,76,60,0.12); }
+.adr-celda.adr-proximo { background: rgba(243,156,18,0.12); }
+.adr-tipo { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
+.adr-fecha { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.adr-dias { font-size: 12px; font-weight: 600; }
+.adr-ult { font-size: 11px; color: var(--text-muted); }
+.adr-sin { font-size: 13px; color: var(--text-muted); font-style: italic; }
+.adr-link { font-size: 11px; color: var(--text-muted); text-decoration: underline; cursor: pointer; margin-top: 2px; }
+.adr-link:hover { color: var(--accent); }
+@media (max-width: 620px) { .adr-fila { grid-template-columns: 1fr 1fr; } .adr-nom { grid-column: 1 / -1; } }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -1565,12 +1590,15 @@ html.giro-fijo #screen-chat { height: 100% !important; }
       <!-- ADR/CAP POR CONDUCTOR -->
       <div id="ftab-mant-conductores" class="tab-pane active">
         <button class="btn btn-ghost" style="margin-bottom:0.75rem" id="btn-ver-pendientes-cond">📅 Ver lo que vence este mes</button>
-        <div class="form-group">
-          <select class="form-input" id="mantcond-filter-cod" style="font-size:14px;padding:0.6rem;">
-            <option value="">— Selecciona conductor —</option>
-          </select>
-        </div>
+        <select id="mantcond-filter-cod" style="display:none"><option value=""></option></select>
         <div id="mantcond-alertas"></div>
+        <div class="adr-herr">
+          <input class="form-input" type="search" id="mantcond-buscar" placeholder="🔎 Buscar conductor por nombre" autocomplete="off" oninput="adrBuscar(this.value)">
+          <div class="adr-orden"><span>Ordenar:</span>
+            <button type="button" id="adr-orden-nombre" class="on" onclick="adrOrdenar('nombre')">Por nombre</button>
+            <button type="button" id="adr-orden-vence" onclick="adrOrdenar('vence')">Lo que vence antes</button>
+          </div>
+        </div>
         <div id="mantcond-list"></div>
       </div>
 
@@ -2259,6 +2287,7 @@ let segVehBusqueda = '';
 let segVehFiltroTipo = 'vehiculo';
 const DIAS_AVISO_SEGUROS = 30;
 let mantCondFiltroCod = '';
+let mantCondBusca = '', mantCondOrden = 'nombre';
 let histMantCondFiltroCod = '';
 let empleadoFiltroCategoria = '';
 let empleadoFiltroEmpresa = '';
@@ -2577,7 +2606,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v115 · 02/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v116 · 02/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -10770,10 +10799,14 @@ function nombreConductorPorCodigo(cod) {
   return d ? d.name : cod;
 }
 
+window.adrBuscar = (v) => { mantCondBusca = v; renderMantenimientoConductores(); };
+window.adrOrdenar = (o) => { mantCondOrden = o; renderMantenimientoConductores(); };
 window.verConductorAdr = (cod) => {
-  const sel = document.getElementById('mantcond-filter-cod');
-  if (sel) { sel.value = cod; sel.dispatchEvent(new Event('change')); }
-  document.getElementById('mantcond-list')?.scrollIntoView({behavior:'smooth', block:'start'});
+  // limpia la búsqueda si lo escondía y lleva a su fila, resaltada un momento
+  const d = driversCache.find(x => x.code === cod);
+  if (mantCondBusca && d && !normEmp(d.name).includes(normEmp(mantCondBusca))) { mantCondBusca = ''; const b = document.getElementById('mantcond-buscar'); if (b) b.value = ''; renderMantenimientoConductores(); }
+  const fila = document.getElementById('adrrow-' + String(cod).replace(/[^a-zA-Z0-9]/g,'_'));
+  if (fila) { fila.scrollIntoView({behavior:'smooth', block:'center'}); fila.classList.add('adr-resalta'); setTimeout(() => fila.classList.remove('adr-resalta'), 1800); }
 };
 
 function renderMantenimientoConductores() {
@@ -10803,57 +10836,48 @@ function renderMantenimientoConductores() {
   alertasEl.innerHTML = panelAvisos('avisos-adrcap', alertasItemsCond,
     'Todo al día: ningún ADR ni CAP vence en los próximos ' + DIAS_AVISO_CONDUCTOR + ' días');
 
-  if (!mantCondFiltroCod) {
-    list.innerHTML = '<div class="empty-state"><div class="empty-icon">👤</div>Selecciona un conductor arriba para ver su ADR y CAP</div>';
-    return;
-  }
+  // Todos los conductores de alta (y cualquier empleado de alta que tenga ADR/CAP), con su
+  // próxima renovación de cada cosa. Buscador por nombre y orden por nombre o por lo que vence antes.
+  const tieneDatos = cod => { const m = mantConductoresCache.find(x => x.id === cod); return !!m && REVISIONES_CONDUCTOR.some(rev => m[revKey(rev)] || m[revKey(rev)+'_noaplica']); };
+  const q = normEmp(mantCondBusca);
+  let filas = driversCache.filter(d => d.activo !== false && (d.categoria === 'conductor' || tieneDatos(d.code)))
+    .filter(d => !q || q.split(' ').every(p => normEmp(d.name).includes(p)))
+    .map(d => {
+      const m = mantConductoresCache.find(x => x.id === d.code) || {};
+      const revs = REVISIONES_CONDUCTOR.map(rev => {
+        const key = revKey(rev), f = m[key] ? new Date(m[key]) : null;
+        const dias = f ? Math.ceil((f - hoy) / 86400000) : null;
+        return {rev, fecha: f, dias, ultima: m[key+'_ultima'] ? new Date(m[key+'_ultima']) : null, noAplica: !f && !!m[key+'_noaplica']};
+      });
+      const minDias = Math.min(...revs.filter(r => r.dias !== null).map(r => r.dias), Infinity);
+      return {d, revs, minDias};
+    });
+  filas.sort(mantCondOrden === 'vence'
+    ? (a, b) => (a.minDias - b.minDias) || a.d.name.localeCompare(b.d.name)
+    : (a, b) => a.d.name.localeCompare(b.d.name));
+  document.getElementById('adr-orden-nombre')?.classList.toggle('on', mantCondOrden !== 'vence');
+  document.getElementById('adr-orden-vence')?.classList.toggle('on', mantCondOrden === 'vence');
 
-  const cod = mantCondFiltroCod;
-  const m = mantConductoresCache.find(x=>x.id===cod) || {id:cod};
-  let tieneAlerta = false;
-  REVISIONES_CONDUCTOR.forEach(rev=>{ const key=revKey(rev); if(m[key]){ const dias=Math.ceil((new Date(m[key])-hoy)/(1000*60*60*24)); if(dias<=DIAS_AVISO_CONDUCTOR) tieneAlerta=true; } });
-  const safeId = cod.replace(/[^a-zA-Z0-9]/g,'_');
-  list.innerHTML = `<div style="background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius-sm);margin-bottom:0.5rem;overflow:hidden;">
-    <div onclick="toggleMantCond('${safeId}')" style="display:flex;justify-content:space-between;align-items:center;padding:0.85rem 1rem;cursor:pointer;">
-      <span style="font-size:14px;font-weight:600;">👤 ${nombreConductorPorCodigo(cod)} ${tieneAlerta?'<span style="color:var(--danger);font-size:12px;">⚠️</span>':''}</span>
-      <span id="arrow-cond-${safeId}" style="color:var(--text-muted);font-size:12px;">▼</span>
-    </div>
-    <div id="mantcond-body-${safeId}" style="display:block;padding:0 1rem 1rem 1rem;border-top:1px solid var(--card-border);">
-      ${REVISIONES_CONDUCTOR.map(rev=>{
-        const key=revKey(rev);
-        const keyUltima=key+'_ultima';
-        const keyNoAplica=key+'_noaplica';
-        const keyEmpresa=key+'_empresa';
-        const fechaStr=m[key];
-        const fecha=fechaStr?new Date(fechaStr):null;
-        const fechaUltimaStr=m[keyUltima];
-        const empresaRev=m[keyEmpresa];
-        const noAplica=!fecha && !!m[keyNoAplica];
-        const dias=fecha?Math.ceil((fecha-hoy)/(1000*60*60*24)):null;
-        let color='var(--text-muted)';
-        if(dias!==null){ if(dias<0) color='var(--danger)'; else if(dias<=DIAS_AVISO_CONDUCTOR) color='var(--warning)'; else color='var(--success)'; }
-        return `<div class="mant-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
-          <div style="display:flex;justify-content:space-between;width:100%;align-items:center;">
-            <span style="font-weight:500;">${rev} ${dias!==null && dias<=DIAS_AVISO_CONDUCTOR?`<span style="background:${color};color:#111;padding:1px 8px;border-radius:10px;font-size:10px;font-weight:700;margin-left:4px;">${dias<0?'VENCIDA':'PRÓXIMA'}</span>`:''}</span>
-            <div style="display:flex;align-items:center;gap:0.5rem;">
-              ${noAplica || !fecha ? `<span style="color:var(--text-muted);font-size:13px;font-style:italic;">${noAplica?`No tiene ${rev}`:'Sin fecha'}</span>` : ''}
-              <button class="btn-sm" onclick="editMantCond('${cod}','${rev}')">Editar</button>
-            </div>
-          </div>
-          ${empresaRev?`<div style="font-size:11px;color:var(--accent);">🏭 ${empresaRev}</div>`:''}
-          ${fecha || fechaUltimaStr ? `<div class="ren-fechas">
-            ${fecha ? `<div class="ren-dato"><span class="ren-etq">${dias<0?'⚠️ Venció el':'📅 Próxima renovación'}</span>
-              <span class="ren-fecha" style="color:${color}">${fechaCorta(fecha)}</span>
-              <span class="ren-dias" style="color:${color}">${dias<0?`hace ${Math.abs(dias)} días`:dias===0?'vence hoy':`dentro de ${dias} días`}</span></div>` : ''}
-            ${fechaUltimaStr ? `<div class="ren-dato"><span class="ren-etq">✅ Última renovación</span>
-              <span class="ren-fecha">${fechaCorta(new Date(fechaUltimaStr))}</span></div>` : ''}
-          </div>` : ''}
-          ${!fecha && !noAplica ? `<button class="btn-sm" onclick="marcarNoTieneCond('${cod}','${rev}')" style="font-size:11px;">🚫 No tiene ${rev}</button>` : ''}
-          ${noAplica ? `<button class="btn-sm" onclick="quitarNoTieneCond('${cod}','${rev}')" style="font-size:11px;">↩️ Sí lo necesita</button>` : ''}
-        </div>`;
-      }).join('')}
-    </div>
-  </div>`;
+  const celda = (cod, r) => {
+    let color = 'var(--text-muted)', estado = '';
+    if (r.dias !== null) { color = r.dias < 0 ? 'var(--danger)' : r.dias <= DIAS_AVISO_CONDUCTOR ? 'var(--warning)' : 'var(--success)'; estado = r.dias < 0 ? 'vencido' : r.dias <= DIAS_AVISO_CONDUCTOR ? 'proximo' : 'ok'; }
+    const cuerpo = r.fecha
+      ? `<span class="adr-fecha" style="color:${color}">${fechaCorta(r.fecha)}</span>
+         <span class="adr-dias" style="color:${color}">${r.dias < 0 ? `venció hace ${Math.abs(r.dias)} días` : r.dias === 0 ? 'vence hoy' : `dentro de ${r.dias} días`}</span>
+         ${r.ultima ? `<span class="adr-ult">última: ${fechaCorta(r.ultima)}</span>` : ''}`
+      : r.noAplica
+        ? `<span class="adr-sin">No tiene</span><span class="adr-link" onclick="event.stopPropagation(); quitarNoTieneCond('${cod}','${r.rev}')">↩ sí lo necesita</span>`
+        : `<span class="adr-sin">Sin fecha</span><span class="adr-link" onclick="event.stopPropagation(); marcarNoTieneCond('${cod}','${r.rev}')">🚫 no tiene</span>`;
+    return `<div class="adr-celda adr-${estado||'nada'}" role="button" tabindex="0" onclick="editMantCond('${cod}','${r.rev}')" title="Editar ${r.rev}">
+      <span class="adr-tipo">${r.rev} · próxima renovación</span>${cuerpo}</div>`;
+  };
+  list.innerHTML = !filas.length
+    ? `<div class="refuel-card"><div class="empty-state"><div class="empty-icon">👤</div>${q ? 'Ningún conductor coincide con la búsqueda' : 'No hay conductores de alta'}</div></div>`
+    : `<div class="adr-cont">${q ? '' : `<div class="adr-total">${filas.length} conductores</div>`}${filas.map(({d, revs}) => `
+      <div class="adr-fila" id="adrrow-${d.code.replace(/[^a-zA-Z0-9]/g,'_')}">
+        <div class="adr-nom">${almEsc(d.name)}${d.empresa ? `<span>${almEsc(d.empresa)}</span>` : ''}</div>
+        ${revs.map(r => celda(d.code, r)).join('')}
+      </div>`).join('')}</div>`;
 }
 
 window.marcarNoTieneCond = async (cod, rev) => {
