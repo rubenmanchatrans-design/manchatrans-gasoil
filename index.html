@@ -925,6 +925,30 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .cp-fijo-barra { display: flex; gap: 0.35rem; margin-bottom: 0.35rem; }
 .cp-fijo-barra select { flex: 1; min-width: 0; }
 .cp-fijo-ayuda { font-size: 11.5px; color: var(--text-muted); margin-top: 3px; min-height: 14px; }
+
+.cp-fijos-cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.75rem; }
+.cp-fijos-sub { font-size: 12px; color: var(--text-muted); }
+.cp-fichas { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+@media (max-width: 640px) { .cp-fichas { grid-template-columns: 1fr; } .cp-fijos-cab { flex-direction: column; } }
+.cp-ficha { background: var(--navy-light); border: 1px solid var(--card-border); border-radius: 12px; padding: 0.65rem 0.8rem; display: flex; flex-direction: column; min-height: 110px; }
+.cp-ficha.editando { border-color: var(--accent); }
+.cp-ficha-cab { display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem; }
+.cp-ficha-tit { font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.cp-ficha-acc { display: flex; gap: 0.25rem; align-items: center; flex-shrink: 0; }
+.cp-ficha-btn { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--card-border); background: var(--card); color: var(--text); cursor: pointer; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+.cp-ficha-btn:hover { border-color: var(--accent); }
+.cp-ficha-borrar:hover { border-color: var(--danger); }
+.cp-ficha-sel { height: 30px; border-radius: 8px; border: 1px solid var(--card-border); background: var(--card); color: var(--accent); font-size: 12.5px; font-weight: 700; padding: 0 0.4rem; cursor: pointer; max-width: 150px; }
+.cp-ficha-vista { flex: 1; }
+.cp-ficha-nom { font-size: 14.5px; font-weight: 800; color: var(--text); }
+.cp-ficha-lin { font-size: 13px; color: var(--text-muted); line-height: 1.45; }
+.cp-ficha-vacia { font-size: 13px; color: var(--text-muted); font-style: italic; }
+.cp-ficha-estado { font-size: 11px; color: var(--success); margin-top: 0.4rem; }
+.cp-ficha textarea { width: 100%; box-sizing: border-box; background: var(--input-bg); border: 1px solid var(--card-border); color: var(--text); border-radius: 8px; padding: 0.5rem 0.6rem; font-size: 14px; font-family: inherit; resize: vertical; }
+.cp-ficha-pie { display: flex; gap: 0.4rem; margin-top: 0.45rem; }
+.cp-ficha-ok, .cp-ficha-listo { flex: 1; padding: 0.5rem; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.cp-ficha-ok { background: var(--accent); color: #111; border: none; }
+.cp-ficha-listo { background: transparent; color: var(--text); border: 1px solid var(--card-border); }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2611,7 +2635,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v119 · 02/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v120 · 06/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -5171,6 +5195,7 @@ async function cpNuevoNumero() {
 }
 
 function cpNuevaCarta() {
+  cpFijoEdit = {};
   const f = cpFijos || {};
   return {
     fecha: cpHoy(),
@@ -5399,17 +5424,17 @@ function cpRenderForm() {
     </div>
 
     <div class="refuel-card cp-card">
-      <div class="cp-tit">Datos fijos de la carta</div>
-      <div style="font-size:12px;color:var(--text-muted);margin:-0.3rem 0 0.6rem">Salen así en el PDF, línea a línea. El destino y el operador se eligen de su lista (💾 para añadir uno nuevo). "Guardar como fijos" deja estos como los que salen por defecto en cada carta nueva.</div>
-      <div class="cp-fila">
-        ${cpCampo('cp-cargador','Cargador o remitente', c.cargadorTxt, {ruta:'cargadorTxt', tipo:'area', filas:3, ancho:'cp-c2'})}
-        ${cpHtmlFijoLista('destino', 'Destino', 'destinoTxt', 3)}
+      <div class="cp-fijos-cab">
+        <div><div class="cp-tit" style="margin-bottom:0.15rem">Datos fijos de la carta</div>
+          <div class="cp-fijos-sub">Así salen en el PDF. Toca ✏️ para cambiar algo solo en esta carta.</div></div>
+        <button type="button" class="alm-accion" onclick="cpGuardarFijos()" title="Que salgan estos por defecto en cada carta nueva">⭐ Usar siempre estos</button>
       </div>
-      <div class="cp-fila">
-        ${cpHtmlFijoLista('operador', 'Operador de transporte', 'operadorTxt', 4)}
-        ${cpCampo('cp-lugar','Lugar de destino de la expedición', c.lugarDestino, {ruta:'lugarDestino', tipo:'area', filas:4, ancho:'cp-c2'})}
+      <div class="cp-fichas">
+        ${cpHtmlFicha('cargador', '🏭', 'Cargador o remitente', 'cargadorTxt', false)}
+        ${cpHtmlFicha('destino', '📍', 'Destino', 'destinoTxt', true)}
+        ${cpHtmlFicha('operador', '🤝', 'Operador de transporte', 'operadorTxt', true)}
+        ${cpHtmlFicha('lugar', '🗺️', 'Lugar de destino de la expedición', 'lugarDestino', false)}
       </div>
-      <button type="button" class="alm-accion" onclick="cpGuardarFijos()">💾 Guardar como fijos</button>
       <details class="cp-details" style="margin-top:0.75rem">
         <summary class="cp-sub" style="cursor:pointer">Más datos (expedidor, puntos intermedios, anexos, observaciones)</summary>
         ${cpCampo('cp-exp','Expedidor, de no coincidir con el cargador', c.expedidor, {ruta:'expedidor'})}
@@ -6023,6 +6048,45 @@ window.cpBorrarRemit = async (id) => {
   if (!(await confirmarAccion('¿Borrar este remitente de la lista?'))) return;
   try { await deleteDoc(doc(db,'cartasRemitentes',id)); } catch(e) { alert(e.message); }
 };
+// ── Fichas de los datos fijos: vista como en el PDF, y edición al tocar ✏️ ──
+let cpFijoEdit = {};
+function cpHtmlFicha(tipo, icono, etiqueta, ruta, conLista) {
+  const c = cpEstado, texto = String(c[ruta] || '');
+  const lineas = texto.split('\n').map(l => l.trim()).filter(Boolean);
+  const lista = conLista ? cpListas[tipo] : [];
+  const elegido = conLista ? lista.find(x => cpNormNombre(cpPrimeraLinea(x.texto)) === cpNormNombre(cpPrimeraLinea(texto))) : null;
+  const editando = !!cpFijoEdit[tipo];
+  const vista = lineas.length
+    ? `<div class="cp-ficha-nom">${cpEsc(lineas[0])}</div>${lineas.slice(1).map(l => `<div class="cp-ficha-lin">${cpEsc(l)}</div>`).join('')}`
+    : `<div class="cp-ficha-vacia">Sin datos · toca ✏️ para escribirlos</div>`;
+  return `<div class="cp-ficha ${editando ? 'editando' : ''}">
+    <div class="cp-ficha-cab">
+      <span class="cp-ficha-tit">${icono} ${etiqueta}</span>
+      <span class="cp-ficha-acc">
+        ${conLista && lista.length > 1 && !editando ? `<select class="cp-ficha-sel" onchange="cpElegirFijo('${tipo}','${ruta}', this.value)" title="Elegir otro guardado">
+            <option value="">Cambiar ▾</option>${lista.map(x => `<option value="${x.id}" ${elegido && elegido.id === x.id ? 'disabled' : ''}>${cpEsc(cpPrimeraLinea(x.texto))}</option>`).join('')}</select>` : ''}
+        ${!editando ? `<button type="button" class="cp-ficha-btn" onclick="cpEditarFijo('${tipo}', true)" title="Editar">✏️</button>` : ''}
+        ${conLista && !editando ? `<button type="button" class="cp-ficha-btn" onclick="cpNuevoFijo('${tipo}','${ruta}')" title="Añadir uno nuevo a la lista">➕</button>` : ''}
+        ${conLista && elegido && !editando ? `<button type="button" class="cp-ficha-btn cp-ficha-borrar" onclick="cpBorrarFijo('${tipo}','${elegido.id}')" title="Borrar de la lista">🗑</button>` : ''}
+      </span>
+    </div>
+    ${editando ? `
+      <textarea id="cp-${tipo}" rows="${Math.max(3, lineas.length + 1)}" oninput="cpSet('${ruta}', this.value)" placeholder="${tipo === 'lugar' ? 'Lugar de destino' : 'Primera línea: nombre. Debajo: dirección, CP y población…'}">${cpEsc(texto)}</textarea>
+      <div class="cp-ficha-pie">
+        ${conLista ? `<button type="button" class="cp-ficha-ok" onclick="cpGuardarFijo('${tipo}','${ruta}').then(() => cpEditarFijo('${tipo}', false))">💾 Guardar en la lista</button>` : ''}
+        <button type="button" class="cp-ficha-listo" onclick="cpEditarFijo('${tipo}', false)">${conLista ? 'Solo para esta carta' : '✓ Listo'}</button>
+      </div>`
+    : `<div class="cp-ficha-vista">${vista}</div>
+       ${conLista ? `<div class="cp-ficha-estado">${elegido ? `✓ De la lista${lista.length > 1 ? ` · ${lista.length} guardados` : ''}` : lineas.length ? '⚠️ No está en la lista: toca ✏️ y "Guardar en la lista"' : ''}</div>` : ''}`}
+  </div>`;
+}
+window.cpEditarFijo = (tipo, on) => {
+  cpFijoEdit[tipo] = on;
+  cpRenderForm();
+  if (on) setTimeout(() => { const t = document.getElementById('cp-' + tipo); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 30);
+};
+window.cpNuevoFijo = (tipo, ruta) => { cpEstado[ruta] = ''; cpEditarFijo(tipo, true); };
+
 // ── Destinos y operadores de transporte guardados (para elegir en cada carta) ──
 const CP_LISTA_COL = {destino: 'cartasDestinos', operador: 'cartasOperadores'};
 const cpPrimeraLinea = t => String(t||'').split('\n')[0].trim();
@@ -6078,7 +6142,7 @@ function cpEscucharListas() {
       }
       if (document.getElementById('cp-pane-nueva')?.style.display !== 'none' && !document.getElementById('alm-modal') && !document.getElementById('dlg-app')) {
         const foco = document.activeElement && document.activeElement.id;
-        if (!foco || !/^cp-/.test(foco)) cpRenderForm();       // sin estorbar si se está escribiendo
+        if ((!foco || !/^cp-/.test(foco)) && !Object.values(cpFijoEdit).some(Boolean)) cpRenderForm();       // sin estorbar si se está escribiendo
       }
     }, e => console.warn(col, e));
   });
