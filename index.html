@@ -2638,7 +2638,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v126 · 06/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v127 · 06/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -6426,7 +6426,6 @@ window.cpVer = async (id) => {
       <button class="alm-accion" onclick="cpDescargarEmitida('${c.id}')">⬇ Descargar PDF</button>
       <a class="alm-accion" href="${url}" target="_blank" rel="noopener">🌐 Abrir desde la web</a>
       <button class="alm-accion" onclick="cpCompartir('${c.id}')">📤 Compartir</button>
-      <button class="alm-accion" onclick="almCopiar('${url}','Enlace del DeCA')">📋 Copiar enlace</button>
     </div>
     ${c.adr ? `<div class="alm-sec-tit">☢️ ADR</div><div class="alm-datos">${(c.adrLineas||[]).map(l=>`<div style="grid-column:1/-1"><strong>${cpEsc(cpTextoAdr(l))}</strong><span>${cpEsc(l.bultos)} ${cpEsc(l.embalaje)} · ${cpEsc(l.cantidad)} ${cpEsc(l.unidad)}</span></div>`).join('')}</div>` : ''}
     <div class="alm-sec-tit">Historial</div>
@@ -6616,7 +6615,6 @@ function cpMostrarResultado(c, bytes, estado, motivo = '') {
       <div id="cp-qr-res" class="cp-qr" style="margin:0.75rem auto"></div>
       <div style="font-size:12px;color:var(--text-muted);word-break:break-all">${cpEsc(c.url)}</div>
       <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;margin-top:1rem">
-        <button class="alm-accion" onclick="almCopiar('${c.url}','Enlace del DeCA')">📋 Copiar enlace</button>
         <button class="alm-accion" onclick="cpRenderForm()">✏️ Corregir esta carta</button>
         <button class="alm-accion" onclick="cpEstado=cpNuevaCarta(); cpEstado.transportista={...(${JSON.stringify(c.transportista).replace(/"/g,'&quot;')}), tractora:'', semirremolque:''}; cpRenderForm()">📄 Otra carta, mismo transportista</button>
         <button class="alm-accion" onclick="cpEstado=cpNuevaCarta(); cpRenderForm()">➕ Carta nueva</button>
@@ -6721,9 +6719,9 @@ window.cpCompartir = async (id) => {
     } else if (navigator.share) {
       await navigator.share({title:`Carta de porte ${id}`, text:texto, url});
     } else {
-      await almCopiar(texto, 'Texto para enviar');
+      await almCopiar(texto, 'Enlace de la carta (pégalo en WhatsApp o en un correo)');
     }
-  } catch(e) { if (e.name !== 'AbortError') almCopiar(texto, 'Texto para enviar'); }
+  } catch(e) { if (e.name !== 'AbortError') almCopiar(texto, 'Enlace de la carta (pégalo en WhatsApp o en un correo)'); }
 };
 
 // ── PDF (pdf-lib) ──
