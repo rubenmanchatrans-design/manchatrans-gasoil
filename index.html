@@ -2635,7 +2635,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v120 · 06/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v121 · 06/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -5353,7 +5353,7 @@ function cpRenderForm() {
         </select></div>
       <div class="cp-fila">
         ${cpCampo('cp-t-nombre','Nombre de la empresa o del autónomo', c.transportista.nombre, {ruta:'transportista.nombre', ancho:'cp-c2'})}
-        ${cpCampo('cp-t-nif', c.transportista.autonomo ? 'DNI' : 'NIF / CIF', c.transportista.nif, {ruta:'transportista.nif', ancho:'cp-c2'})}
+        ${cpCampo('cp-t-nif', 'NIF / DNI', c.transportista.nif, {ruta:'transportista.nif', ancho:'cp-c2'})}
       </div>
       ${cpCampo('cp-t-dom','Domicilio (calle y número)', c.transportista.domicilio, {ruta:'transportista.domicilio'})}
       <div class="cp-fila">
