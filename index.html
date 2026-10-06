@@ -921,6 +921,10 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .adr-link { font-size: 11px; color: var(--text-muted); text-decoration: underline; cursor: pointer; margin-top: 2px; }
 .adr-link:hover { color: var(--accent); }
 @media (max-width: 620px) { .adr-fila { grid-template-columns: 1fr 1fr; } .adr-nom { grid-column: 1 / -1; } }
+
+.cp-fijo-barra { display: flex; gap: 0.35rem; margin-bottom: 0.35rem; }
+.cp-fijo-barra select { flex: 1; min-width: 0; }
+.cp-fijo-ayuda { font-size: 11.5px; color: var(--text-muted); margin-top: 3px; min-height: 14px; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2607,7 +2611,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v117 · 02/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v118 · 02/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -5137,6 +5141,7 @@ const CP_BULTOS_ADR = [
 const CP_FACTOR_CAT = {'0': null, '1': 50, '2': 3, '3': 1, '4': 0};
 
 let cpCartas = [], cpTrans = [], cpRemit = [], cpAdr = null, cpAdrCargando = null, cpUnsub = null;
+let cpListas = {destino: [], operador: []}, cpListasEscuchando = false;     // destinos y operadores de transporte guardados
 let cpEstado = null;          // carta en edición
 let cpResultado = null;       // {id, url, pdfBytes}
 
@@ -5185,6 +5190,7 @@ function cpEntrar() {
   cpCargarMatBorradas().then(() => { if (document.getElementById('cp-pane-nueva')?.style.display !== 'none' && !document.getElementById('alm-modal')) cpRenderForm(); });
   if (!cpEstado) cpEstado = cpNuevaCarta();
   cpTab('nueva');
+  if (!cpListasEscuchando) { cpListasEscuchando = true; cpEscucharListas(); }
   if (!cpUnsub) {
     // sin orderBy en la consulta (así no se queda fuera ninguna carta) y ordenadas aquí
     cpEstadoCarga = 'cargando';
@@ -5394,13 +5400,13 @@ function cpRenderForm() {
 
     <div class="refuel-card cp-card">
       <div class="cp-tit">Datos fijos de la carta</div>
-      <div style="font-size:12px;color:var(--text-muted);margin:-0.3rem 0 0.6rem">Salen así en el PDF, línea a línea. Si cambian para siempre, edítalos y pulsa "Guardar como fijos".</div>
+      <div style="font-size:12px;color:var(--text-muted);margin:-0.3rem 0 0.6rem">Salen así en el PDF, línea a línea. El destino y el operador se eligen de su lista (💾 para añadir uno nuevo). "Guardar como fijos" deja estos como los que salen por defecto en cada carta nueva.</div>
       <div class="cp-fila">
         ${cpCampo('cp-cargador','Cargador o remitente', c.cargadorTxt, {ruta:'cargadorTxt', tipo:'area', filas:3, ancho:'cp-c2'})}
-        ${cpCampo('cp-destino','Destino', c.destinoTxt, {ruta:'destinoTxt', tipo:'area', filas:3, ancho:'cp-c2'})}
+        ${cpHtmlFijoLista('destino', 'Destino', 'destinoTxt', 3)}
       </div>
       <div class="cp-fila">
-        ${cpCampo('cp-operador','Operador de transporte', c.operadorTxt, {ruta:'operadorTxt', tipo:'area', filas:4, ancho:'cp-c2'})}
+        ${cpHtmlFijoLista('operador', 'Operador de transporte', 'operadorTxt', 4)}
         ${cpCampo('cp-lugar','Lugar de destino de la expedición', c.lugarDestino, {ruta:'lugarDestino', tipo:'area', filas:4, ancho:'cp-c2'})}
       </div>
       <button type="button" class="alm-accion" onclick="cpGuardarFijos()">💾 Guardar como fijos</button>
@@ -6011,6 +6017,67 @@ window.cpBorrarRemit = async (id) => {
   if (!(await confirmarAccion('¿Borrar este remitente de la lista?'))) return;
   try { await deleteDoc(doc(db,'cartasRemitentes',id)); } catch(e) { alert(e.message); }
 };
+// ── Destinos y operadores de transporte guardados (para elegir en cada carta) ──
+const CP_LISTA_COL = {destino: 'cartasDestinos', operador: 'cartasOperadores'};
+const cpPrimeraLinea = t => String(t||'').split('\n')[0].trim();
+function cpHtmlFijoLista(tipo, etiqueta, ruta, filas) {
+  const c = cpEstado, actual = cpNormNombre(cpPrimeraLinea(c[ruta]));
+  const lista = cpListas[tipo];
+  const elegido = lista.find(x => cpNormNombre(cpPrimeraLinea(x.texto)) === actual);
+  return `<div class="cp-campo cp-c2"><label for="cp-${tipo}">${etiqueta}</label>
+    <div class="cp-fijo-barra">
+      <select onchange="cpElegirFijo('${tipo}','${ruta}', this.value)">
+        <option value="">${lista.length ? `— Elegir ${tipo === 'destino' ? 'destino' : 'operador'} guardado (${lista.length}) —` : '— Aún no hay guardados —'}</option>
+        ${lista.map(x => `<option value="${x.id}" ${elegido && elegido.id === x.id ? 'selected' : ''}>${cpEsc(cpPrimeraLinea(x.texto))}</option>`).join('')}
+      </select>
+      <button type="button" class="alm-accion" title="Guardar en la lista" onclick="cpGuardarFijo('${tipo}','${ruta}')">💾</button>
+      ${elegido ? `<button type="button" class="alm-accion alm-accion-borrar" title="Borrar de la lista" onclick="cpBorrarFijo('${tipo}','${elegido.id}')">🗑</button>` : ''}
+    </div>
+    <textarea id="cp-${tipo}" rows="${filas}" oninput="cpSet('${ruta}', this.value)">${cpEsc(c[ruta]||'')}</textarea>
+    <div class="cp-fijo-ayuda">${elegido ? '✓ Guardado en la lista. Si cambias el texto, pulsa 💾 para actualizarlo.' : (c[ruta]||'').trim() ? 'No está en la lista: pulsa 💾 para guardarlo y poder elegirlo en otras cartas.' : ''}</div>
+  </div>`;
+}
+window.cpElegirFijo = (tipo, ruta, id) => {
+  const x = cpListas[tipo].find(y => y.id === id);
+  if (!x) return;
+  cpEstado[ruta] = x.texto; cpEstado.tocado = true;
+  cpRenderForm();
+};
+window.cpGuardarFijo = async (tipo, ruta) => {
+  const texto = String(cpEstado[ruta]||'').trim();
+  if (!texto) { mostrarMensajeFlotante?.('Escribe primero los datos'); return; }
+  const nombre = cpPrimeraLinea(texto);
+  const ya = cpListas[tipo].find(x => cpNormNombre(cpPrimeraLinea(x.texto)) === cpNormNombre(nombre));
+  try {
+    if (ya) await updateDoc(doc(db, CP_LISTA_COL[tipo], ya.id), {texto, ts: Date.now()});
+    else await addDoc(collection(db, CP_LISTA_COL[tipo]), {texto, ts: Date.now()});
+    mostrarMensajeFlotante?.(`💾 ${nombre} ${ya ? 'actualizado' : 'guardado en la lista'}`);
+  } catch(e) { alert('No se ha podido guardar: ' + e.message); }
+};
+window.cpBorrarFijo = async (tipo, id) => {
+  const x = cpListas[tipo].find(y => y.id === id); if (!x) return;
+  if (!(await confirmarAccion(`¿Borrar "${cpPrimeraLinea(x.texto)}" de la lista de ${tipo === 'destino' ? 'destinos' : 'operadores'}?\n\nLas cartas ya hechas no cambian.`))) return;
+  try { await deleteDoc(doc(db, CP_LISTA_COL[tipo], id)); } catch(e) { alert(e.message); }
+};
+function cpEscucharListas() {
+  Object.entries(CP_LISTA_COL).forEach(([tipo, col]) => {
+    let sembrado = false;
+    onSnapshot(collection(db, col), snap => {
+      cpListas[tipo] = snap.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => cpPrimeraLinea(a.texto).localeCompare(cpPrimeraLinea(b.texto)));
+      // la primera vez, el que había hasta ahora queda guardado
+      if (!cpListas[tipo].length && !sembrado && !(snap.metadata && snap.metadata.fromCache)) {
+        sembrado = true;
+        const base = (cpFijos && cpFijos[tipo + 'Txt']) || CP_DEFECTO[tipo + 'Txt'];
+        if (base) addDoc(collection(db, col), {texto: base, ts: Date.now()}).catch(() => {});
+      }
+      if (document.getElementById('cp-pane-nueva')?.style.display !== 'none' && !document.getElementById('alm-modal') && !document.getElementById('dlg-app')) {
+        const foco = document.activeElement && document.activeElement.id;
+        if (!foco || !/^cp-/.test(foco)) cpRenderForm();       // sin estorbar si se está escribiendo
+      }
+    }, e => console.warn(col, e));
+  });
+}
+
 // ── Plantillas de transportista ──
 // Empresas transportistas guardadas (agrupando las fichas por nombre de empresa)
 const cpEsAutonomo = t => t.autonomo !== undefined && t.autonomo !== null ? !!t.autonomo : (!t.conductor || cpNormNombre(t.conductor) === cpNormNombre(t.nombre));
