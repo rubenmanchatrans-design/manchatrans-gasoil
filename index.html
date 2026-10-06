@@ -2611,7 +2611,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v118 · 02/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v119 · 02/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -5486,11 +5486,19 @@ function cpHtmlSelectMat(campo, etiqueta) {
   const actual = cpEstado.transportista[campo] || '';
   const todas = cpTodasMatriculas(campo);
   if (actual && !todas.some(m => m.toUpperCase() === actual.toUpperCase())) todas.unshift(actual);
+  // las que ha llevado este conductor, arriba
+  const suyas = campo === 'tractora' ? (cpEstado.transportista.tractoras || []).filter(m => !cpMatBorrada(m)) : [];
+  const nombreCond = cpEstado.transportista.autonomo ? cpEstado.transportista.nombre : cpEstado.transportista.conductor;
+  const op = m => `<option ${m.toUpperCase()===actual.toUpperCase()?'selected':''}>${cpEsc(m)}</option>`;
+  const resto = todas.filter(m => !suyas.some(x => x.toUpperCase() === m.toUpperCase()));
+  const opciones = suyas.length
+    ? `<optgroup label="Las de ${cpEsc(nombreCond || 'este conductor')}">${suyas.map(op).join('')}</optgroup><optgroup label="Todas las demás">${resto.map(op).join('')}</optgroup>`
+    : todas.map(op).join('');
   return `<div class="cp-campo cp-c2"><label>${etiqueta}</label>
     <div style="display:flex;gap:0.4rem">
       <select id="cp-t-${campo==='tractora'?'trac':'semi'}" onchange="cpElegirMatricula('${campo}', this)" style="font-family:monospace;font-size:16px;font-weight:700;flex:1;min-width:0">
-        <option value="">— Elegir —</option>
-        ${todas.map(m => `<option ${m.toUpperCase()===actual.toUpperCase()?'selected':''}>${cpEsc(m)}</option>`).join('')}
+        <option value="">— Elegir matrícula —</option>
+        ${opciones}
         <option value="__otra__">➕ Otra matrícula…</option>
       </select>
       ${campo === 'tractora' ? `<button type="button" class="alm-accion" style="flex-shrink:0" title="Guardar esta matrícula en la ficha del conductor" aria-label="Guardar matrícula" onclick="cpGuardarMatricula()">💾</button>
@@ -5527,9 +5535,7 @@ window.cpGuardarNuevaMat = (campo) => {
 };
 // Si no hay matrícula puesta, la de la última carta generada
 function cpMatriculasPorDefecto() {
-  const t = cpEstado.transportista, ult = cpCartas[0]?.transportista;
-  if (!ult) return;
-  if (!t.tractora && !cpMatBorrada(ult.tractora)) t.tractora = ult.tractora || '';
+  // La matrícula ya no se pone sola: se deja vacía para elegirla en cada carta
 }
 
 function cpHtmlMerc(m, i) {
@@ -6100,7 +6106,7 @@ function cpRellenarDesde(t) {
   const tr = cpEstado.transportista;
   Object.assign(tr, {nombre:d.nombre||'', nif:d.nif||'', domicilio:d.domicilio||'', cp:d.cp||'', poblacion:d.poblacion||'', provincia:d.provincia||'',
     autonomo: cpEsAutonomo(d), conductor: cpEsAutonomo(d) ? (d.nombre||'') : (d.conductor||''), conductorDni: d.conductorDni||'', telefono:d.telefono||'',
-    tractora: cpMatBorrada(d.tractora) ? ((d.tractoras||[]).find(x => !cpMatBorrada(x)) || '') : (d.tractora||''), semirremolque:'',
+    tractora: '', semirremolque:'',
     tractoras: cpAnadirMatricula(d.tractoras, d.tractora).filter(x => !cpMatBorrada(x)), idGuardado: t.id});
 }
 window.cpElegirEmpresa = (clave) => {
@@ -6112,7 +6118,7 @@ window.cpElegirEmpresa = (clave) => {
 window.cpElegirConductor = (id) => {
   const t = cpTrans.find(x => x.id === id);
   const tr = cpEstado.transportista;
-  if (t) Object.assign(tr, {autonomo:false, conductor:t.conductor||'', conductorDni:t.conductorDni||'', telefono:t.telefono||'', tractora: (!cpMatBorrada(t.tractora) && t.tractora) || tr.tractora,
+  if (t) Object.assign(tr, {autonomo:false, conductor:t.conductor||'', conductorDni:t.conductorDni||'', telefono:t.telefono||'', tractora: '',
                             tractoras: cpAnadirMatricula(t.tractoras, t.tractora), idGuardado:t.id});
   else Object.assign(tr, {conductor:'', conductorDni:'', telefono:'', idGuardado:null});
   cpRenderForm();
@@ -6499,7 +6505,7 @@ function cpMostrarResultado(c, bytes, estado, motivo = '') {
       <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;margin-top:1rem">
         <button class="alm-accion" onclick="almCopiar('${c.url}','Enlace del DeCA')">📋 Copiar enlace</button>
         <button class="alm-accion" onclick="cpRenderForm()">✏️ Corregir esta carta</button>
-        <button class="alm-accion" onclick="cpEstado=cpNuevaCarta(); cpEstado.transportista={...(${JSON.stringify(c.transportista).replace(/"/g,'&quot;')}), semirremolque:''}; cpRenderForm()">📄 Otra carta, mismo transportista</button>
+        <button class="alm-accion" onclick="cpEstado=cpNuevaCarta(); cpEstado.transportista={...(${JSON.stringify(c.transportista).replace(/"/g,'&quot;')}), tractora:'', semirremolque:''}; cpRenderForm()">📄 Otra carta, mismo transportista</button>
         <button class="alm-accion" onclick="cpEstado=cpNuevaCarta(); cpRenderForm()">➕ Carta nueva</button>
       </div>
     </div>`;
