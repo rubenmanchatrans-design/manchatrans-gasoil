@@ -720,7 +720,7 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .cp-seg3 button { font-size: 13px; padding: 0.6rem 0.2rem; }
 
 .cp-mats { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: -0.2rem 0 0.5rem; }
-.cp-mats button { background: var(--navy-light); border: 1px solid var(--card-border); color: var(--text); border-radius: 16px; padding: 0.35rem 0.7rem; font-size: 13px; font-weight: 700; cursor: pointer; font-family: monospace; }
+.cp-mats button { background: var(--navy-light); border: 1px solid var(--card-border); color: var(--text); border-radius: 16px; padding: 0.35rem 0.7rem; font-size: 13px; font-weight: 700; cursor: pointer; }
 .cp-mats button.on { border-color: var(--accent); color: var(--accent); background: rgba(245,166,35,0.12); }
 
 .cp-adr-vacio { border-color: rgba(245,166,35,0.55); background: rgba(245,166,35,0.06); }
@@ -2638,7 +2638,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v123 · 06/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v124 · 06/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -5401,7 +5401,7 @@ function cpRenderForm() {
         ${cpHtmlSelectMat('tractora', 'Matrícula cabeza tractora')}
         <div class="cp-campo cp-c2"><label>Matrícula semirremolque</label>
           <input id="cp-t-semi" name="semi-${Date.now()}" value="${cpEsc(c.transportista.semirremolque||'')}" autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true"
-            style="font-family:monospace;font-size:16px;font-weight:700;text-transform:uppercase" oninput="cpEstado.transportista.semirremolque=this.value.toUpperCase()"></div>
+            style="font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px" oninput="cpEstado.transportista.semirremolque=this.value.toUpperCase()"></div>
       </div>
     </div>
 
@@ -5480,9 +5480,33 @@ window.cpGuardarMatricula = async (silencioso = false) => {
   }
   if (cpMatBorrada(m)) { cpMatBorradas.delete(cpNormMat(m)); cpGuardarMatBorradas(); }
   t.tractoras = cpAnadirMatricula(t.tractoras, m);
+  t.tractoraFicha = m;
   await cpGuardarTrans(true);
   mostrarMensajeFlotante?.(`💾 Matrícula ${m} guardada en ${t.autonomo ? t.nombre : t.conductor}`);
   return true;
+};
+// Corregir una matrícula mal escrita: se cambia en esta carta y en las fichas de los conductores
+// que la tienen (las cartas ya emitidas no se tocan)
+window.cpCorregirMatricula = async () => {
+  const vieja = (cpEstado.transportista.tractora || '').trim();
+  if (!vieja) { mostrarMensajeFlotante?.('Elige primero la matrícula que quieres corregir'); return; }
+  const nueva = ((await preguntarApp(`Corrige la matrícula ${vieja}:`, vieja, {titulo:'✏️ Corregir matrícula', boton:'Guardar'})) || '').trim().toUpperCase();
+  if (!nueva || nueva === vieja.toUpperCase()) return;
+  const k = cpNormMat(vieja);
+  const t = cpEstado.transportista;
+  t.tractora = nueva;
+  if (cpNormMat(t.tractoraFicha) === k) t.tractoraFicha = nueva;
+  t.tractoras = (t.tractoras || []).map(m => cpNormMat(m) === k ? nueva : m);
+  try {
+    await Promise.all(cpTrans.filter(x => cpNormMat(x.tractora) === k || (x.tractoras||[]).some(m => cpNormMat(m) === k)).map(x =>
+      updateDoc(doc(db,'cartasTransportistas',x.id), {
+        tractora: cpNormMat(x.tractora) === k ? nueva : (x.tractora || ''),
+        tractoras: [...new Set((x.tractoras||[]).map(m => cpNormMat(m) === k ? nueva : m))],
+      }).catch(() => {})));
+    if (cpMatBorrada(vieja)) { cpMatBorradas.delete(k); cpGuardarMatBorradas(); }
+    mostrarMensajeFlotante?.(`✏️ ${vieja} → ${nueva}`);
+  } catch(e) { alert('No se ha podido corregir: ' + e.message); }
+  cpRenderForm();
 };
 window.cpBorrarMatricula = async () => {
   const m = (cpEstado.transportista.tractora || '').trim();
@@ -5515,21 +5539,22 @@ function cpHtmlSelectMat(campo, etiqueta) {
   const todas = cpTodasMatriculas(campo);
   if (actual && !todas.some(m => m.toUpperCase() === actual.toUpperCase())) todas.unshift(actual);
   // las que ha llevado este conductor, arriba
-  const suyas = campo === 'tractora' ? (cpEstado.transportista.tractoras || []).filter(m => !cpMatBorrada(m)) : [];
+  const suyas = campo === 'tractora' && cpEstado.transportista.tractoraFicha && !cpMatBorrada(cpEstado.transportista.tractoraFicha) ? [cpEstado.transportista.tractoraFicha] : [];
   const nombreCond = cpEstado.transportista.autonomo ? cpEstado.transportista.nombre : cpEstado.transportista.conductor;
   const op = m => `<option ${m.toUpperCase()===actual.toUpperCase()?'selected':''}>${cpEsc(m)}</option>`;
   const resto = todas.filter(m => !suyas.some(x => x.toUpperCase() === m.toUpperCase()));
   const opciones = suyas.length
-    ? `<optgroup label="Las de ${cpEsc(nombreCond || 'este conductor')}">${suyas.map(op).join('')}</optgroup><optgroup label="Todas las demás">${resto.map(op).join('')}</optgroup>`
+    ? `<optgroup label="La de ${cpEsc(nombreCond || 'este conductor')}">${suyas.map(op).join('')}</optgroup><optgroup label="Todas las demás">${resto.map(op).join('')}</optgroup>`
     : todas.map(op).join('');
   return `<div class="cp-campo cp-c2"><label>${etiqueta}</label>
     <div style="display:flex;gap:0.4rem">
-      <select id="cp-t-${campo==='tractora'?'trac':'semi'}" onchange="cpElegirMatricula('${campo}', this)" style="font-family:monospace;font-size:16px;font-weight:700;flex:1;min-width:0">
+      <select id="cp-t-${campo==='tractora'?'trac':'semi'}" onchange="cpElegirMatricula('${campo}', this)" style="font-size:16px;font-weight:700;letter-spacing:0.5px;flex:1;min-width:0">
         <option value="">— Elegir matrícula —</option>
         ${opciones}
         <option value="__otra__">➕ Otra matrícula…</option>
       </select>
-      ${campo === 'tractora' ? `<button type="button" class="alm-accion" style="flex-shrink:0" title="Guardar esta matrícula en la ficha del conductor" aria-label="Guardar matrícula" onclick="cpGuardarMatricula()">💾</button>
+      ${campo === 'tractora' ? `<button type="button" class="alm-accion" style="flex-shrink:0" title="Corregir esta matrícula" aria-label="Corregir matrícula" onclick="cpCorregirMatricula()">✏️</button>
+        <button type="button" class="alm-accion" style="flex-shrink:0" title="Guardar esta matrícula en la ficha del conductor" aria-label="Guardar matrícula" onclick="cpGuardarMatricula()">💾</button>
         <button type="button" class="alm-accion alm-accion-borrar" style="flex-shrink:0" title="Borrar esta matrícula de la lista" aria-label="Borrar matrícula" onclick="cpBorrarMatricula()">🗑</button>` : ''}
     </div></div>`;
 }
@@ -5540,7 +5565,7 @@ window.cpElegirMatricula = (campo, sel) => {
     almAbrirModal(titulo, `
       <div class="cp-campo"><label>Matrícula</label>
         <input id="cp-nueva-mat" autocomplete="off" autocapitalize="characters" placeholder="${campo==='tractora'?'Ej.: 6732 LDT':'Ej.: R-4317-BDR'}"
-          style="font-family:monospace;font-size:22px;font-weight:800;text-transform:uppercase;text-align:center;letter-spacing:1px"
+          style="font-size:22px;font-weight:800;text-transform:uppercase;text-align:center;letter-spacing:1px"
           onkeydown="if(event.key==='Enter') cpGuardarNuevaMat('${campo}')"></div>
       <div style="font-size:13px;color:var(--text-muted)">Se pondrá en esta carta y quedará en el desplegable para las próximas.</div>`,
       `<button class="btn btn-primary" onclick="cpGuardarNuevaMat('${campo}')">✓ Usar esta matrícula</button>
@@ -6191,7 +6216,7 @@ function cpRellenarDesde(t) {
   const tr = cpEstado.transportista;
   Object.assign(tr, {nombre:d.nombre||'', nif:d.nif||'', domicilio:d.domicilio||'', cp:d.cp||'', poblacion:d.poblacion||'', provincia:d.provincia||'',
     autonomo: cpEsAutonomo(d), conductor: cpEsAutonomo(d) ? (d.nombre||'') : (d.conductor||''), conductorDni: d.conductorDni||'', telefono:d.telefono||'',
-    tractora: '', semirremolque:'',
+    tractora: cpMatBorrada(d.tractora) ? '' : (d.tractora||''), tractoraFicha: cpMatBorrada(d.tractora) ? '' : (d.tractora||''), semirremolque:'',
     tractoras: cpAnadirMatricula(d.tractoras, d.tractora).filter(x => !cpMatBorrada(x)), idGuardado: t.id});
 }
 window.cpElegirEmpresa = (clave) => {
@@ -6203,7 +6228,7 @@ window.cpElegirEmpresa = (clave) => {
 window.cpElegirConductor = (id) => {
   const t = cpTrans.find(x => x.id === id);
   const tr = cpEstado.transportista;
-  if (t) Object.assign(tr, {autonomo:false, conductor:t.conductor||'', conductorDni:t.conductorDni||'', telefono:t.telefono||'', tractora: '',
+  if (t) Object.assign(tr, {autonomo:false, conductor:t.conductor||'', conductorDni:t.conductorDni||'', telefono:t.telefono||'', tractora: (!cpMatBorrada(t.tractora) && t.tractora) || '', tractoraFicha: (!cpMatBorrada(t.tractora) && t.tractora) || '',
                             tractoras: cpAnadirMatricula(t.tractoras, t.tractora), idGuardado:t.id});
   else Object.assign(tr, {conductor:'', conductorDni:'', telefono:'', idGuardado:null});
   cpRenderForm();
@@ -6485,7 +6510,7 @@ window.cpGenerar = async () => {
       const datos = {...c, ...extra, ts: c.ts || Date.now(), modTs: Date.now(), fechaStr: cpFecha(c.fecha).replace(/^0/,'').replace(/\/0/g,'/'),
                      emitidaPor: (typeof currentUser!=='undefined' && currentUser?.name) || ''};
       delete datos.tocado;
-      if (datos.transportista) { datos.transportista = {...datos.transportista}; delete datos.transportista.tractoras; delete datos.transportista.semis; delete datos.transportista.idGuardado; }
+      if (datos.transportista) { datos.transportista = {...datos.transportista}; delete datos.transportista.tractoras; delete datos.transportista.semis; delete datos.transportista.idGuardado; delete datos.transportista.tractoraFicha; }
       await setDoc(doc(db,'cartasPorte',c.id), datos);
       c.ts = datos.ts;
     } catch(e) { console.warn('Registro de la carta:', e); }
