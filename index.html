@@ -2638,7 +2638,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v127 · 06/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v128 · 06/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -15381,7 +15381,9 @@ function mostrarMensajeFlotante(msg, esError) {
 // Base común: tarjeta centrada, texto, botones; Esc cancela y Enter acepta.
 function dlgVentana({titulo = '', mensaje = '', botones = [], campo = null}) {
   return new Promise(resolve => {
-    document.getElementById('dlg-app')?.remove();
+    // si había otra ventana abierta, se cierra bien (también su escucha del teclado)
+    const previa = document.getElementById('dlg-app');
+    if (previa && previa._cerrar) previa._cerrar(undefined); else previa?.remove();
     const m = document.createElement('div');
     m.id = 'dlg-app'; m.className = 'dlg-fondo';
     m.innerHTML = `<div class="dlg-caja" role="dialog" aria-modal="true">
@@ -15395,6 +15397,7 @@ function dlgVentana({titulo = '', mensaje = '', botones = [], campo = null}) {
     const inp = m.querySelector('.dlg-campo');
     if (inp) { inp.value = campo.valor || ''; inp.placeholder = campo.placeholder || ''; }
     const cerrar = v => { document.removeEventListener('keydown', teclas, true); m.remove(); resolve(v); };
+    m._cerrar = cerrar;
     botones.forEach(bt => {
       const el = document.createElement('button');
       el.type = 'button'; el.className = 'dlg-btn ' + (bt.clase || ''); el.textContent = bt.texto;
@@ -15404,6 +15407,10 @@ function dlgVentana({titulo = '', mensaje = '', botones = [], campo = null}) {
     const principal = botones.find(bt => bt.principal) || botones[botones.length - 1];
     const cancelar = botones.find(bt => bt.cancelar);
     function teclas(ev) {
+      // si la ventana ya no está, la escucha se quita y la tecla sigue su camino normal
+      if (!document.body.contains(m)) { document.removeEventListener('keydown', teclas, true); return; }
+      // Enter dentro de un recuadro de texto de la app (no de esta ventana): que haga salto de línea
+      if (ev.key === 'Enter' && ev.target && ev.target.tagName === 'TEXTAREA' && !m.contains(ev.target)) return;
       if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); cerrar(cancelar ? cancelar.valor : undefined); }
       else if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); ev.stopPropagation(); cerrar(principal.valor === '__campo' ? (inp ? inp.value : '') : principal.valor); }
     }
