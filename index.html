@@ -949,6 +949,8 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .cp-ficha-ok, .cp-ficha-listo { flex: 1; padding: 0.5rem; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
 .cp-ficha-ok { background: var(--accent); color: #111; border: none; }
 .cp-ficha-listo { background: transparent; color: var(--text); border: 1px solid var(--card-border); }
+.cp-ficha-cancelar { padding: 0.5rem 0.7rem; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; background: transparent; color: var(--text-muted); border: 1px solid transparent; }
+.cp-ficha-cancelar:hover { color: var(--text); border-color: var(--card-border); }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2635,7 +2637,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v121 · 06/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v122 · 06/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -6049,7 +6051,7 @@ window.cpBorrarRemit = async (id) => {
   try { await deleteDoc(doc(db,'cartasRemitentes',id)); } catch(e) { alert(e.message); }
 };
 // ── Fichas de los datos fijos: vista como en el PDF, y edición al tocar ✏️ ──
-let cpFijoEdit = {};
+let cpFijoEdit = {}, cpFijoAntes = {};     // ficha en edición y el texto que tenía antes (para cancelar)
 function cpHtmlFicha(tipo, icono, etiqueta, ruta, conLista) {
   const c = cpEstado, texto = String(c[ruta] || '');
   const lineas = texto.split('\n').map(l => l.trim()).filter(Boolean);
@@ -6071,21 +6073,38 @@ function cpHtmlFicha(tipo, icono, etiqueta, ruta, conLista) {
       </span>
     </div>
     ${editando ? `
-      <textarea id="cp-${tipo}" rows="${Math.max(3, lineas.length + 1)}" oninput="cpSet('${ruta}', this.value)" placeholder="${tipo === 'lugar' ? 'Lugar de destino' : 'Primera línea: nombre. Debajo: dirección, CP y población…'}">${cpEsc(texto)}</textarea>
+      <textarea id="cp-${tipo}" rows="${Math.max(3, lineas.length + 1)}" oninput="cpSet('${ruta}', this.value)" onkeydown="if(event.key==='Escape'){ event.preventDefault(); cpCancelarFijo('${tipo}','${ruta}'); }" placeholder="${tipo === 'lugar' ? 'Lugar de destino' : 'Primera línea: nombre. Debajo: dirección, CP y población…'}">${cpEsc(texto)}</textarea>
       <div class="cp-ficha-pie">
         ${conLista ? `<button type="button" class="cp-ficha-ok" onclick="cpGuardarFijo('${tipo}','${ruta}').then(() => cpEditarFijo('${tipo}', false))">💾 Guardar en la lista</button>` : ''}
         <button type="button" class="cp-ficha-listo" onclick="cpEditarFijo('${tipo}', false)">${conLista ? 'Solo para esta carta' : '✓ Listo'}</button>
+        <button type="button" class="cp-ficha-cancelar" onclick="cpCancelarFijo('${tipo}','${ruta}')" title="Dejarlo como estaba (Esc)">✕ Cancelar</button>
       </div>`
     : `<div class="cp-ficha-vista">${vista}</div>
        ${conLista ? `<div class="cp-ficha-estado">${elegido ? `✓ De la lista${lista.length > 1 ? ` · ${lista.length} guardados` : ''}` : lineas.length ? '⚠️ No está en la lista: toca ✏️ y "Guardar en la lista"' : ''}</div>` : ''}`}
   </div>`;
 }
-window.cpEditarFijo = (tipo, on) => {
+window.cpEditarFijo = (tipo, on, ruta) => {
+  // al empezar a editar, se guarda cómo estaba por si se cancela
+  const rutas = {cargador:'cargadorTxt', destino:'destinoTxt', operador:'operadorTxt', lugar:'lugarDestino'};
+  if (on && !cpFijoEdit[tipo]) cpFijoAntes[tipo] = cpEstado[ruta || rutas[tipo]] || '';
+  if (!on) delete cpFijoAntes[tipo];
   cpFijoEdit[tipo] = on;
   cpRenderForm();
   if (on) setTimeout(() => { const t = document.getElementById('cp-' + tipo); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 30);
 };
-window.cpNuevoFijo = (tipo, ruta) => { cpEstado[ruta] = ''; cpEditarFijo(tipo, true); };
+window.cpNuevoFijo = (tipo, ruta) => {
+  cpFijoAntes[tipo] = cpEstado[ruta] || '';      // para poder volver atrás con "Cancelar"
+  cpEstado[ruta] = '';
+  cpFijoEdit[tipo] = true;
+  cpRenderForm();
+  setTimeout(() => document.getElementById('cp-' + tipo)?.focus(), 30);
+};
+window.cpCancelarFijo = (tipo, ruta) => {
+  if (tipo in cpFijoAntes) cpEstado[ruta] = cpFijoAntes[tipo];
+  delete cpFijoAntes[tipo];
+  cpFijoEdit[tipo] = false;
+  cpRenderForm();
+};
 
 // ── Destinos y operadores de transporte guardados (para elegir en cada carta) ──
 const CP_LISTA_COL = {destino: 'cartasDestinos', operador: 'cartasOperadores'};
