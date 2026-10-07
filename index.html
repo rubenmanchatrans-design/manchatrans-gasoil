@@ -2774,7 +2774,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v135 · 07/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v136 · 07/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -7731,7 +7731,7 @@ async function sgPedirClave(){
 
 async function tkAbrir(){
   if(!SG_CLAVE){ if(!(await sgPedirClave())) return; }
-  var nombre = ''; try{ nombre = localStorage.getItem('mt_tk_nombre') || ''; }catch(e){}
+  var nombre = '';          // cada petición, con el nombre vacío (no se recuerda el anterior)
   var velo = document.createElement('div'); velo.className = 'tk-velo';
   velo.innerHTML =
     '<div class="tk-caja" role="dialog" aria-modal="true" aria-labelledby="tk-t">'+
@@ -7823,7 +7823,7 @@ async function tkAbrir(){
              prioridad: urgencia, nombre: velo.querySelector('#tk-nom').value.trim()};
     if(d.titulo.length < 3){ err.textContent='Escriba un título.'; err.hidden=false; velo.querySelector('#tk-tit').focus(); return; }
     if(d.texto.length < 5){ err.textContent='Explique un poco más qué hace falta.'; err.hidden=false; txt.focus(); return; }
-    try{ localStorage.setItem('mt_tk_nombre', d.nombre); }catch(e){}
+    try{ localStorage.removeItem('mt_tk_nombre'); }catch(e){}
     enviar.disabled = true; enviar.textContent = 'Enviando…';
     sgApi('ticket_nuevo', d).then(function(j){
       if(!j.ok) throw new Error(j.error || 'No se pudo enviar');
@@ -7839,7 +7839,7 @@ async function tkAbrir(){
       velo.querySelector('.tk-no').textContent = 'Cerrar';
       h.querySelector('.tk-ver').onclick = function(){ pestana('lista'); };
       h.querySelector('.tk-otra').onclick = function(){
-        velo.querySelector('#tk-tit').value=''; txt.value=''; txt.oninput();
+        velo.querySelector('#tk-tit').value=''; txt.value=''; txt.oninput(); velo.querySelector('#tk-nom').value='';
         h.hidden = true; velo.querySelector('.tk-form').hidden = false; enviar.hidden = false;
         velo.querySelector('.tk-no').textContent = 'Cancelar';
         velo.querySelector('#tk-tit').focus();
