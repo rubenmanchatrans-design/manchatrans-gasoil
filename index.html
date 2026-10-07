@@ -956,6 +956,7 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .cp-ma-btn { background: transparent; border: 1px dashed var(--card-border); color: var(--text-muted); border-radius: 10px; padding: 0.35rem 0.7rem; font-size: 12px; font-weight: 700; cursor: pointer; margin: 0 0.35rem 0.4rem 0; }
 .cp-ma-btn:hover { color: #2ecc71; border-color: #2ecc71; }
 .cp-ma-btn.on { border-style: solid; border-color: #2ecc71; background: rgba(46,204,113,0.14); color: #2ecc71; }
+.cp-adr-opt.activa { outline: 2px solid var(--accent); background: rgba(245,166,35,0.12); }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2642,7 +2643,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v130 · 07/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v131 · 07/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -5637,7 +5638,7 @@ function cpHtmlGrupo(gr, g) {
       <div id="cp-remdat-g${g}" class="cp-remdat">${cpHtmlFichaRemit(gr)}</div></div>
     ${lineas.map(x => x.l.vacio ? cpHtmlVacio(x.l, x.i) : cpHtmlAdr(x.l, x.i)).join('')}
     <div class="cp-campo" style="margin-top:0.4rem"><label>${lineas.length ? 'Añadir otra mercancía ADR de este cliente' : 'Mercancía ADR de este cliente'} · nº ONU, nombre o 0000 (envases vacíos)</label>
-      <input id="cp-adr-busca-${g}" placeholder="Ej.: 1263, PINTURA o 0000" oninput="cpBuscarAdrUI(this.value, ${g})" autocomplete="off"></div>
+      <input id="cp-adr-busca-${g}" placeholder="Ej.: 1263, PINTURA o 0000 · ↓ ↑ para elegir y Enter" oninput="cpBuscarAdrUI(this.value, ${g})" onkeydown="sugTeclado(event, 'cp-adr-res-${g}')" autocomplete="off"></div>
     <div id="cp-adr-res-${g}" class="cp-adr-res"></div>
   </div>`;
 }
@@ -5666,6 +5667,7 @@ window.cpElegirRemitGrupo = (g, id) => {
 window.cpBuscarAdrUI = async (txt, g = 0) => {
   await cpCargarAdr();
   const cont = document.getElementById(`cp-adr-res-${g}`);
+  if (cont) cont.dataset.i = -1;
   if (!cont) return;
   const res = cpBuscarAdr(txt);
   const q = txt.trim().toUpperCase();
@@ -5809,7 +5811,7 @@ window.cpGuardarFijos = async () => {
 window.sugTeclado = (ev, idLista) => {
   const cont = document.getElementById(idLista);
   if (!cont) return;
-  const ops = [...cont.querySelectorAll('.cp-sug-op')];
+  const ops = [...cont.querySelectorAll('.cp-sug-op, .cp-adr-opt')];
   const visible = cont.style.display !== 'none' && ops.length;
   let i = Number(cont.dataset.i ?? -1);
   const marcar = n => {
@@ -5817,7 +5819,8 @@ window.sugTeclado = (ev, idLista) => {
     ops.forEach((o, k) => o.classList.toggle('activa', k === n));
     if (ops[n]) ops[n].scrollIntoView({block:'nearest'});
   };
-  const elegir = n => { const o = ops[n]; if (o) o.dispatchEvent(new MouseEvent('mousedown', {bubbles:true, cancelable:true})); };
+  // unas opciones se eligen al pulsar (mousedown) y otras al hacer clic: se lanzan las dos
+  const elegir = n => { const o = ops[n]; if (!o) return; o.dispatchEvent(new MouseEvent('mousedown', {bubbles:true, cancelable:true})); if (o.getAttribute('onclick')) o.click(); };
   if (ev.key === 'ArrowDown') { if (!ops.length) return; ev.preventDefault(); cont.style.display = 'block'; marcar(Math.min(i + 1, ops.length - 1)); }
   else if (ev.key === 'ArrowUp') { if (!visible) return; ev.preventDefault(); marcar(Math.max(i - 1, 0)); }
   else if (ev.key === 'Enter') { if (!visible) return; ev.preventDefault(); elegir(i >= 0 ? i : 0); }
