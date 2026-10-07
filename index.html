@@ -1042,6 +1042,14 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .tk-btn.tk-si:hover{filter:brightness(1.08)}
 .tk-btn.tk-borrar{background:transparent;color:#ff8b80;border-color:rgba(231,76,60,.5)}
 .tk-btn.tk-borrar:hover{background:rgba(231,76,60,.12);border-color:var(--danger)}
+.tk-gest-b[hidden],.tk-conf[hidden]{display:none}
+.tk-conf{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.45);border-radius:10px;padding:10px 12px;font-size:13.5px;color:#ffb3ab}
+.tk-conf div{display:flex;gap:8px}
+.tk-btn.tk-conf-si{background:var(--danger);border-color:var(--danger);color:#fff}
+.tk-btn.tk-conf-si:hover{filter:brightness(1.1)}
+.tk-item{transition:opacity .25s,transform .25s}
+.tk-item.tk-fuera{opacity:0;transform:translateX(12px)}
 .tk-btn:disabled{opacity:.6;cursor:default}
 .tk-filtro{display:flex;gap:8px;margin-bottom:16px}
 .tk-f{border:1px solid var(--card-border);background:var(--input-bg);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer}
@@ -2774,7 +2782,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v136 · 07/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v137 · 07/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -7927,7 +7935,11 @@ function tkLista(velo){
             '<div class="tk-seg tk-seg-est">'+Object.keys(TK_ESTADOS).map(function(k){
               return '<button type="button" data-v="'+k+'"'+(k===t.estado?' class="on"':'')+'>'+TK_ESTADOS[k][0]+'</button>'; }).join('')+'</div>'+
             '<textarea class="tk-res" rows="3" placeholder="Escriba la respuesta para quien lo pidió (opcional)">'+sgEsc(t.respuesta||'')+'</textarea>'+
-            '<div class="tk-gest-b"><button type="button" class="tk-btn tk-borrar">🗑 Borrar</button><button type="button" class="tk-btn tk-si tk-guardar">Guardar</button></div>'+
+            '<div class="tk-gest-b"><button type="button" class="tk-btn tk-borrar">Eliminar</button>'+
+              '<button type="button" class="tk-btn tk-si tk-guardar">Guardar</button></div>'+
+            '<div class="tk-conf" hidden><span>¿Eliminar la petición <b>'+sgEsc(t.id)+'</b>? Desaparecerá de la lista.</span>'+
+              '<div><button type="button" class="tk-btn tk-conf-no">Cancelar</button>'+
+              '<button type="button" class="tk-btn tk-conf-si">Eliminar</button></div></div>'+
           '</div></details>'+
         '</article>';
     }).join('');
@@ -7935,18 +7947,18 @@ function tkLista(velo){
       it.querySelectorAll('.tk-seg-est button').forEach(function(b){
         b.onclick = function(){ it.querySelectorAll('.tk-seg-est button').forEach(function(x){ x.classList.toggle('on', x===b); }); };
       });
-      it.querySelector('.tk-borrar').onclick = async function(){
-        var b = this, id = it.dataset.id;
-        if(!(await confirmarAccion('¿Borrar la petición ' + id + '?\n\nSe quita del todo (no se puede deshacer).', 'Sí, borrar'))) return;
-        b.disabled = true; b.textContent = 'Borrando…';
-        sgApi('ticket_borrar', {id: id, app: SG_APP}).then(function(j){
-          if(!j || !j.ok) throw new Error((j && j.error) || 'No se pudo borrar');
-          mostrarMensajeFlotante?.('🗑 Petición ' + id + ' borrada');
-          tkLista(velo);
+      var conf = it.querySelector('.tk-conf'), botones = it.querySelector('.tk-gest-b');
+      it.querySelector('.tk-borrar').onclick = function(){ conf.hidden = false; botones.hidden = true; };
+      it.querySelector('.tk-conf-no').onclick = function(){ conf.hidden = true; botones.hidden = false; };
+      it.querySelector('.tk-conf-si').onclick = function(){
+        var b = this; b.disabled = true; b.textContent = 'Eliminando…';
+        sgApi('ticket_borrar', {id: it.dataset.id, app: SG_APP}).then(function(j){
+          if(!j || !j.ok) throw new Error((j && j.error) || 'No se pudo eliminar');
+          it.classList.add('tk-fuera');                       // se desvanece
+          setTimeout(function(){ tkLista(velo); }, 250);      // y se recarga la lista (y el contador)
         }).catch(function(e){
-          b.disabled = false; b.textContent = '🗑 Borrar';
-          avisoApp(/No existe/i.test(e.message) ? 'No se ha encontrado esa petición (puede que ya estuviera borrada).'
-                  : /accion|Acción/i.test(e.message) || /desconocida/i.test(e.message) ? 'Falta subir el api.php nuevo a la web (el que permite borrar).' : e.message);
+          b.disabled = false; b.textContent = 'Eliminar';
+          conf.querySelector('span').textContent = e.message || 'No se pudo eliminar';
         });
       };
       it.querySelector('.tk-guardar').onclick = function(){
