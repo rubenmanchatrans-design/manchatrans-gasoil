@@ -952,6 +952,10 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .cp-ficha-cancelar { padding: 0.5rem 0.7rem; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; background: transparent; color: var(--text-muted); border: 1px solid transparent; }
 .cp-ficha-cancelar:hover { color: var(--text); border-color: var(--card-border); }
 .cp-ficha-ayuda { font-size: 11px; color: var(--text-muted); margin-top: 0.3rem; line-height: 1.4; }
+
+.cp-ma-btn { background: transparent; border: 1px dashed var(--card-border); color: var(--text-muted); border-radius: 10px; padding: 0.35rem 0.7rem; font-size: 12px; font-weight: 700; cursor: pointer; margin: 0 0.35rem 0.4rem 0; }
+.cp-ma-btn:hover { color: #2ecc71; border-color: #2ecc71; }
+.cp-ma-btn.on { border-style: solid; border-color: #2ecc71; background: rgba(46,204,113,0.14); color: #2ecc71; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2638,7 +2642,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v129 · 06/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v130 · 07/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -5677,7 +5681,7 @@ window.cpBuscarAdrUI = async (txt, g = 0) => {
 };
 window.cpAnadirAdr = (idx, g = 0) => {
   const f = cpAdr[idx];
-  cpEstado.adrLineas.push({g, remitente: '', un:f[0], nombre:f[1], clase:f[2], codigo:f[3], ge:f[4], etiquetas:f[5], disposiciones:f[6], cl:f[7], cat:f[9], tunel:f[10], texto:cpLineaAdr(f), tecnico:'', cantidad:'', unidad:'kg', bultos:'', embalaje:''});
+  cpEstado.adrLineas.push({g, remitente: '', medioAmbiente: ['3077','3082'].includes(f[0]), un:f[0], nombre:f[1], clase:f[2], codigo:f[3], ge:f[4], etiquetas:f[5], disposiciones:f[6], cl:f[7], cat:f[9], tunel:f[10], texto:cpLineaAdr(f), tecnico:'', cantidad:'', unidad:'kg', bultos:'', embalaje:''});
   cpRenderForm();
 };
 function cpEsNepTabla(l) { return /N\.E\.P\./i.test(l.nombre || '') || String(l.disposiciones||'').split(/\s+/).includes('274'); }
@@ -5734,6 +5738,8 @@ function cpHtmlAdr(l, i) {
       <div class="cp-adr-texto">${cpEsc(cpTextoAdr(l))}</div>
       <button type="button" class="cp-adr-quitar" onclick="cpEstado.adrLineas.splice(${i},1); cpRenderForm()" aria-label="Quitar esta materia">✕ Quitar</button>
     </div>
+    <button type="button" class="cp-ma-btn ${l.medioAmbiente ? 'on' : ''}" onclick="cpEstado.adrLineas[${i}].medioAmbiente=!cpEstado.adrLineas[${i}].medioAmbiente; cpRenderForm()" aria-pressed="${!!l.medioAmbiente}">
+      🐟 Peligroso para el medio ambiente${l.medioAmbiente ? ' · SÍ' : ''}</button>
     ${!nep ? `<button type="button" class="cp-tecnico-btn" onclick="cpEstado.adrLineas[${i}].conTecnico=true; cpRenderForm()">➕ Añadir nombre técnico (N.E.P.)</button>` : ''}
     ${nep ? `<div class="cp-campo"><label>Nombre técnico (N.E.P.: poner qué lleva, ADR 3.1.2.8)${!cpEsNepTabla(l) ? ` · <a href="#" onclick="event.preventDefault(); cpEstado.adrLineas[${i}].conTecnico=false; cpEstado.adrLineas[${i}].tecnico=''; cpRenderForm()">quitar</a>` : ''}</label>
       <input value="${cpEsc(l.tecnico||'')}" placeholder="Ej.: contiene tolueno y etanol" oninput="cpSetAdr(${i},'tecnico',this.value); this.closest('.cp-adr-linea').querySelector('.cp-adr-texto').textContent = cpTextoAdr(cpEstado.adrLineas[${i}])"></div>` : ''}
@@ -5755,6 +5761,10 @@ function cpHtmlAdr(l, i) {
 // Texto oficial de la materia; en las N.E.P. añade el nombre técnico entre paréntesis
 function cpTextoAdr(l) {
   if (l.vacio) return cpTextoVacio(l);
+  const base = cpTextoAdrBase(l);
+  return l.medioAmbiente ? `${base}, PELIGROSO PARA EL MEDIO AMBIENTE` : base;
+}
+function cpTextoAdrBase(l) {
   if (!l.tecnico || !cpEsNep(l)) return l.texto;
   const tec = ` (${l.tecnico.trim()})`;
   // ADR 3.1.2.8: el nombre técnico va detrás de "N.E.P." -> "LÍQUIDO INFLAMABLE, N.E.P. (contiene …), 3, II"
