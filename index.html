@@ -1096,6 +1096,68 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
   .tk-tipo .tk-ic{grid-row:1 / span 2;margin:0}
   .tk-i-txt,.tk-resp,.tk-gest{margin-left:0}.tk-nota{display:none}
 }
+
+.seg-barra { margin-bottom: 0.75rem; }
+.seg-barra input[type=search] { margin-bottom: 0.5rem; }
+.seg-filtros { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; }
+.seg-filtros select { font-size: 13px; padding: 0.5rem 0.6rem; }
+@media (max-width: 700px) { .seg-filtros { grid-template-columns: 1fr 1fr; } }
+.seg-cuenta { font-size: 12px; color: var(--text-muted); margin-top: 0.35rem; min-height: 0; }
+.doc-sec { margin-top: 0.6rem; padding: 0.65rem 0.75rem; background: var(--navy-light); border: 1px solid var(--card-border); border-radius: 10px; }
+.doc-sec-tit { font-size: 11.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 0.4rem; }
+.doc-fila { display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.doc-fila:last-of-type { border-bottom: none; }
+.doc-ico { font-size: 18px; flex-shrink: 0; }
+.doc-nom { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 700; color: var(--text); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-nom span { font-weight: 400; color: var(--text-muted); }
+.doc-nom:hover { color: var(--accent); }
+.doc-fecha { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; }
+.doc-btn { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--card-border); background: var(--card); color: var(--text); display: inline-flex; align-items: center; justify-content: center; text-decoration: none; cursor: pointer; font-size: 14px; flex-shrink: 0; padding: 0; }
+.doc-btn:hover { border-color: var(--accent); }
+.doc-del:hover { border-color: var(--danger); }
+.doc-vacio { font-size: 12.5px; color: var(--text-muted); padding: 0.2rem 0 0.4rem; }
+.doc-subir { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.45rem; }
+.doc-subir-btn { border: 1px dashed var(--card-border); border-radius: 8px; padding: 0.45rem 0.7rem; font-size: 12.5px; font-weight: 700; color: var(--text); cursor: pointer; background: var(--card); }
+.doc-subir-btn:hover { border-color: var(--accent); color: var(--accent); }
+.doc-estado { font-size: 12px; color: var(--text-muted); margin-top: 0.3rem; }
+@media (max-width: 520px) { .doc-fecha { display: none; } }
+
+#module-multas .alm-estados { grid-template-columns: repeat(3, 1fr) !important; }
+.mu-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-bottom: 0.6rem; }
+@media (max-width: 700px) { .mu-kpis { grid-template-columns: 1fr 1fr; } }
+.mu-kpi { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; padding: 0.7rem 0.8rem; display: flex; flex-direction: column; cursor: pointer; }
+.mu-kpi b { font-size: 20px; font-weight: 800; }
+.mu-kpi span { font-size: 12px; font-weight: 700; color: var(--text); }
+.mu-kpi small { font-size: 11.5px; color: var(--text-muted); }
+.mu-tarjeta { background: var(--card); border: 1px solid var(--card-border); border-left: 4px solid; border-radius: 12px; margin-bottom: 0.5rem; overflow: hidden; }
+.mu-cab { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.7rem 0.9rem; cursor: pointer; }
+.mu-cab:hover { background: rgba(255,255,255,0.02); }
+.mu-cab-izq { flex: 1; min-width: 0; }
+.mu-l1 { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; font-size: 12.5px; }
+.mu-orden { font-weight: 800; color: var(--accent); }
+.mu-mat { font-weight: 800; letter-spacing: 0.3px; }
+.mu-emp { font-size: 10.5px; font-weight: 800; color: var(--text-muted); border: 1px solid var(--card-border); border-radius: 6px; padding: 0 5px; }
+.mu-concepto { font-size: 14.5px; font-weight: 700; margin: 0.2rem 0; }
+.mu-l3 { font-size: 12px; color: var(--text-muted); }
+.mu-pp { font-size: 12px; font-weight: 700; color: var(--success); margin-top: 0.25rem; }
+.mu-pp.urgente { color: var(--warning); }
+.mu-pp.vencido { color: #ff8b80; }
+.mu-cab-der { text-align: right; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; }
+.mu-estado { font-size: 11.5px; font-weight: 800; border: 1px solid; border-radius: 10px; padding: 1px 8px; white-space: nowrap; }
+.mu-imp { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.mu-pag { font-size: 11.5px; color: var(--success); font-weight: 700; }
+.mu-cuerpo { padding: 0 0.9rem 0.9rem; border-top: 1px solid var(--card-border); }
+.mu-datos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem 1rem; margin: 0.7rem 0; font-size: 13.5px; }
+@media (max-width: 620px) { .mu-datos { grid-template-columns: 1fr 1fr; } }
+.mu-datos span { display: block; font-size: 10.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
+.mu-obs { font-size: 13px; background: var(--navy-light); border-radius: 8px; padding: 0.5rem 0.7rem; margin-bottom: 0.4rem; white-space: pre-line; }
+.mu-resumen { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 0.6rem; }
+.mu-resumen .refuel-card { margin: 0; }
+@media (max-width: 720px) { .mu-resumen { grid-template-columns: 1fr; } }
+.mu-tabla { width: 100%; border-collapse: collapse; font-size: 13px; }
+.mu-tabla th { text-align: right; font-size: 11px; color: var(--text-muted); text-transform: uppercase; padding: 0.3rem 0.4rem; }
+.mu-tabla td { padding: 0.3rem 0.4rem; border-top: 1px solid rgba(255,255,255,0.05); text-align: right; font-variant-numeric: tabular-nums; }
+.mu-tabla td:first-child, .mu-tabla th:first-child { text-align: left; }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -1297,7 +1359,7 @@ html.giro-fijo #screen-chat { height: 100% !important; }
         </button>
       </div>
       <div class="home-seccion">Vehículos y conductores</div>
-      <div class="home-grid home-grid-3">
+      <div class="home-grid home-grid-3 home-grid-4c">
         <button class="home-card" id="home-btn-fleet">
           <span class="hc-icon" style="background:rgba(46,204,113,0.15);">🚛</span>
           <span class="hc-name">Flota</span>
@@ -1315,6 +1377,12 @@ html.giro-fijo #screen-chat { height: 100% !important; }
           <span class="hc-name">ADR / CAP</span>
           <span class="hc-desc">Vencimientos · Renovaciones</span>
           <span id="home-badge-adrcap" class="hc-badge"></span>
+        </button>
+        <button class="home-card" id="home-btn-multas">
+          <span class="hc-icon" style="background:rgba(239,68,68,0.15);">🚨</span>
+          <span class="hc-name">Multas</span>
+          <span class="hc-desc">Expedientes · Pagos · Pronto pago</span>
+          <span id="home-info-multas" class="hc-info"></span>
         </button>
       </div>
       <div class="home-seccion">Personal y administración</div>
@@ -1803,6 +1871,18 @@ html.giro-fijo #screen-chat { height: 100% !important; }
 
     <!-- ═══════════ FIN MÓDULO ADR/CAP ═══════════ -->
 
+    <!-- ═══════════ MÓDULO MULTAS ═══════════ -->
+    <div id="module-multas" class="mod-nuevo" style="display:none;">
+      <div class="alm-estados" style="grid-template-columns:repeat(3,1fr)">
+        <button type="button" class="alm-estado on" id="mu-tab-lista" onclick="muTab('lista')">📋 Multas <span class="alm-badge" id="mu-n">0</span></button>
+        <button type="button" class="alm-estado" id="mu-tab-nueva" onclick="muEstado=null; muTab('nueva')">➕ Nueva multa</button>
+        <button type="button" class="alm-estado" id="mu-tab-resumen" onclick="muTab('resumen')">📊 Resumen</button>
+      </div>
+      <div id="mu-pane-lista"></div>
+      <div id="mu-pane-nueva" style="display:none"></div>
+      <div id="mu-pane-resumen" style="display:none"></div>
+    </div>
+
     <!-- ═══════════ MÓDULO COMERCIAL (partes de visita) ═══════════ -->
     <div id="module-comercial" class="mod-nuevo" style="display:none;">
       <div class="alm-estados" style="grid-template-columns:repeat(3,1fr)">
@@ -1993,7 +2073,23 @@ html.giro-fijo #screen-chat { height: 100% !important; }
         </div>
 
         <div class="section-title" id="seg-veh-list-titulo">Vehículos asegurados</div>
-        <input class="form-input" type="text" id="seg-veh-buscador" placeholder="🔍 Buscar por matrícula..." style="margin-bottom:0.75rem;">
+        <div class="seg-barra">
+          <input class="form-input" type="search" id="seg-veh-buscador" placeholder="🔍 Buscar: matrícula (ej. HBJ), concepto, importe, compañía, póliza, corredor…" autocomplete="off">
+          <div class="seg-filtros">
+            <select class="form-input" id="seg-veh-orden" title="Ordenar">
+              <option value="nombre">Orden: matrícula (A-Z)</option>
+              <option value="vence">Orden: vencimiento (próximo primero)</option>
+              <option value="empresa">Orden: empresa</option>
+              <option value="corredor">Orden: corredor</option>
+              <option value="compania">Orden: compañía</option>
+              <option value="importe">Orden: importe (mayor primero)</option>
+            </select>
+            <select class="form-input" id="seg-veh-f-empresa"><option value="">Todas las empresas</option></select>
+            <select class="form-input" id="seg-veh-f-corredor"><option value="">Todos los corredores</option></select>
+            <select class="form-input" id="seg-veh-f-compania"><option value="">Todas las compañías</option></select>
+          </div>
+          <div class="seg-cuenta" id="seg-veh-cuenta"></div>
+        </div>
         <div class="two-col" style="margin-bottom:0.75rem;">
           <button class="btn btn-secondary" id="btn-pdf-seg-veh" style="font-size:13px;">📄 PDF</button>
           <button class="btn btn-secondary" id="btn-excel-seg-veh" style="font-size:13px;">📊 Excel</button>
@@ -2043,6 +2139,23 @@ html.giro-fijo #screen-chat { height: 100% !important; }
           </div>
         </div>
         <div class="section-title">Pólizas registradas</div>
+        <div class="seg-barra">
+          <input class="form-input" type="search" id="seg-pol-buscador" placeholder="🔍 Buscar: matrícula (ej. HBJ), concepto, importe, compañía, póliza, corredor…" autocomplete="off">
+          <div class="seg-filtros">
+            <select class="form-input" id="seg-pol-orden" title="Ordenar">
+              <option value="nombre">Orden: tipo (A-Z)</option>
+              <option value="vence">Orden: vencimiento (próximo primero)</option>
+              <option value="empresa">Orden: empresa</option>
+              <option value="corredor">Orden: corredor</option>
+              <option value="compania">Orden: compañía</option>
+              <option value="importe">Orden: importe (mayor primero)</option>
+            </select>
+            <select class="form-input" id="seg-pol-f-empresa"><option value="">Todas las empresas</option></select>
+            <select class="form-input" id="seg-pol-f-corredor"><option value="">Todos los corredores</option></select>
+            <select class="form-input" id="seg-pol-f-compania"><option value="">Todas las compañías</option></select>
+          </div>
+          <div class="seg-cuenta" id="seg-pol-cuenta"></div>
+        </div>
         <div class="two-col" style="margin-bottom:0.75rem;">
           <button class="btn btn-secondary" id="btn-pdf-seg-pol" style="font-size:13px;">📄 PDF</button>
           <button class="btn btn-secondary" id="btn-excel-seg-pol" style="font-size:13px;">📊 Excel</button>
@@ -2788,7 +2901,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v138 · 07/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v139 · 07/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -8000,6 +8113,413 @@ async function sgIniciar(){
 }
 window.sgIniciar = sgIniciar;
 
+// ════════════════════════════════════════════════════════════════════════════
+// MULTAS A VEHÍCULOS
+// Mismos datos que el Excel "MULTAS" de Manchatrans (nº de orden, expediente, recurso,
+// boletín, matrícula, fechas, importes, conductor, concepto, empresa…), con estado,
+// quién la paga, aviso del pronto pago (50 % en 20 días) y los PDF de la multa y del pago.
+// Colección 'multas' (dbFleet). Los PDF van a la web: documentos/subir.php (carpeta multas).
+// ════════════════════════════════════════════════════════════════════════════
+const MU_EMPRESAS = ['MANCHATRANS', 'TRADIMAN', 'ALICIA FORNER DIAZ', 'VICENTE DIAZ ASTILLEROS', 'SANTOS DIAZ ASTILLEROS'];
+const MU_ESTADOS = [
+  ['pendiente', '⏳', 'Pendiente de pagar', '#f59e0b'],
+  ['pagada', '✅', 'Pagada', '#22c55e'],
+  ['recurrida', '⚖️', 'Recurrida', '#3b82f6'],
+  ['identificado', '👤', 'Conductor identificado', '#a855f7'],
+  ['anulada', '🚫', 'Anulada', '#94a3b8'],
+  ['cerrada', '📁', 'Cerrada sin pago anotado', '#64748b'],
+];
+const MU_DIAS_PRONTO_PAGO = 20;          // días naturales desde la notificación para pagar con el 50 %
+
+let muMultas = [], muUnsub = null, muEstado = null, muAbiertas = new Set(), muAvisoImp = '';
+let muFiltro = {q:'', anio:'', empresa:'', estado:'abiertas', orden:'reciente'};
+const muEsc = almEsc;
+const muNorm = t => String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+const muEstadoDe = id => MU_ESTADOS.find(e => e[0] === id) || MU_ESTADOS[0];
+const muEuros = n => (n == null || n === '' || isNaN(n)) ? '—' : Number(n).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' €';
+const muNum = v => { if (v == null || v === '') return null; const n = parseFloat(String(v).replace(/\./g, '').replace(',', '.')); return isNaN(n) ? null : n; };
+const muFecha = iso => { if (!iso) return '—'; const d = new Date(iso + 'T12:00:00'); return isNaN(d) ? iso : fechaCorta(d); };
+const muIdDe = orden => String(orden).replace(/[^0-9A-Za-z]+/g, '-');
+
+function muEntrar() {
+  if (!muUnsub) {
+    muUnsub = onSnapshot(collection(dbFleet, 'multas'), snap => {
+      muMultas = snap.docs.map(d => ({id: d.id, ...d.data()}));
+      const n = document.getElementById('mu-n'); if (n) n.textContent = muMultas.filter(m => m.estado === 'pendiente').length;
+      if (document.getElementById('mu-pane-lista')?.style.display !== 'none') muRenderLista();
+      if (document.getElementById('mu-pane-resumen')?.style.display !== 'none') muRenderResumen();
+      muActualizarInicio();
+    }, e => console.warn('multas', e));
+  }
+  muTab('lista');
+}
+function muTab(t) {
+  ['lista','nueva','resumen'].forEach(x => {
+    document.getElementById('mu-pane-' + x).style.display = x === t ? 'block' : 'none';
+    document.getElementById('mu-tab-' + x)?.classList.toggle('on', x === t);
+  });
+  if (t === 'lista') muRenderLista();
+  if (t === 'nueva') { if (!muEstado) muEstado = muNueva(); muRenderForm(); }
+  if (t === 'resumen') muRenderResumen();
+}
+function muActualizarInicio() {
+  const el = document.getElementById('home-info-multas'); if (!el) return;
+  const pend = muMultas.filter(m => m.estado === 'pendiente');
+  const urgentes = pend.filter(m => { const d = muProntoPago(m); return d && d.dias >= 0 && d.dias <= 5; }).length;
+  el.innerHTML = pend.length ? `⏳ <strong>${pend.length}</strong> pendiente${pend.length === 1 ? '' : 's'} · ${muEuros(pend.reduce((s, m) => s + (m.importe || 0), 0))}${urgentes ? ` · <span style="color:var(--warning)">${urgentes} con pronto pago a punto de vencer</span>` : ''}` : '';
+}
+// Pronto pago: 20 días naturales desde que se recibió la notificación
+function muProntoPago(m) {
+  if (m.estado !== 'pendiente' || !m.fechaRecibida) return null;
+  const lim = new Date(m.fechaRecibida + 'T12:00:00'); lim.setDate(lim.getDate() + MU_DIAS_PRONTO_PAGO);
+  const dias = Math.ceil((lim - new Date()) / 86400000);
+  return {limite: lim, dias};
+}
+
+// ── Lista ──
+function muTexto(m) {
+  const partes = [m.orden, m.expediente, m.recurso, m.boletin, m.matricula, m.conductor, m.concepto, m.empresa, m.observaciones, m.cepyme, muEstadoDe(m.estado)[2], muFecha(m.fechaDenuncia), muFecha(m.fechaRecibida)];
+  [m.importe, m.pagado].forEach(n => { if (n != null && !isNaN(n)) { const [ent, dec] = Number(n).toFixed(2).split('.'), miles = ent.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    partes.push(String(n), String(n).replace('.', ','), ent + ',' + dec, miles + ',' + dec, miles, String(Math.round(n))); } });
+  const t = muNorm(partes.filter(Boolean).join(' · '));
+  return t + ' ' + t.replace(/[\s-]/g, '');
+}
+function muRenderLista() {
+  const el = document.getElementById('mu-pane-lista'); if (!el) return;
+  const f = muFiltro, anioAct = String(new Date().getFullYear());
+  const anios = [...new Set(muMultas.map(m => String(m.orden||'').slice(0, 4)).filter(a => /^\d{4}$/.test(a)))].sort().reverse();
+  const empresas = [...new Set([...MU_EMPRESAS, ...muMultas.map(m => m.empresa).filter(Boolean)])];
+  const q = muNorm(f.q).trim();
+  let lista = muMultas.filter(m => (!f.anio || String(m.orden||'').startsWith(f.anio)) && (!f.empresa || m.empresa === f.empresa)
+    && (f.estado === 'abiertas' ? ['pendiente','recurrida'].includes(m.estado) : !f.estado || m.estado === f.estado));
+  if (q) lista = lista.filter(m => { const t = muTexto(m); return q.split(/\s+/).every(w => t.includes(w) || t.includes(w.replace(/[\s-]/g, ''))); });
+  const ordenes = {
+    reciente: (a, b) => String(b.orden||'').localeCompare(String(a.orden||''), 'es', {numeric:true}),
+    antigua: (a, b) => String(a.orden||'').localeCompare(String(b.orden||''), 'es', {numeric:true}),
+    importe: (a, b) => (b.importe||0) - (a.importe||0),
+    matricula: (a, b) => (a.matricula||'').localeCompare(b.matricula||'') || String(b.orden).localeCompare(String(a.orden)),
+    conductor: (a, b) => (a.conductor||'~').localeCompare(b.conductor||'~'),
+    pronto: (a, b) => ((muProntoPago(a)||{dias:9999}).dias) - ((muProntoPago(b)||{dias:9999}).dias),
+  };
+  lista.sort(ordenes[f.orden] || ordenes.reciente);
+  const pend = muMultas.filter(m => m.estado === 'pendiente');
+  const pagadoAnio = muMultas.filter(m => String(m.orden||'').startsWith(anioAct) && m.pagado).reduce((s, m) => s + m.pagado, 0);
+  const cuenta = e => muMultas.filter(m => m.estado === e).length;
+  el.innerHTML = `
+    <div class="mu-kpis">
+      <div class="mu-kpi" onclick="muFiltrar('estado','pendiente')"><b style="color:#f59e0b">${pend.length}</b><span>Pendientes de pagar</span><small>${muEuros(pend.reduce((s, m) => s + (m.importe||0), 0))}</small></div>
+      <div class="mu-kpi"><b>${muEuros(pagadoAnio)}</b><span>Pagado en ${anioAct}</span><small>${muMultas.filter(m => String(m.orden||'').startsWith(anioAct)).length} multas este año</small></div>
+      <div class="mu-kpi" onclick="muFiltrar('estado','recurrida')"><b style="color:#3b82f6">${cuenta('recurrida')}</b><span>Recurridas</span><small>a la espera</small></div>
+      <div class="mu-kpi" onclick="muFiltrar('estado','')"><b>${muMultas.length}</b><span>Multas en total</span><small>desde ${anios[anios.length-1] || anioAct}</small></div>
+    </div>
+    <div class="refuel-card" style="margin-bottom:0.6rem">
+      <input class="form-input" type="search" id="mu-buscar" placeholder="🔍 Buscar: matrícula (ej. KZT), expediente, conductor, concepto, importe…" value="${muEsc(f.q)}" autocomplete="off"
+        oninput="muFiltro.q=this.value; muRenderLista(); const b=document.getElementById('mu-buscar'); b.focus(); b.setSelectionRange(b.value.length,b.value.length)">
+      <div class="seg-filtros" style="margin-top:0.5rem">
+        <select class="form-input" onchange="muFiltrar('estado', this.value)">
+          <option value="abiertas" ${f.estado==='abiertas'?'selected':''}>Abiertas (pendientes y recurridas)</option>
+          ${MU_ESTADOS.map(e => `<option value="${e[0]}" ${f.estado===e[0]?'selected':''}>${e[1]} ${e[2]} (${cuenta(e[0])})</option>`).join('')}
+          <option value="" ${f.estado===''?'selected':''}>Todas (${muMultas.length})</option>
+        </select>
+        <select class="form-input" onchange="muFiltrar('anio', this.value)"><option value="">Todos los años</option>${anios.map(a => `<option ${f.anio===a?'selected':''}>${a}</option>`).join('')}</select>
+        <select class="form-input" onchange="muFiltrar('empresa', this.value)"><option value="">Todas las empresas</option>${empresas.map(e => `<option ${f.empresa===e?'selected':''}>${muEsc(e)}</option>`).join('')}</select>
+        <select class="form-input" onchange="muFiltrar('orden', this.value)">
+          ${[['reciente','Orden: más reciente'],['antigua','Orden: más antigua'],['pronto','Orden: pronto pago que vence antes'],['importe','Orden: importe (mayor primero)'],['matricula','Orden: matrícula'],['conductor','Orden: conductor']].map(o => `<option value="${o[0]}" ${f.orden===o[0]?'selected':''}>${o[1]}</option>`).join('')}
+        </select>
+      </div>
+      <div class="seg-cuenta">${lista.length} multa${lista.length===1?'':'s'}${lista.length ? ' · reclamado ' + muEuros(lista.reduce((s, m) => s + (m.importe||0), 0)) + ' · pagado ' + muEuros(lista.reduce((s, m) => s + (m.pagado||0), 0)) : ''}</div>
+    </div>
+    ${!muMultas.length ? `<div class="refuel-card"><div class="empty-state"><div class="empty-icon">🚨</div>Todavía no hay multas.<br>Puedes cargar las del Excel en <strong>📊 Resumen → 📥 Importar Excel</strong>, o añadir una en <strong>➕ Nueva multa</strong>.</div></div>`
+    : !lista.length ? `<div class="refuel-card"><div class="empty-state"><div class="empty-icon">🔍</div>Ninguna multa coincide con la búsqueda o los filtros.</div></div>`
+    : lista.slice(0, 300).map(muHtmlTarjeta).join('') + (lista.length > 300 ? `<div class="seg-cuenta" style="text-align:center">… y ${lista.length - 300} más: afina con el buscador o los filtros.</div>` : '')}`;
+}
+window.muFiltrar = (k, v) => { muFiltro[k] = v; muRenderLista(); };
+function muHtmlTarjeta(m) {
+  const e = muEstadoDe(m.estado), pp = muProntoPago(m), abierta = muAbiertas.has(m.id);
+  const docs = m.documentos || [];
+  const tieneMulta = docs.some(d => d.tipo === 'multa'), tienePago = docs.some(d => d.tipo === 'pago');
+  return `<div class="mu-tarjeta" style="border-left-color:${e[3]}">
+    <div class="mu-cab" onclick="muAbrir('${m.id}')">
+      <div class="mu-cab-izq">
+        <div class="mu-l1"><span class="mu-orden">${muEsc(m.orden||'')}</span><span class="mu-mat">🚗 ${muEsc(m.matricula||'—')}</span>${m.empresa ? `<span class="mu-emp">${muEsc(m.empresa)}</span>` : ''}</div>
+        <div class="mu-concepto">${muEsc(m.concepto || 'Sin concepto')}</div>
+        <div class="mu-l3">👤 ${muEsc(m.conductor || 'Sin conductor')} · 📅 ${muFecha(m.fechaDenuncia)}${m.quienPaga === 'conductor' ? ' · <span style="color:#c4b5fd">la paga el conductor</span>' : ''}${tieneMulta || tienePago ? ` · ${tieneMulta ? '🚨' : ''}${tienePago ? '💶' : ''}` : ''}</div>
+        ${pp ? `<div class="mu-pp ${pp.dias < 0 ? 'vencido' : pp.dias <= 5 ? 'urgente' : ''}">${pp.dias < 0 ? `⌛ Pronto pago (50 %) vencido el ${fechaCorta(pp.limite)}` : `⏳ Pronto pago (50 %) hasta el ${fechaCorta(pp.limite)} · ${pp.dias === 0 ? 'último día' : `quedan ${pp.dias} día${pp.dias===1?'':'s'}`}`}</div>` : ''}
+      </div>
+      <div class="mu-cab-der">
+        <span class="mu-estado" style="color:${e[3]};border-color:${e[3]}">${e[1]} ${e[2]}</span>
+        <div class="mu-imp">${m.importe != null ? muEuros(m.importe) : '—'}</div>
+        ${m.pagado != null ? `<div class="mu-pag">pagado ${muEuros(m.pagado)}</div>` : ''}
+      </div>
+    </div>
+    ${abierta ? `<div class="mu-cuerpo">
+      <div class="mu-datos">
+        <div><span>Expediente</span>${muEsc(m.expediente || '—')}</div>
+        <div><span>Recurso</span>${muEsc(m.recurso || '—')}</div>
+        <div><span>Boletín denuncia</span>${muEsc(m.boletin || '—')}</div>
+        <div><span>Fecha de la denuncia</span>${muFecha(m.fechaDenuncia)}</div>
+        <div><span>Recibida</span>${muFecha(m.fechaRecibida)}</div>
+        <div><span>Importe reclamado</span>${muEuros(m.importe)}</div>
+        <div><span>Importe pagado</span>${muEuros(m.pagado)}${m.fechaPago ? ' · ' + muFecha(m.fechaPago) : ''}</div>
+        <div><span>La paga</span>${m.quienPaga === 'conductor' ? 'El conductor' : 'La empresa'}</div>
+        ${m.cepyme ? `<div><span>F. a CEPYME</span>${muEsc(m.cepyme)}</div>` : ''}
+      </div>
+      ${m.observaciones ? `<div class="mu-obs">📝 ${muEsc(m.observaciones)}</div>` : ''}
+      ${docHtmlSeccion(docs, 'muDoc', m.id, ['multa','pago','otro'])}
+      <div style="display:flex;gap:0.5rem;margin-top:0.6rem">
+        ${m.estado === 'pendiente' ? `<button class="btn-sm" style="flex:1" onclick="muMarcarPagada('${m.id}')">✅ Marcar pagada</button>` : ''}
+        <button class="btn-sm" style="flex:1" onclick="muEditar('${m.id}')">✏️ Editar</button>
+        <button class="btn-del" style="flex:0 0 auto;padding:0 0.9rem" onclick="muBorrar('${m.id}')">🗑</button>
+      </div>
+    </div>` : ''}
+  </div>`;
+}
+window.muAbrir = (id) => { muAbiertas.has(id) ? muAbiertas.delete(id) : muAbiertas.add(id); muRenderLista(); };
+window.muDoc = (id, accion, arg) => docAccion({coleccion:'multas', cache:() => muMultas, id, accion, arg, carpeta:'multas', pintar:muRenderLista});
+window.muMarcarPagada = async (id) => {
+  const m = muMultas.find(x => x.id === id); if (!m) return;
+  const pp = muProntoPago(m);
+  const sugerido = m.importe != null ? (pp && pp.dias >= 0 ? m.importe / 2 : m.importe) : '';
+  const v = await preguntarApp(`Importe pagado de la multa ${m.orden}${pp && pp.dias >= 0 ? ' (con el 50 % de pronto pago)' : ''}:`, sugerido !== '' ? String(Math.round(sugerido * 100) / 100).replace('.', ',') : '', {titulo:'✅ Marcar pagada', boton:'Guardar'});
+  if (v === null) return;
+  const pagado = muNum(v);
+  try {
+    await updateDoc(doc(dbFleet, 'multas', id), {estado:'pagada', pagado, fechaPago: new Date().toISOString().slice(0,10), modTs: Date.now()});
+    mostrarMensajeFlotante?.(`✅ ${m.orden} pagada`);
+  } catch(e) { alert('No se ha podido guardar: ' + e.message); }
+};
+window.muBorrar = async (id) => {
+  const m = muMultas.find(x => x.id === id); if (!m) return;
+  if (!(await confirmarAccion(`¿Eliminar la multa ${m.orden} (${m.matricula || 'sin matrícula'})?\n\nTambién se borran sus documentos. No se puede deshacer.`))) return;
+  try { await deleteDoc(doc(dbFleet, 'multas', id)); (m.documentos||[]).forEach(d => docBorrarServidor(d.ruta)); mostrarMensajeFlotante?.('🗑 Multa eliminada'); }
+  catch(e) { alert(e.message); }
+};
+
+// ── Nueva multa / editar ──
+function muSiguienteOrden(anio) {
+  const del = muMultas.map(m => String(m.orden||'')).filter(o => o.startsWith(anio + '/'));
+  const usados = del.map(o => parseInt(o.split('/')[1], 10) || 0);
+  const cifras = del.length ? Math.max(...del.map(o => o.split('/')[1].length)) : 3;     // mismo formato que ese año (2026/13 o 2026/013)
+  return `${anio}/${String((usados.length ? Math.max(...usados) : 0) + 1).padStart(cifras, '0')}`;
+}
+function muNueva() {
+  const anio = String(new Date().getFullYear());
+  return {orden: muSiguienteOrden(anio), expediente:'', recurso:'', boletin:'', matricula:'', fechaDenuncia:'', fechaRecibida: new Date().toISOString().slice(0,10),
+          importe:'', pagado:'', estado:'pendiente', conductor:'', concepto:'', quienPaga:'empresa', cepyme:'', observaciones:'', empresa:'MANCHATRANS'};
+}
+window.muEditar = (id) => {
+  const m = muMultas.find(x => x.id === id); if (!m) return;
+  muEstado = {...muNueva(), ...JSON.parse(JSON.stringify(m)), importe: m.importe ?? '', pagado: m.pagado ?? ''};
+  muTab('nueva'); window.scrollTo({top:0, behavior:'smooth'});
+};
+window.muSet = (k, v, repintar) => { muEstado[k] = v; if (repintar) muRenderForm(); };
+function muRenderForm() {
+  const el = document.getElementById('mu-pane-nueva'); if (!el) return;
+  const e = muEstado, editando = !!e.id;
+  const matriculas = [...new Set([...(segurosVehiculosCache||[]).map(v => v.matricula), ...muMultas.map(m => m.matricula)].filter(Boolean))].sort();
+  const conductores = [...new Set([...(driversCache||[]).filter(d => d.activo !== false).map(d => d.name), ...muMultas.map(m => m.conductor)].filter(Boolean))].sort();
+  const empresas = [...new Set([...MU_EMPRESAS, ...muMultas.map(m => m.empresa).filter(Boolean)])];
+  const campo = (k, et, o = {}) => `<div class="cp-campo ${o.ancho||''}"><label for="mu-${k}">${et}</label><input id="mu-${k}" ${o.tipo ? `type="${o.tipo}"` : ''} ${o.lista ? `list="${o.lista}"` : ''} ${o.modo ? `inputmode="${o.modo}"` : ''} value="${muEsc(e[k] ?? '')}" placeholder="${muEsc(o.ph||'')}" autocomplete="off" oninput="muSet('${k}', this.value)" ${o.extra||''}></div>`;
+  el.innerHTML = `
+    <datalist id="mu-mats">${matriculas.map(m => `<option value="${muEsc(m)}">`).join('')}</datalist>
+    <datalist id="mu-conds">${conductores.map(c => `<option value="${muEsc(c)}">`).join('')}</datalist>
+    <div class="refuel-card cp-card">
+      <div class="cp-tit">${editando ? '✏️ Editar multa ' + muEsc(e.orden) : '🚨 Nueva multa'}</div>
+      <div class="cp-fila">
+        ${campo('orden', 'Nº de orden', {ancho:'cp-c3', ph:'2026/013'})}
+        ${campo('expediente', 'Expediente', {ancho:'cp-c3'})}
+        <div class="cp-campo cp-c3"><label for="mu-empresa">Empresa</label>
+          <select id="mu-empresa" onchange="muSet('empresa', this.value)">${empresas.map(x => `<option ${e.empresa===x?'selected':''}>${muEsc(x)}</option>`).join('')}<option value="" ${!e.empresa?'selected':''}>— Sin empresa —</option></select></div>
+      </div>
+      <div class="cp-fila">
+        ${campo('matricula', 'Matrícula', {ancho:'cp-c3', lista:'mu-mats', ph:'1234-ABC', extra:'style="text-transform:uppercase"'})}
+        ${campo('fechaDenuncia', 'Fecha de la denuncia', {ancho:'cp-c3', tipo:'date'})}
+        ${campo('fechaRecibida', 'Fecha en que se recibió', {ancho:'cp-c3', tipo:'date'})}
+      </div>
+      <div class="cp-fila">
+        ${campo('conductor', 'Conductor', {ancho:'cp-c2', lista:'mu-conds', ph:'Quién conducía'})}
+        <div class="cp-campo cp-c2"><label>¿Quién la paga?</label>
+          <div class="co-chips">${[['empresa','🏢 La empresa'],['conductor','👤 El conductor']].map(x => `<button type="button" class="${e.quienPaga===x[0]?'on':''}" onclick="muSet('quienPaga','${x[0]}', true)">${x[1]}</button>`).join('')}</div></div>
+      </div>
+      ${campo('concepto', 'Concepto', {ph:'Ej.: Circular a 83 en vía de 60 · Exceso de peso · Estacionar sobre la acera…'})}
+      <div class="cp-fila">
+        ${campo('importe', 'Importe reclamado (€)', {ancho:'cp-c3', modo:'decimal', ph:'200'})}
+        <div class="cp-campo cp-c3"><label for="mu-pagado">Importe pagado (€)</label>
+          <div style="display:flex;gap:0.35rem"><input id="mu-pagado" inputmode="decimal" value="${muEsc(e.pagado ?? '')}" placeholder="—" oninput="muSet('pagado', this.value)" style="flex:1;min-width:0">
+          <button type="button" class="alm-accion" title="Pronto pago: la mitad del importe" onclick="const n=muNum(muEstado.importe); if(n!=null){ muEstado.pagado=String(Math.round(n*50)/100).replace('.',','); muEstado.estado='pagada'; muRenderForm(); }">50 %</button></div></div>
+        ${campo('fechaPago', 'Fecha del pago', {ancho:'cp-c3', tipo:'date'})}
+      </div>
+      <div class="co-lab">Estado</div>
+      <div class="co-chips">${MU_ESTADOS.map(x => `<button type="button" class="${e.estado===x[0]?'on':''}" onclick="muSet('estado','${x[0]}', true)">${x[1]} ${x[2]}</button>`).join('')}</div>
+      <div class="cp-fila" style="margin-top:0.4rem">
+        ${campo('recurso', 'Recurso', {ancho:'cp-c3', ph:'Nº o anotación'})}
+        ${campo('boletin', 'Boletín denuncia', {ancho:'cp-c3'})}
+        ${campo('cepyme', 'F. a CEPYME', {ancho:'cp-c3'})}
+      </div>
+      <div class="cp-campo"><label for="mu-obs">Observaciones</label><textarea id="mu-obs" rows="2" oninput="muSet('observaciones', this.value)">${muEsc(e.observaciones||'')}</textarea></div>
+      ${editando ? docHtmlSeccion(e.documentos, 'muDocForm', e.id, ['multa','pago','otro']) : `<div class="doc-vacio" style="margin-top:0.3rem">📎 La multa y el recibo del pago en PDF se suben después de guardarla (al abrirla en la lista, o aquí mismo al editarla).</div>`}
+      <div id="mu-aviso" class="alert" style="margin:0.5rem 0"></div>
+      <button class="btn btn-primary" style="font-size:16px;padding:0.9rem" onclick="muGuardar()">${editando ? '💾 Guardar cambios' : '💾 Guardar multa'}</button>
+      ${editando ? `<button class="btn btn-ghost" style="margin-top:0.4rem" onclick="muEstado=muNueva(); muRenderForm()">➕ Multa nueva</button>` : ''}
+    </div>`;
+}
+window.muDocForm = async (id, accion, arg) => { await window.muDoc(id, accion, arg); const m = muMultas.find(x => x.id === id); if (m && muEstado && muEstado.id === id) { muEstado.documentos = m.documentos; muRenderForm(); } };
+window.muGuardar = async () => {
+  const e = muEstado, aviso = document.getElementById('mu-aviso');
+  const orden = String(e.orden||'').trim();
+  if (!/^\d{4}\/\d{1,4}$/.test(orden)) { showAlert(aviso, 'El nº de orden tiene que ser como 2026/013', true); return; }
+  if (!String(e.matricula||'').trim()) { showAlert(aviso, 'Falta la matrícula', true); return; }
+  const id = e.id || muIdDe(orden);
+  if (!e.id && muMultas.some(m => m.id === id)) { showAlert(aviso, `Ya hay una multa con el nº ${orden}. Cambia el número.`, true); return; }
+  const datos = {orden, expediente: String(e.expediente||'').trim(), recurso: String(e.recurso||'').trim(), boletin: String(e.boletin||'').trim(),
+    matricula: String(e.matricula||'').trim().toUpperCase(), fechaDenuncia: e.fechaDenuncia || '', fechaRecibida: e.fechaRecibida || '', fechaPago: e.fechaPago || '',
+    importe: muNum(e.importe), pagado: muNum(e.pagado), estado: e.estado || 'pendiente', conductor: String(e.conductor||'').trim().toUpperCase(),
+    concepto: String(e.concepto||'').trim(), quienPaga: e.quienPaga || 'empresa', cepyme: String(e.cepyme||'').trim(), observaciones: String(e.observaciones||'').trim(),
+    empresa: e.empresa || '', documentos: e.documentos || [], ts: e.ts || Date.now(), modTs: Date.now()};
+  if (datos.pagado != null && datos.estado === 'pendiente') datos.estado = 'pagada';
+  try {
+    await setDoc(doc(dbFleet, 'multas', id), datos);
+    mostrarMensajeFlotante?.(`💾 Multa ${orden} guardada`);
+    muEstado = null; muAbiertas.add(id);
+    muTab('lista'); window.scrollTo({top:0, behavior:'smooth'});
+  } catch(err) { showAlert(aviso, 'No se ha podido guardar: ' + err.message, true); }
+};
+
+// ── Resumen ──
+function muRenderResumen() {
+  const el = document.getElementById('mu-pane-resumen'); if (!el) return;
+  const grupos = (clave) => { const g = {}; muMultas.forEach(m => { const k = clave(m) || '—'; (g[k] = g[k] || {n:0, imp:0, pag:0}); g[k].n++; g[k].imp += m.importe||0; g[k].pag += m.pagado||0; }); return g; };
+  const tabla = (titulo, g, orden, limite) => {
+    const filas = Object.entries(g).sort(orden).slice(0, limite || 999);
+    return `<div class="refuel-card"><div class="cp-tit">${titulo}</div><table class="mu-tabla"><tr><th></th><th>Multas</th><th>Reclamado</th><th>Pagado</th></tr>
+      ${filas.map(([k, v]) => `<tr><td>${muEsc(k)}</td><td>${v.n}</td><td>${muEuros(v.imp)}</td><td><b>${muEuros(v.pag)}</b></td></tr>`).join('')}</table></div>`;
+  };
+  el.innerHTML = !muMultas.length ? '' : `<div class="mu-resumen">
+      ${tabla('📅 Por año', grupos(m => String(m.orden||'').slice(0,4)), (a, b) => b[0].localeCompare(a[0]))}
+      ${tabla('🏢 Por empresa', grupos(m => m.empresa), (a, b) => b[1].n - a[1].n)}
+      ${tabla('👤 Conductores con más multas', grupos(m => m.conductor), (a, b) => b[1].n - a[1].n || b[1].pag - a[1].pag, 15)}
+      ${tabla('🚗 Vehículos con más multas', grupos(m => m.matricula), (a, b) => b[1].n - a[1].n || b[1].pag - a[1].pag, 15)}
+    </div>`;
+  el.innerHTML += `<div class="refuel-card">
+      <div class="cp-tit">📥 Importar / 📤 Exportar</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:0.6rem">Importa el Excel "MULTAS" de siempre. Las multas que ya estén (mismo nº de orden) no se duplican: se dejan como están.</div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+        <label class="btn btn-primary" style="width:auto;padding:0.7rem 1rem;cursor:pointer">📥 Importar Excel de multas<input type="file" accept=".xls,.xlsx" style="display:none" onchange="muImportar(this)"></label>
+        <button class="btn btn-ghost" style="width:auto;padding:0.7rem 1rem" onclick="muExportar()">📤 Descargar Excel</button>
+      </div>
+      <div id="mu-imp-aviso" style="font-size:13px;margin-top:0.5rem">${muAvisoImp}</div>
+    </div>`;
+}
+
+// ── Importar el Excel "MULTAS" ──
+const MU_MAPA_EMPRESA = {'MANCHEGA':'MANCHATRANS', 'MANCHATRANS':'MANCHATRANS', 'TRADIMAN':'TRADIMAN', 'SANTOS DIAZ':'SANTOS DIAZ ASTILLEROS', 'SANTOS':'SANTOS DIAZ ASTILLEROS',
+  'VICENTE DIAZ':'VICENTE DIAZ ASTILLEROS', 'VICENTE':'VICENTE DIAZ ASTILLEROS', 'ALICIA FORNER':'ALICIA FORNER DIAZ', 'ALICIA':'ALICIA FORNER DIAZ'};
+function muFechaExcel(v) {
+  if (!v) return '';
+  if (v instanceof Date && !isNaN(v)) return new Date(v.getTime() - v.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  if (typeof v === 'number') { const d = new Date(Math.round((v - 25569) * 86400000)); return isNaN(d) ? '' : d.toISOString().slice(0, 10); }
+  const m = String(v).trim().match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+  return m ? `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}` : '';
+}
+const muTxt = v => v == null ? '' : (typeof v === 'number' ? (Number.isInteger(v) ? String(v) : String(v)) : String(v).trim());
+// En las filas recientes, conductor y concepto van juntos: "ROBERTO RODRIGUEZ - ESTACIONAR EN ZONA PEATONAL"
+function muPartirConductor(texto, conocidos = []) {
+  const t = String(texto||'').trim(); if (!t) return ['', ''];
+  const m = t.match(/^(.+?)\s*(?:\s-+\s|\s-+|-+\s|,\s)\s*(.+)$/);
+  if (m && m[1].length <= 40) return [m[1].trim(), m[2].trim()];
+  // sin guion: si empieza por un conductor conocido (nombre completo, o nombre y primer apellido)
+  const T = muNorm(t);
+  let mejor = '';
+  conocidos.forEach(n => {
+    const p = muNorm(n).split(/\s+/).filter(Boolean);
+    [p.join(' '), p.slice(0, 3).join(' '), p.slice(0, 2).join(' ')].forEach(c => { if (c.split(' ').length >= 2 && T.startsWith(c + ' ') && c.length > mejor.length) mejor = c; });
+  });
+  if (mejor) return [t.slice(0, mejor.length).trim(), t.slice(mejor.length).trim()];
+  return t.length > 35 ? ['', t] : [t, ''];
+}
+window.muImportar = async (inp) => {
+  const f = inp.files && inp.files[0]; inp.value = '';
+  const el = () => document.getElementById('mu-imp-aviso');
+  const aviso = { set textContent(t) { muAvisoImp = muEsc(t); if (el()) el().innerHTML = muAvisoImp; }, set innerHTML(h) { muAvisoImp = h; if (el()) el().innerHTML = h; } };
+  if (!f) return;
+  aviso.textContent = '⏳ Leyendo el Excel…';
+  try {
+    const XLSX = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm');
+    const wb = XLSX.read(await f.arrayBuffer(), {type:'array', cellDates:true});
+    const tabla = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, defval:null, raw:true});
+    const iCab = tabla.findIndex(r => r && r.some(c => /N[ºO°]\s*ORDEN/i.test(String(c||''))));
+    if (iCab < 0) { aviso.textContent = '❌ No encuentro la fila de títulos (Nº ORDEN, EXPEDIENTE, MATRICULA…).'; return; }
+    const cab = tabla[iCab].map(c => muNorm(c).replace(/[^a-z.]/g, ''));
+    const col = (...k) => cab.findIndex(c => k.some(x => c.startsWith(x)));
+    const C = {orden:col('nºorden','norden','orden'), exp:col('expediente'), rec:col('recurso'), bol:col('boletin'), mat:col('matricula'), fecha:col('fecha'),
+               recib:col('recibido'), imp:col('imp.reclamado','impreclamado'), pag:col('imp.pagado','imppagado'), cond:col('conductor'), conc:col('concepto'),
+               cep:col('f.acepyme','facepyme','cepyme'), obs:col('observaciones'), emp:col('empresa')};
+    const ya = new Set(muMultas.map(m => m.id));
+    // conductores conocidos: los de la lista de empleados y los que en el Excel van separados del concepto
+    const conocidos = [...(driversCache||[]).map(d => d.name), ...muMultas.map(m => m.conductor)].filter(Boolean);
+    tabla.slice(iCab + 1).forEach(r => {
+      if (!r) return;
+      const cc = muTxt(r[C.cond]);
+      if (muTxt(r[C.conc])) { if (cc) conocidos.push(cc); }
+      else { const [a] = muPartirConductor(cc); if (a) conocidos.push(a); }
+    });
+    const nuevas = []; let repetidas = 0, vacias = 0;
+    const hace120 = Date.now() - 120 * 86400000;
+    tabla.slice(iCab + 1).forEach(r => {
+      if (!r) return;
+      const orden = muTxt(r[C.orden]); const mat = muTxt(r[C.mat]).toUpperCase();
+      if (!/^\d{4}\/\d+$/.test(orden) || !mat) { if (orden) vacias++; return; }
+      const id = muIdDe(orden);
+      if (ya.has(id)) { repetidas++; return; }
+      ya.add(id);
+      let conductor = muTxt(r[C.cond]), concepto = muTxt(r[C.conc]);
+      if (!concepto) [conductor, concepto] = muPartirConductor(conductor, conocidos);
+      const pagRaw = r[C.pag], recurso = muTxt(r[C.rec]), boletin = muTxt(r[C.bol]), cepyme = C.cep >= 0 ? muTxt(r[C.cep]) : '';
+      const notas = [C.obs >= 0 ? muTxt(r[C.obs]) : '', ...(r.slice(Math.max(C.emp, 13) + 1).map(muTxt))].filter(Boolean);
+      const importe = typeof r[C.imp] === 'number' ? r[C.imp] : muNum(r[C.imp]);
+      const pagado = typeof pagRaw === 'number' ? pagRaw : null;
+      const todo = [recurso, boletin, cepyme, muTxt(pagRaw), ...notas].join(' ').toUpperCase();
+      const fechaRecibida = muFechaExcel(r[C.recib]);
+      let estado;
+      if (/RECURR/.test(todo) && pagado == null) estado = 'recurrida';
+      else if (pagado != null && pagado > 0) estado = 'pagada';
+      else if (/IDENTIF/.test(todo)) estado = 'identificado';
+      else if (importe && fechaRecibida && new Date(fechaRecibida).getTime() > hace120) estado = 'pendiente';
+      else estado = importe ? 'cerrada' : 'identificado';
+      const empOrig = muTxt(r[C.emp]).toUpperCase();
+      if (!fechaRecibida && r[C.recib]) notas.push('Recibida: ' + muTxt(r[C.recib]));
+      nuevas.push({id, orden, expediente: muTxt(r[C.exp]), recurso, boletin, matricula: mat,
+        fechaDenuncia: muFechaExcel(r[C.fecha]), fechaRecibida, fechaPago: '', importe: importe ?? null, pagado,
+        estado, conductor: conductor.toUpperCase().replace(/\s+/g,' ').trim(), concepto, quienPaga: /PAGA (EL|[A-ZÁÉÍÓÚÑ]{3,})|LO PAGA/.test(todo) ? 'conductor' : 'empresa',
+        cepyme, observaciones: notas.join(' · '), empresa: MU_MAPA_EMPRESA[empOrig] || empOrig, documentos: [], ts: Date.now(), importado: true});
+    });
+    if (!nuevas.length) { aviso.innerHTML = `ℹ️ No hay multas nuevas que importar${repetidas ? ` (${repetidas} ya estaban)` : ''}.`; return; }
+    for (let i = 0; i < nuevas.length; i += 25) {
+      await Promise.all(nuevas.slice(i, i + 25).map(({id, ...d}) => setDoc(doc(dbFleet, 'multas', id), d)));
+      aviso.textContent = `⏳ Guardando… ${Math.min(i + 25, nuevas.length)} de ${nuevas.length}`;
+    }
+    aviso.innerHTML = `✅ Importadas <strong>${nuevas.length}</strong> multas${repetidas ? ` · ${repetidas} ya estaban` : ''}${vacias ? ` · ${vacias} filas sin datos (números de orden reservados)` : ''}. Revisa las que han quedado como <strong>⏳ Pendientes</strong>: son las recibidas en los últimos 4 meses sin importe pagado.`;
+  } catch(e) { console.error(e); aviso.textContent = '❌ No se ha podido leer el Excel: ' + e.message; }
+};
+window.muExportar = async () => {
+  try {
+    const XLSX = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm');
+    const filas = [...muMultas].sort((a, b) => String(a.orden).localeCompare(String(b.orden), 'es', {numeric:true})).map(m => ({
+      'Nº ORDEN': m.orden, 'EXPEDIENTE': m.expediente, 'RECURSO': m.recurso, 'BOLETIN DENUNCIA': m.boletin, 'MATRICULA': m.matricula,
+      'FECHA': m.fechaDenuncia ? muFecha(m.fechaDenuncia) : '', 'RECIBIDO': m.fechaRecibida ? muFecha(m.fechaRecibida) : '',
+      'IMP.RECLAMADO': m.importe, 'IMP.PAGADO': m.pagado, 'FECHA PAGO': m.fechaPago ? muFecha(m.fechaPago) : '', 'CONDUCTOR': m.conductor, 'CONCEPTO': m.concepto,
+      'ESTADO': muEstadoDe(m.estado)[2], 'LA PAGA': m.quienPaga === 'conductor' ? 'Conductor' : 'Empresa', 'F.A CEPYME': m.cepyme, 'OBSERVACIONES': m.observaciones,
+      'EMPRESA': m.empresa, 'DOCUMENTOS': (m.documentos||[]).map(d => d.url).join(' ')}));
+    const ws = XLSX.utils.json_to_sheet(filas); ws['!cols'] = [10,18,18,18,12,11,11,12,11,11,28,45,22,10,14,30,22,40].map(w => ({wch:w}));
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'MULTAS');
+    XLSX.writeFile(fmMarcaExcel(wb), `Multas_${new Date().toISOString().slice(0,10)}.xlsx`);
+  } catch(e) { alert('No se ha podido crear el Excel: ' + e.message); }
+};
+
+Object.assign(window, { muTab, muEntrar, muNueva, muRenderForm, muRenderLista, muNum, muActualizarInicio });
+Object.defineProperty(window, 'muEstado', { get: () => muEstado, set: v => { muEstado = v; } });
+Object.defineProperty(window, 'muFiltro', { get: () => muFiltro });
+
 // PEDIDO DE ROPA POR TEMPORADA
 // ════════════════════════════════════════════════════════════════════════════
 // Calcula cuánta ropa hay que pedir cada temporada según las tallas guardadas
@@ -8355,6 +8875,7 @@ async function initApp() {
   document.getElementById('home-btn-formacion').addEventListener('click', ()=>switchModule('formacion'));
   document.getElementById('home-btn-cartas').addEventListener('click', ()=>switchModule('cartas'));
   document.getElementById('home-btn-comercial').addEventListener('click', ()=>switchModule('comercial'));
+  document.getElementById('home-btn-multas').addEventListener('click', ()=>switchModule('multas'));
   document.getElementById('btn-cambiar-modulo').addEventListener('click', volverASeleccionModulo);
   document.getElementById('rtab-btn-entregar').addEventListener('click', ()=>switchRopaTab('entregar'));
   document.getElementById('rtab-btn-historial').addEventListener('click', ()=>switchRopaTab('historial'));
@@ -8522,7 +9043,7 @@ async function initApp() {
     if (wrapper.style.display === 'none') { wrapper.style.display = 'block'; btn.innerHTML = `👤 Ocultar seguros de baja (<span id="seg-veh-baja-count">${count}</span>)`; renderSegurosVehiculosBaja(); }
     else { wrapper.style.display = 'none'; btn.innerHTML = `👤 Ver seguros de baja (<span id="seg-veh-baja-count">${count}</span>)`; }
   });
-  document.getElementById('seg-veh-buscador').addEventListener('input', (e)=>{ segVehBusqueda = e.target.value.trim().toLowerCase(); renderSegurosVehiculos(); });
+  segBarraEventos('veh', renderSegurosVehiculos); segBarraEventos('pol', renderSegurosPolizas);
   document.getElementById('btn-toggle-baja-seg-pol').addEventListener('click', ()=>{
     const wrapper = document.getElementById('seg-pol-baja-wrapper');
     const btn = document.getElementById('btn-toggle-baja-seg-pol');
@@ -10864,8 +11385,9 @@ function switchModule(mod) {
   document.getElementById('module-formacion').style.display = mod==='formacion' ? 'block' : 'none';
   document.getElementById('module-cartas').style.display = mod==='cartas' ? 'block' : 'none';
   document.getElementById('module-comercial').style.display = mod==='comercial' ? 'block' : 'none';
+  document.getElementById('module-multas').style.display = mod==='multas' ? 'block' : 'none';
   document.getElementById('btn-cambiar-modulo').style.display = 'inline-block';
-  const titulos = {gasoil:'⛽ Gasoil', fleet:'🚛 Flota', ropa:'👔 Ropa', adrcap:'🪪 ADR/CAP', seguros:'🛡️ Seguros', almacen:'📦 Almacén', gestion:'⚙️ Configuración', formacion:'🎓 Formación', cartas:'📄 Cartas de porte', comercial:'💼 Comercial'};
+  const titulos = {gasoil:'⛽ Gasoil', fleet:'🚛 Flota', ropa:'👔 Ropa', adrcap:'🪪 ADR/CAP', seguros:'🛡️ Seguros', almacen:'📦 Almacén', gestion:'⚙️ Configuración', formacion:'🎓 Formación', cartas:'📄 Cartas de porte', comercial:'💼 Comercial', multas:'🚨 Multas'};
   document.getElementById('admin-topbar-title').textContent = titulos[mod]||'';
   if (mod==='gasoil') { renderAdminStats(); renderAdminRecords(); renderDeposito(); }
   if (mod==='fleet') { populateHistMatriculas(); renderHistorial(); renderMantenimiento(); updateFleetBadge(); populateHistMantMatriculas(); renderHistorialMant(); flRenderResumen(); }
@@ -10906,6 +11428,7 @@ function switchModule(mod) {
   if (mod==='formacion') { populateCreditosSelects(); renderCreditosResumen(); renderCursosFormacionList(); }
   if (mod==='cartas') { cpEntrar(); }
   if (mod==='comercial') { coEntrar(); }
+  if (mod==='multas') { muEntrar(); }
 }
 
 function volverASeleccionModulo() {
@@ -10935,7 +11458,7 @@ const MODULOS_CON_CODIGO = [
   ['seguros','🛡️ Seguros'], ['formacion','🎓 Formación'], ['cartas','📄 Cartas de porte'], ['comercial','💼 Comercial'],
 ];
 function pedirCodigoModulo(mod) {
-  const nombres = {gasoil:'⛽ Gasoil', fleet:'🚛 Flota', ropa:'👔 Ropa', adrcap:'🪪 ADR/CAP', seguros:'🛡️ Seguros', formacion:'🎓 Formación', cartas:'📄 Cartas de porte', comercial:'💼 Comercial'};
+  const nombres = {gasoil:'⛽ Gasoil', fleet:'🚛 Flota', ropa:'👔 Ropa', adrcap:'🪪 ADR/CAP', seguros:'🛡️ Seguros', formacion:'🎓 Formación', cartas:'📄 Cartas de porte', comercial:'💼 Comercial', multas:'🚨 Multas'};
   const modal = document.createElement('div');
   modal.id = 'codigo-modulo-modal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:999;display:flex;align-items:center;justify-content:center;padding:1rem;';
@@ -12059,6 +12582,7 @@ function switchSegurosTab(tab) {
   segVehBusqueda = '';
   const elBuscador = document.getElementById('seg-veh-buscador');
   if (elBuscador) elBuscador.value = '';
+  segFiltro.veh.q = ''; segFiltro.veh.empresa = ''; segFiltro.veh.corredor = ''; segFiltro.veh.compania = '';   // al cambiar de pestaña, sin filtros
   // "carretillas" y "tractor" reutilizan el mismo panel que "vehiculos" (mismo formulario,
   // misma lista, mismas funciones de PDF/Excel/comparativa) pero filtrado por tipo, para
   // no duplicar todo el código — la única diferencia real es qué se ve en la lista.
@@ -12319,6 +12843,125 @@ window.buscarSeguroAviso = (mat) => {
   document.getElementById('seg-veh-list')?.scrollIntoView({behavior:'smooth', block:'start'});
 };
 
+// ── Búsqueda, filtros y orden de seguros y pólizas ──
+// Busca en todo: matrícula (también un trozo, ej. "HBJ"), modelo, compañía, nº de póliza, corredor,
+// empresa, conductor, notas, conceptos de cada año e importes (vale "1438", "1.438,76" o "1438,76")
+const segFiltro = {veh:{q:'', orden:'nombre', empresa:'', corredor:'', compania:''}, pol:{q:'', orden:'nombre', empresa:'', corredor:'', compania:''}};
+const segNorm = t => String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+function segTextoBusqueda(x) {
+  const partes = [x.matricula, x.modelo, x.tipoPoliza, x.compania, x.numeroPoliza, x.corredor, x.empresa, x.ambito, x.comentarios, x.notas,
+                  typeof nombreConductorSeguro === 'function' && x.matricula ? nombreConductorSeguro(x) : x.conductor, x.clasificacionItv];
+  [x.importePorAnio, x.impuestoMunicipal].forEach(m => Object.entries(m||{}).forEach(([anio, v]) => {
+    const {valor, nota} = extraerValorYNota(v);
+    partes.push(anio, nota);
+    if (valor != null && !isNaN(valor)) { const n = Number(valor), [ent, dec] = n.toFixed(2).split('.'), miles = ent.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      partes.push(n.toFixed(2), ent + ',' + dec, miles + ',' + dec, miles, String(Math.round(n)), ent); }
+  }));
+  (x.documentos||[]).forEach(d => partes.push(d.nombre, d.tipo));
+  const t = segNorm(partes.filter(Boolean).join(' · '));
+  return t + ' ' + t.replace(/[\s-]/g, '');          // así "1234hbj" o "hbj" encuentran "1234-HBJ"
+}
+function segAplicar(lista, p) {
+  const f = segFiltro[p], hoy = Date.now();
+  const q = segNorm(f.q).trim();
+  let r = lista.filter(x => (!f.empresa || (x.empresa||'') === f.empresa) && (!f.corredor || (x.corredor||'') === f.corredor) && (!f.compania || (x.compania||'') === f.compania));
+  if (q) r = r.filter(x => { const t = segTextoBusqueda(x); return q.split(/\s+/).every(w => t.includes(w) || t.includes(w.replace(/[\s-]/g,''))); });
+  const nombre = x => (p === 'veh' ? x.matricula : x.tipoPoliza) || '';
+  const vence = x => x.fechaCaducidad ? new Date(x.fechaCaducidad).getTime() : Infinity;
+  const imp = x => ultimoValorAnio(x.importePorAnio) ?? -1;
+  const porTexto = k => (a, b) => (a[k]||'~').localeCompare(b[k]||'~') || nombre(a).localeCompare(nombre(b));
+  const ord = {nombre:(a,b)=>nombre(a).localeCompare(nombre(b)), vence:(a,b)=>vence(a)-vence(b) || nombre(a).localeCompare(nombre(b)),
+               empresa:porTexto('empresa'), corredor:porTexto('corredor'), compania:porTexto('compania'), importe:(a,b)=>imp(b)-imp(a)}[f.orden] || ((a,b)=>0);
+  return r.sort(ord);
+}
+// rellena los desplegables de filtros con lo que hay y pinta "X de Y"
+function segPintarBarra(p, lista, mostrados) {
+  const f = segFiltro[p];
+  ['empresa','corredor','compania'].forEach(k => {
+    const sel = document.getElementById(`seg-${p}-f-${k}`); if (!sel) return;
+    const valores = [...new Set(lista.map(x => x[k]).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+    const primero = {empresa:'Todas las empresas', corredor:'Todos los corredores', compania:'Todas las compañías'}[k];
+    sel.innerHTML = `<option value="">${primero}</option>` + valores.map(v => `<option ${v===f[k]?'selected':''}>${almEsc(v)}</option>`).join('');
+  });
+  const c = document.getElementById(`seg-${p}-cuenta`);
+  if (c) c.textContent = (f.q || f.empresa || f.corredor || f.compania) ? `${mostrados} de ${lista.length}` : '';
+}
+function segBarraEventos(p, pintar) {
+  const f = segFiltro[p];
+  document.getElementById(`seg-${p}-buscador`)?.addEventListener('input', e => { f.q = e.target.value; if (p === 'veh') segVehBusqueda = e.target.value.trim().toLowerCase(); pintar(); });
+  document.getElementById(`seg-${p}-orden`)?.addEventListener('change', e => { f.orden = e.target.value; pintar(); });
+  ['empresa','corredor','compania'].forEach(k => document.getElementById(`seg-${p}-f-${k}`)?.addEventListener('change', e => { f[k] = e.target.value; pintar(); }));
+}
+
+// ── Documentos (pólizas, recibos…) en cada ficha: se guardan en la web (documentos/subir.php) ──
+const DOC_URL = 'https://manchatrans.com/documentos/subir.php';
+const DOC_CLAVE = 'LVLcjgwfJ5ExVEFBGnLjLOUMK2LtkEDo';
+async function docSubir(carpeta, archivo) {
+  const f = new FormData();
+  f.append('clave', DOC_CLAVE); f.append('carpeta', carpeta); f.append('archivo', archivo, archivo.name || 'documento.pdf');
+  let r;
+  try { r = await fetch(DOC_URL, {method:'POST', body:f}); }
+  catch(e) { throw new Error('No se puede conectar con la web de Manchatrans (¿falta subir la carpeta "documentos"?)'); }
+  const j = await r.json().catch(() => null);
+  if (!r.ok || !j || !j.ok) throw new Error((j && j.error) || ('La web respondió ' + r.status + (r.status === 404 ? ': falta subir documentos/subir.php' : '')));
+  return {url:j.url, ruta:j.ruta, nombre:archivo.name || 'documento', tamano:j.tamano, mime:j.tipo, ts:Date.now()};
+}
+async function docBorrarServidor(ruta) {
+  try { const f = new FormData(); f.append('clave', DOC_CLAVE); f.append('accion', 'borrar'); f.append('ruta', ruta); await fetch(DOC_URL, {method:'POST', body:f}); } catch(e) {}
+}
+const DOC_ICONOS = {poliza:'📄', recibo:'🧾', multa:'🚨', pago:'💶', otro:'📎'};
+const DOC_NOMBRES = {poliza:'Póliza', recibo:'Recibo', multa:'Multa', pago:'Recibo de pago', otro:'Otro'};
+// lista de documentos + botones para subir; "fn" es la función global que sube/borra en esa ficha
+function docHtmlSeccion(docs, fn, id, tipos) {
+  const lista = (docs||[]).slice().sort((a,b)=>(b.ts||0)-(a.ts||0));
+  return `<div class="doc-sec">
+    <div class="doc-sec-tit">📎 Documentos${lista.length ? ` (${lista.length})` : ''}</div>
+    ${lista.length ? lista.map((d, i) => `<div class="doc-fila">
+        <span class="doc-ico">${DOC_ICONOS[d.tipo]||'📎'}</span>
+        <a class="doc-nom" href="${d.url}" target="_blank" rel="noopener" title="Abrir">${almEsc(DOC_NOMBRES[d.tipo]||'Documento')}${d.anio ? ' ' + d.anio : ''} · <span>${almEsc(d.nombre||'')}</span></a>
+        <span class="doc-fecha">${fechaCorta(new Date(d.ts||0))}${d.tamano ? ' · ' + (d.tamano > 1048576 ? (d.tamano/1048576).toFixed(1).replace('.',',') + ' MB' : Math.max(1, Math.round(d.tamano/1024)) + ' KB') : ''}</span>
+        <a class="doc-btn" href="${d.url}" target="_blank" rel="noopener" title="Abrir">👁</a>
+        <button type="button" class="doc-btn doc-del" title="Quitar" onclick="${fn}('${id}', 'borrar', ${(docs||[]).indexOf(d)})">🗑</button>
+      </div>`).join('') : `<div class="doc-vacio">Todavía no hay documentos. Sube aquí ${tipos.map(t => DOC_NOMBRES[t].toLowerCase()).join(', ').replace(/, ([^,]*)$/, ' o $1')} en PDF o foto.</div>`}
+    <div class="doc-subir">${tipos.map(t => `<label class="doc-subir-btn">${DOC_ICONOS[t]} Subir ${DOC_NOMBRES[t].toLowerCase()}<input type="file" accept="application/pdf,image/*" style="display:none" onchange="${fn}('${id}', '${t}', this)"></label>`).join('')}</div>
+    <div class="doc-estado" id="doc-estado-${id.replace(/[^a-zA-Z0-9]/g,'_')}"></div>
+  </div>`;
+}
+// sube o borra un documento de una ficha de Firestore y repinta
+async function docAccion({coleccion, cache, id, accion, arg, carpeta, pintar}) {
+  const reg = cache().find(x => x.id === id); if (!reg) return;
+  const est = document.getElementById('doc-estado-' + id.replace(/[^a-zA-Z0-9]/g,'_'));
+  const docs = [...(reg.documentos||[])];
+  if (accion === 'borrar') {
+    const d = docs[arg]; if (!d) return;
+    if (!(await confirmarAccion(`¿Quitar "${DOC_NOMBRES[d.tipo]||'Documento'}${d.anio?' '+d.anio:''}" (${d.nombre})?\n\nSe borra el archivo de la web.`, 'Sí, quitar'))) return;
+    docs.splice(arg, 1);
+    await updateDoc(doc(dbFleet, coleccion, id), {documentos: docs});
+    reg.documentos = docs; docBorrarServidor(d.ruta); pintar();
+    mostrarMensajeFlotante?.('🗑 Documento quitado');
+    return;
+  }
+  const archivo = arg.files && arg.files[0]; arg.value = '';
+  if (!archivo) return;
+  let anio = String(new Date().getFullYear());
+  if (accion === 'recibo' || accion === 'poliza' || accion === 'pago') {
+    const a = await preguntarApp(`¿De qué año es ${accion === 'poliza' ? 'esta póliza' : 'este recibo'}?`, anio, {titulo:`${DOC_ICONOS[accion]} ${DOC_NOMBRES[accion]}`, boton:'Subir', tipo:'number'});
+    if (a === null) return;
+    anio = String(a).trim();
+  } else anio = '';
+  if (est) est.textContent = `⏳ Subiendo ${archivo.name}…`;
+  try {
+    const d = await docSubir(carpeta, archivo);
+    d.tipo = accion; if (anio) d.anio = anio;
+    docs.push(d);
+    await updateDoc(doc(dbFleet, coleccion, id), {documentos: docs});
+    reg.documentos = docs; pintar();
+    mostrarMensajeFlotante?.(`${DOC_ICONOS[accion]} ${DOC_NOMBRES[accion]} ${['poliza','multa'].includes(accion) ? 'subida' : 'subido'}`);
+  } catch(e) { if (est) est.textContent = '❌ ' + e.message; else alert(e.message); }
+}
+window.segVehDoc = (id, accion, arg) => docAccion({coleccion:'segurosVehiculos', cache:()=>segurosVehiculosCache, id, accion, arg, carpeta:'seguros', pintar:renderSegurosVehiculos});
+window.segPolDoc = (id, accion, arg) => docAccion({coleccion:'segurosPolizas', cache:()=>segurosPolizasCache, id, accion, arg, carpeta:'polizas', pintar:renderSegurosPolizas});
+
 function renderSegurosVehiculos() {
   const list = document.getElementById('seg-veh-list');
   const alertasEl = document.getElementById('seg-veh-alertas');
@@ -12344,9 +12987,9 @@ function renderSegurosVehiculos() {
 
   if (!activos.length) { list.innerHTML = `<div class="empty-state"><div class="empty-icon">🛡️</div>No hay seguros de ${etiquetasGrupoSeguro().nombre} activos registrados</div>`; return; }
 
-  const filtrados = segVehBusqueda ? activos.filter(v=>(v.matricula||'').toLowerCase().startsWith(segVehBusqueda)) : activos;
-  if (segVehBusqueda && !filtrados.length) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div>Ningún vehículo coincide con esa búsqueda</div>'; return; }
-  const ordenados = [...filtrados].sort((a,b)=>(a.matricula||'').localeCompare(b.matricula||''));
+  const ordenados = segAplicar(activos, 'veh');
+  segPintarBarra('veh', activos, ordenados.length);
+  if (!ordenados.length) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div>Ningún seguro coincide con la búsqueda o los filtros</div>'; return; }
   list.innerHTML = ordenados.map(v=>{
     const safeId = v.id.replace(/[^a-zA-Z0-9]/g,'_');
     const dias = v.fechaCaducidad ? Math.ceil((new Date(v.fechaCaducidad)-hoy)/(1000*60*60*24)) : null;
@@ -12404,6 +13047,7 @@ function renderSegurosVehiculos() {
           </div>
         </div>`:''}
 
+        ${docHtmlSeccion(v.documentos, 'segVehDoc', v.id, ['poliza','recibo','otro'])}
         <div style="display:flex;gap:0.5rem;margin-top:0.75rem;">
           <button class="btn-sm" style="flex:1;" onclick="editarSeguroVehiculo('${v.id}')">✏️ Editar</button>
           <button class="btn-del" style="flex:1;" onclick="bajaSeguroVehiculo('${v.id}')">📤 Dar de baja</button>
@@ -12782,7 +13426,9 @@ function renderSegurosPolizas() {
 
   if (!activas.length) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">📄</div>No hay pólizas activas registradas</div>'; return; }
 
-  const ordenadas = [...activas].sort((a,b)=>(a.tipoPoliza||'').localeCompare(b.tipoPoliza||''));
+  const ordenadas = segAplicar(activas, 'pol');
+  segPintarBarra('pol', activas, ordenadas.length);
+  if (!ordenadas.length) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div>Ninguna póliza coincide con la búsqueda o los filtros</div>'; return; }
   list.innerHTML = ordenadas.map(p=>{
     const safeId = p.id.replace(/[^a-zA-Z0-9]/g,'_');
     const dias = p.fechaCaducidad ? Math.ceil((new Date(p.fechaCaducidad)-hoy)/(1000*60*60*24)) : null;
@@ -12818,6 +13464,7 @@ function renderSegurosPolizas() {
           </div>
         </div>
 
+        ${docHtmlSeccion(p.documentos, 'segPolDoc', p.id, ['poliza','recibo','otro'])}
         <div style="display:flex;gap:0.5rem;margin-top:0.75rem;">
           <button class="btn-sm" style="flex:1;" onclick="editarSeguroPoliza('${p.id}')">✏️ Editar</button>
           <button class="btn-del" style="flex:1;" onclick="bajaSeguroPoliza('${p.id}')">📤 Dar de baja</button>
