@@ -2773,7 +2773,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v133 · 07/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v134 · 07/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -7647,7 +7647,9 @@ function sgEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){retu
 function sgFh(s){ s=String(s||''); return s?s.substring(8,10)+'/'+s.substring(5,7)+' '+s.substring(11,16):''; }   // 'AAAA-MM-DD HH:MM:SS' -> 'DD/MM HH:MM'
 function sgApi(accion, datos){
   datos=datos||{}; datos.clave=SG_CLAVE;
-  return fetch(SG_API+'?accion='+accion,{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(datos)})
+  // text/plain: el navegador no hace la "pregunta previa" (OPTIONS) que algunos alojamientos bloquean;
+  // la API lee igualmente el JSON del cuerpo de la petición
+  return fetch(SG_API+'?accion='+accion,{method:'POST', headers:{'Content-Type':'text/plain;charset=UTF-8'}, body:JSON.stringify(datos)})
     .then(function(r){return r.json();});
 }
 
@@ -7843,7 +7845,7 @@ async function tkAbrir(){
       };
     }).catch(function(e){
       enviar.disabled = false; enviar.textContent = 'Enviar petición';
-      err.textContent = sgMotivo(e); err.hidden = false;
+      err.innerHTML = sgEsc(sgMotivo(e)) + ' <button type="button" class="tk-btn" style="margin-left:6px;padding:4px 10px;font-size:12.5px" onclick="sgDiagnostico()">🔍 Comprobar conexión</button>'; err.hidden = false;
     });
   };
   if(TK_PENDIENTES) pestana('lista');
@@ -7856,6 +7858,36 @@ function sgMotivo(e){
   if(/autorizado/i.test(m)) return 'La clave del panel no es correcta. Pídale al Admin Superior que la vuelva a poner.';
   return m || 'No se pudo enviar';
 }
+
+// ── Comprobar la conexión con api.php, paso a paso, y explicar qué falla ──
+async function sgDiagnostico(){
+  var r = [];
+  // 1) ¿Responde el servidor? (sin leer la respuesta, así no hace falta permiso)
+  try { await fetch(SG_API + '?accion=novedades&app=' + SG_APP + '&t=' + Date.now(), {mode:'no-cors'}); r.push(['ok','El servidor de manchatrans.com responde.']); }
+  catch(e){ r.push(['mal','No se llega a manchatrans.com: revise la conexión a internet de este aparato.']); return sgDiagMostrar(r, 'Sin conexión con la web.'); }
+  // 2) ¿Deja leer la respuesta? (aquí es donde hacen falta las líneas de permiso en api.php)
+  var j = null;
+  try { var res = await fetch(SG_API + '?accion=novedades&app=' + SG_APP + '&t=' + Date.now()); j = await res.json().catch(function(){ return null; });
+        if (!j) { r.push(['mal','api.php responde, pero no con datos válidos (puede que haya un error en el archivo al pegar las líneas).']); return sgDiagMostrar(r, 'Revise que api.php ha quedado bien tras pegar las líneas.'); }
+        r.push(['ok','api.php permite a FlotaMancha leer sus respuestas.']);
+        r.push([j.novedades && j.novedades.length ? 'ok' : 'aviso', j.novedades && j.novedades.length ? 'Novedades de FlotaMancha: ' + j.novedades.length + '.' : 'No hay novedades para FlotaMancha en novedades.json (falta pegarlas).']); }
+  catch(e){ r.push(['mal','El servidor responde, pero NO deja a FlotaMancha leer la respuesta: faltan las líneas de permiso al principio de api.php, o algo más abajo en api.php las anula.']);
+            return sgDiagMostrar(r, 'Añada las líneas de permiso justo debajo de <?php en recogidas/api.php. Si ya están, busque en api.php otra línea con "Access-Control-Allow-Origin" y mándemela.'); }
+  // 3) ¿Acepta la clave para las peticiones?
+  if (!SG_CLAVE) { r.push(['aviso','Falta poner la clave del panel en FlotaMancha (se pide al pulsar Sugerencias).']); return sgDiagMostrar(r, 'Pulse Sugerencias y ponga la clave del panel.'); }
+  try { var t = await sgApi('tickets', {app: SG_APP});
+        if (t && t.ok) r.push(['ok','La clave del panel es correcta: ' + (t.tickets || []).length + ' peticiones de FlotaMancha.']);
+        else r.push(['mal','api.php rechaza la clave: ' + ((t && t.error) || 'sin motivo') + '.']); }
+  catch(e){ r.push(['mal','Falla al pedir las peticiones (' + (e.message || 'error') + ').']); }
+  var malos = r.filter(function(x){ return x[0] === 'mal'; }).length;
+  sgDiagMostrar(r, malos ? 'Hay algo que corregir (arriba en rojo).' : 'Todo correcto: las sugerencias deberían funcionar.');
+}
+function sgDiagMostrar(r, resumen){
+  var ico = {ok:'✅', mal:'❌', aviso:'⚠️'};
+  avisoApp(r.map(function(x){ return ico[x[0]] + ' ' + x[1]; }).join('\n') + '\n\n' + resumen, '🔍 Conexión con el panel');
+}
+window.sgDiagnostico = sgDiagnostico;
+window.sgCambiarClave = async function(){ SG_CLAVE = ''; await sgPedirClave(); };
 
 function tkLista(velo){
   var caja = velo.querySelector('#tk-lista');
@@ -7909,7 +7941,9 @@ function tkLista(velo){
           .catch(function(){ b.disabled = false; b.textContent = 'Guardar'; });
       };
     });
-  }).catch(function(e){ caja.innerHTML = '<div class="tk-vacio">No se pudieron cargar las peticiones.<br><small>'+sgEsc(sgMotivo(e))+'</small></div>'; });
+  }).catch(function(e){ caja.innerHTML = '<div class="tk-vacio">No se pudieron cargar las peticiones.<br><small>'+sgEsc(sgMotivo(e))+'</small><br><br>'+
+      '<button type="button" class="tk-btn" onclick="sgDiagnostico()">🔍 Comprobar conexión</button> '+
+      '<button type="button" class="tk-btn" onclick="sgCambiarClave()">🔑 Cambiar la clave del panel</button></div>'; });
 }
 
 /* ================== Enganche: al entrar en administración ================== */
