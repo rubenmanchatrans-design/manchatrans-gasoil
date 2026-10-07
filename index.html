@@ -957,6 +957,130 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .cp-ma-btn:hover { color: #2ecc71; border-color: #2ecc71; }
 .cp-ma-btn.on { border-style: solid; border-color: #2ecc71; background: rgba(46,204,113,0.14); color: #2ecc71; }
 .cp-adr-opt.activa { outline: 2px solid var(--accent); background: rgba(245,166,35,0.12); }
+
+
+/* ---- Botones de la barra: campana y Sugerencias ---- */
+.cab-btn { background: transparent; border: 1px solid var(--card-border); color: var(--text-muted); border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.cab-btn:hover { color: var(--text); border-color: var(--accent); }
+@media (max-width: 520px) { #fm-tickets { font-size: 0; padding: 6px 10px; } #fm-tickets::before { content: '💬'; font-size: 15px; } }
+/* ---- Campana de novedades ---- */
+.cab-btn.campana{position:relative;padding-left:12px;padding-right:12px}
+.cab-btn.campana svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px}
+.nov-num{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#e11b22;
+  color:#fff;font:700 11px/18px "Segoe UI",system-ui,sans-serif;text-align:center;box-shadow:0 0 0 2px var(--navy, #fff)}
+.nov-num[hidden]{display:none}
+.nov-caja{position:absolute;z-index:600;width:min(420px,calc(100vw - 24px));max-height:70vh;display:flex;flex-direction:column;
+  background:#fff;border:1px solid #d6dbe1;border-radius:10px;box-shadow:0 18px 50px rgba(16,24,40,.22);overflow:hidden;font-family:"Segoe UI",system-ui,sans-serif}
+.nov-cab{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:3px solid #e11b22;color:#16202c}
+.nov-x{background:none;border:0;font-size:15px;cursor:pointer;color:#5b6b7c}
+.nov-lista{overflow:auto}
+.nov-item{padding:12px 16px;border-bottom:1px solid #eef1f4}
+.nov-item.nueva{background:#fff8f8}
+.nov-f{font-size:11.5px;color:#64748b;display:flex;gap:8px;align-items:center}
+.nov-tag{background:#e11b22;color:#fff;border-radius:3px;padding:1px 6px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.nov-t{font-weight:700;color:#16202c;margin:3px 0 2px;font-size:14px}
+.nov-x2{font-size:13px;color:#3a4654;line-height:1.45}
+.nov-vacio{padding:24px 16px;text-align:center;color:#64748b;font-size:13.5px}
+/* ==== Sugerencias (tickets) ==== */
+.tk-velo{position:fixed;inset:0;z-index:700;background:rgba(22,32,44,.55);backdrop-filter:blur(3px);
+  display:flex;align-items:center;justify-content:center;padding:20px;animation:tkIn .15s ease-out}
+@keyframes tkIn{from{opacity:0}to{opacity:1}}
+.tk-caja{--t:#16202c;--t2:#3a4654;--t3:#64748b;--l:#e3e7ec;--az:#1565c0;--rj:#e11b22;
+  font-family:"Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;font-size:14.5px;line-height:1.5;
+  color:var(--t);background:#fff;border-radius:12px;width:min(680px,100%);max-height:min(92vh,880px);display:flex;flex-direction:column;
+  overflow:hidden;box-shadow:0 30px 80px rgba(5,12,22,.35);-webkit-font-smoothing:antialiased}
+.tk-caja *{box-sizing:border-box;font-family:inherit;letter-spacing:normal;text-transform:none}
+.tk-cab{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:20px 24px 16px;border-bottom:3px solid var(--rj)}
+.tk-caja .tk-etq{display:block;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--rj)}
+.tk-cab h3{margin:3px 0 2px;font-size:20px;font-weight:700;letter-spacing:-.01em;color:var(--t)}
+.tk-cab p{margin:0;color:var(--t3);font-size:14px}
+.tk-cerrar{flex:0 0 auto;width:36px;height:36px;border-radius:50%;border:1px solid #d6dbe1;background:#fff;color:var(--t2);font-size:15px;cursor:pointer}
+.tk-cerrar:hover{background:var(--rj);border-color:var(--rj);color:#fff}
+.tk-pest{display:flex;padding:0 24px;background:#f7f8fa;border-bottom:1px solid var(--l)}
+.tk-p{position:relative;border:0;background:none;padding:12px 4px;margin-right:22px;font-size:14px;font-weight:600;color:var(--t3);cursor:pointer}
+.tk-p.on{color:var(--t)}
+.tk-p.on:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:3px;border-radius:3px 3px 0 0;background:var(--rj)}
+.tk-pc{display:inline-block;min-width:20px;padding:0 6px;margin-left:4px;border-radius:10px;background:var(--rj);color:#fff;font-size:11.5px;line-height:19px;text-align:center}
+.tk-pc[hidden]{display:none}
+.tk-cuerpo{flex:1;min-height:0;overflow:auto;padding:22px 24px}
+.tk-form{display:flex;flex-direction:column;gap:18px}
+.tk-form[hidden],.tk-hecho[hidden],.tk-panel[hidden],.tk-err[hidden],.tk-btn[hidden]{display:none}
+.tk-l{display:block;font-size:13px;font-weight:600;color:var(--t2);margin:0 0 7px}
+.tk-caja input:not([type=radio]),.tk-caja textarea{width:100%;border:1px solid #cbd3dd;border-radius:8px;padding:10px 12px;font-size:14.5px;color:var(--t);background:#fff;transition:border-color .15s,box-shadow .15s;margin:0}
+.tk-caja textarea{resize:vertical;min-height:110px;line-height:1.5}
+.tk-caja input::placeholder,.tk-caja textarea::placeholder{color:#97a3b0}
+.tk-caja input:focus,.tk-caja textarea:focus{outline:none;border-color:var(--az);box-shadow:0 0 0 3px rgba(21,101,192,.14)}
+.tk-ayuda{display:flex;justify-content:space-between;gap:10px;margin-top:6px;font-size:12.5px;color:var(--t3)}
+.tk-tipos{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.tk-caja .tk-tipo{position:relative;display:flex;flex-direction:column;gap:2px;padding:14px 14px 12px;border:1.5px solid var(--l);border-radius:10px;cursor:pointer;background:#fff;transition:border-color .15s,background .15s;margin:0;font-size:inherit;color:inherit}
+.tk-tipo:hover{border-color:#b9c3cf}
+.tk-tipo.on{border-color:var(--t);background:#f7f9fb;box-shadow:inset 0 0 0 1px var(--t)}
+.tk-tipo input{position:absolute;opacity:0;pointer-events:none}
+.tk-ic svg,.tk-i-ic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.tk-ic{color:var(--t2);margin-bottom:6px}
+.tk-tipo.on .tk-ic{color:var(--rj)}
+.tk-tn{font-weight:700;font-size:14.5px;color:var(--t)}
+.tk-td{font-size:12.5px;color:var(--t3);line-height:1.35}
+.tk-dos{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.tk-seg{display:inline-flex;border:1px solid #cbd3dd;border-radius:8px;overflow:hidden;background:#fff}
+.tk-seg button{border:0;background:none;padding:9px 16px;font-size:14px;font-weight:600;color:var(--t2);cursor:pointer}
+.tk-seg button+button{border-left:1px solid #cbd3dd}
+.tk-seg button.on{background:var(--t);color:#fff}
+.tk-seg button[data-v=urgente].on{background:var(--rj)}
+.tk-err{background:#fdeeee;border:1px solid #f1b6b8;color:#9c1015;border-radius:8px;padding:10px 12px;font-size:13.5px}
+.tk-hecho{text-align:center;padding:26px 10px 8px}
+.tk-check,.tk-vic{width:58px;height:58px;margin:0 auto 14px;border-radius:50%;background:#e9f6ed;display:flex;align-items:center;justify-content:center}
+.tk-check svg,.tk-vic svg{width:28px;height:28px;fill:none;stroke:#1b9e4b;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.tk-hecho h4{margin:0 0 6px;font-size:18px;color:var(--t)}
+.tk-hecho p{margin:0 auto 18px;max-width:420px;color:var(--t2)}
+.tk-hecho-b{display:flex;gap:10px;justify-content:center}
+.tk-pie{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 24px;border-top:1px solid var(--l);background:#fafbfc;flex-wrap:wrap}
+.tk-nota{font-size:12.5px;color:var(--t3)}
+.tk-acc{display:flex;gap:10px;margin-left:auto}
+.tk-btn{border:1px solid #c5ccd6;background:#fff;color:var(--t);border-radius:8px;padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer}
+.tk-btn:hover{background:#f2f4f7}
+.tk-btn.tk-si{background:var(--t);border-color:var(--t);color:#fff}
+.tk-btn.tk-si:hover{background:#0c141d}
+.tk-btn:disabled{opacity:.6;cursor:default}
+.tk-filtro{display:flex;gap:8px;margin-bottom:16px}
+.tk-f{border:1px solid #d6dbe1;background:#fff;border-radius:999px;padding:6px 14px;font-size:13px;font-weight:600;color:var(--t2);cursor:pointer}
+.tk-f b{margin-left:4px;color:var(--t3);font-weight:700}
+.tk-f.on{background:var(--t);border-color:var(--t);color:#fff}
+.tk-f.on b{color:#c6d1de}
+.tk-item{border:1px solid var(--l);border-left:4px solid #cfd6de;border-radius:10px;padding:14px 16px;margin-bottom:12px;background:#fff}
+.tk-e-ab{border-left-color:#e0a225}.tk-e-cu{border-left-color:#1565c0}.tk-e-he{border-left-color:#1b9e4b}.tk-e-de{border-left-color:#b9c3cf}
+.tk-i-cab{display:flex;align-items:flex-start;gap:12px}
+.tk-i-ic{flex:0 0 auto;width:36px;height:36px;border-radius:9px;background:#f2f4f7;color:var(--t2);display:flex;align-items:center;justify-content:center}
+.tk-i-ic svg{width:19px;height:19px}
+.tk-i-tit{flex:1;min-width:0}
+.tk-i-tit h5{margin:0;font-size:15px;font-weight:700;color:var(--t);line-height:1.35}
+.tk-i-meta{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:3px;font-size:12.5px;color:var(--t3)}
+.tk-urg{color:#9c1015;font-weight:700}
+.tk-est{flex:0 0 auto;font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px;border:1px solid}
+.tk-est-ab{background:#fff7e8;color:#8a5a00;border-color:#ecc98b}
+.tk-est-cu{background:#e8f1fb;color:#14539a;border-color:#a9c8ea}
+.tk-est-he{background:#e9f6ed;color:#166534;border-color:#9fd3b0}
+.tk-est-de{background:#f2f4f7;color:#5b6b7c;border-color:#d6dbe1}
+.tk-i-txt{margin:10px 0 0 48px;color:var(--t2);font-size:14px}
+.tk-resp{margin:12px 0 0 48px;background:#f3f7fc;border:1px solid #d5e3f3;border-radius:8px;padding:10px 12px;font-size:14px;color:var(--t)}
+.tk-resp-c{font-size:12px;font-weight:700;color:#14539a;margin-bottom:2px}
+.tk-gest{margin:12px 0 0 48px}
+.tk-gest summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--az);list-style:none}
+.tk-gest summary::-webkit-details-marker{display:none}
+.tk-gest summary:before{content:"›";display:inline-block;margin-right:6px;transition:transform .15s}
+.tk-gest[open] summary:before{transform:rotate(90deg)}
+.tk-gest-c{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.tk-seg-est{align-self:flex-start}
+.tk-seg-est button{padding:7px 12px;font-size:13px}
+.tk-gest-b{display:flex;justify-content:flex-end}
+.tk-vacio{text-align:center;color:var(--t3);padding:34px 10px;font-size:14px}
+@media(max-width:640px){
+  .tk-velo{padding:0}.tk-caja{max-height:100vh;height:100%;border-radius:0}
+  .tk-tipos{grid-template-columns:1fr;gap:8px}.tk-dos{grid-template-columns:1fr}
+  .tk-caja .tk-tipo{display:grid;grid-template-columns:30px 1fr;column-gap:10px;row-gap:0;padding:11px 14px;align-items:center}
+  .tk-tipo .tk-ic{grid-row:1 / span 2;margin:0}
+  .tk-i-txt,.tk-resp,.tk-gest{margin-left:0}.tk-nota{display:none}
+}
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -1107,6 +1231,12 @@ html.giro-fijo #screen-chat { height: 100% !important; }
   <div class="topbar">
     <span class="topbar-title" id="admin-topbar-title">FlotaMancha</span>
     <div style="display:flex;gap:0.5rem;align-items:center;">
+      <button class="cab-btn campana" id="fm-novedades" title="Novedades de FlotaMancha" aria-label="Novedades">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        <span class="nov-num" id="novNum" hidden>0</span>
+      </button>
+      <button class="cab-btn campana" id="fm-tickets" title="Pedir una mejora o avisar de un error">Sugerencias
+        <span class="nov-num" id="tkNum" hidden>0</span></button>
       <button class="topbar-logout" id="btn-cambiar-modulo" style="display:none;">← Cambiar módulo</button>
       <button class="topbar-logout" id="btn-logout-admin">Salir</button>
     </div>
@@ -2643,7 +2773,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v131 · 07/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v133 · 07/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -7498,6 +7628,304 @@ function coAnadirDescarga() {
 Object.assign(window, { coTab, coEntrar, coNueva, coRenderForm, coRenderLista });
 Object.defineProperty(window, 'coEstado', { get: () => coEstado, set: v => { coEstado = v; } });
 
+
+// ════════════════════════════════════════════════════════════════════════════
+// CAMPANA DE NOVEDADES y SUGERENCIAS (tickets)
+// Igual que en el panel de recogidas de Manchatrans y con su misma API
+// (manchatrans.com/recogidas/api.php). El campo app = 'flotamancha' separa las
+// peticiones y novedades de esta aplicación de las del panel.
+// · Novedades: las escribe el responsable en datos/novedades.json del servidor.
+// · Tickets: la API exige la clave de administración del panel; se guarda en
+//   Firebase (configuracion/sugerencias) y solo la puede poner el Admin Superior.
+// ════════════════════════════════════════════════════════════════════════════
+var SG_API = 'https://manchatrans.com/recogidas/api.php';
+var SG_APP = 'flotamancha';
+var SG_CLAVE = '';
+var NOVEDADES = [];
+
+function sgEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function sgFh(s){ s=String(s||''); return s?s.substring(8,10)+'/'+s.substring(5,7)+' '+s.substring(11,16):''; }   // 'AAAA-MM-DD HH:MM:SS' -> 'DD/MM HH:MM'
+function sgApi(accion, datos){
+  datos=datos||{}; datos.clave=SG_CLAVE;
+  return fetch(SG_API+'?accion='+accion,{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(datos)})
+    .then(function(r){return r.json();});
+}
+
+/* ================== NOVEDADES (la campana) ================== */
+function novVistas(){ try{ return JSON.parse(localStorage.getItem('mt_nov_vistas_'+SG_APP) || '[]'); }catch(e){ return []; } }
+function novMarcar(){ try{ localStorage.setItem('mt_nov_vistas_'+SG_APP, JSON.stringify(NOVEDADES.map(function(n){ return n.id; }))); }catch(e){} }
+function novFecha(f){ var p=String(f||'').split('-'); return p.length===3 ? p[2]+'/'+p[1]+'/'+p[0] : sgEsc(f||''); }
+function novPintarNum(){
+  var vistas = novVistas(), n = NOVEDADES.filter(function(x){ return vistas.indexOf(x.id) < 0; }).length;
+  var e = document.getElementById('novNum'); if(!e) return;
+  e.textContent = n > 9 ? '9+' : n; e.hidden = !n;
+}
+function novCargar(){
+  return fetch(SG_API+'?accion=novedades&app='+SG_APP+'&t='+Date.now()).then(function(r){ return r.json(); })
+    .then(function(j){
+      NOVEDADES = ((j && j.novedades) || []).slice().sort(function(a,b){ return String(b.fecha).localeCompare(String(a.fecha)); });
+      novPintarNum();
+    }).catch(function(){});
+}
+function novAbrir(){
+  var viejo = document.querySelector('.nov-caja'); if(viejo){ viejo.remove(); return; }
+  var vistas = novVistas();
+  var caja = document.createElement('div'); caja.className='nov-caja';
+  caja.innerHTML = '<div class="nov-cab"><b>Novedades de FlotaMancha</b><button type="button" class="nov-x" aria-label="Cerrar">✕</button></div>'+
+    '<div class="nov-lista">'+(NOVEDADES.length ? NOVEDADES.map(function(n){
+      var nueva = vistas.indexOf(n.id) < 0;
+      return '<div class="nov-item'+(nueva?' nueva':'')+'">'+
+        '<div class="nov-f">'+novFecha(n.fecha)+(nueva?'<span class="nov-tag">Nuevo</span>':'')+'</div>'+
+        '<div class="nov-t">'+sgEsc(n.titulo||'')+'</div>'+
+        '<div class="nov-x2">'+sgEsc(n.texto||'').replace(/\n/g,'<br>')+'</div></div>';
+    }).join('') : '<div class="nov-vacio">Todavía no hay novedades.</div>')+'</div>';
+  document.body.appendChild(caja);
+  var b = document.getElementById('fm-novedades').getBoundingClientRect();
+  caja.style.top = (b.bottom + window.scrollY + 8)+'px';
+  caja.style.right = Math.max(12, document.documentElement.clientWidth - b.right)+'px';
+  novMarcar(); novPintarNum();
+  function fuera(e){ if(!caja.contains(e.target) && !e.target.closest('#fm-novedades')){ cerrar(); } }
+  function cerrar(){ caja.remove(); document.removeEventListener('mousedown', fuera); }
+  setTimeout(function(){ document.addEventListener('mousedown', fuera); }, 0);
+  caja.querySelector('.nov-x').onclick = cerrar;
+}
+
+/* ================== TICKETS (sugerencias) ================== */
+var TK_ESTADOS = {abierto:['Abierto','ab'], en_curso:['En curso','cu'], hecho:['Hecho','he'], descartado:['Descartado','de']};
+var TK_TIPOS = {
+  mejora: {n:'Mejora', d:'Algo que facilitaría el trabajo',
+           ic:'<svg viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>'},
+  error:  {n:'Error', d:'Algo que no funciona como debe',
+           ic:'<svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>'},
+  cambio: {n:'Cambio', d:'Algo que habría que hacer distinto',
+           ic:'<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>'}
+};
+var TK_PENDIENTES = 0;
+function tkContar(){
+  if(!SG_CLAVE) return;
+  sgApi('tickets', {app: SG_APP}).then(function(j){
+    var l = (j && j.tickets) || [];
+    TK_PENDIENTES = l.filter(function(t){ return t.estado==='abierto' || t.estado==='en_curso'; }).length;
+    var e = document.getElementById('tkNum'); if(e){ e.textContent = TK_PENDIENTES > 9 ? '9+' : TK_PENDIENTES; e.hidden = !TK_PENDIENTES; }
+    var bt = document.getElementById('fm-tickets'); if(bt) bt.title = TK_PENDIENTES ? TK_PENDIENTES + ' peticiones pendientes' : 'Pedir una mejora o avisar de un error';
+    var pc = document.getElementById('tk-pc');
+    if(pc){ pc.textContent = TK_PENDIENTES || ''; pc.hidden = !TK_PENDIENTES; }
+  }).catch(function(){});
+}
+
+// Si todavía no se ha puesto la clave del panel, se pide (solo Admin Superior)
+async function sgPedirClave(){
+  var ok = await pedirPasswordSuperadmin('Para conectar las sugerencias con el panel de Manchatrans hace falta la clave de administración del panel. Solo la puede poner el Admin Superior.');
+  if(!ok) return false;
+  var c = await preguntarApp('Escribe la clave de administración del panel de recogidas (la misma con la que se entra en manchatrans.com/recogidas/panel.html):', '', {titulo:'🔑 Clave del panel', boton:'Guardar', tipo:'password'});
+  c = (c || '').trim();
+  if(!c) return false;
+  SG_CLAVE = c;
+  try { await setDoc(doc(db,'configuracion','sugerencias'), {clave: c, ts: Date.now()}, {merge:true}); } catch(e) {}
+  tkContar();
+  return true;
+}
+
+async function tkAbrir(){
+  if(!SG_CLAVE){ if(!(await sgPedirClave())) return; }
+  var nombre = ''; try{ nombre = localStorage.getItem('mt_tk_nombre') || ''; }catch(e){}
+  var velo = document.createElement('div'); velo.className = 'tk-velo';
+  velo.innerHTML =
+    '<div class="tk-caja" role="dialog" aria-modal="true" aria-labelledby="tk-t">'+
+      '<header class="tk-cab">'+
+        '<div><span class="tk-etq">Sugerencias</span><h3 id="tk-t">Mejoras, errores y cambios</h3>'+
+          '<p>Cuéntenos qué haría falta. Le responderemos aquí mismo.</p></div>'+
+        '<button type="button" class="tk-cerrar" aria-label="Cerrar">✕</button>'+
+      '</header>'+
+      '<nav class="tk-pest" role="tablist">'+
+        '<button type="button" class="tk-p on" data-p="nuevo" role="tab">Nueva petición</button>'+
+        '<button type="button" class="tk-p" data-p="lista" role="tab">Peticiones <span class="tk-pc" id="tk-pc" hidden></span></button>'+
+      '</nav>'+
+      '<div class="tk-cuerpo">'+
+        '<section class="tk-panel" data-p="nuevo">'+
+          '<div class="tk-form">'+
+            '<div class="tk-campo"><span class="tk-l">¿Qué quiere comunicar?</span>'+
+              '<div class="tk-tipos">'+Object.keys(TK_TIPOS).map(function(k, n){
+                var t = TK_TIPOS[k];
+                return '<label class="tk-tipo'+(n===0?' on':'')+'"><input type="radio" name="tk-tipo" value="'+k+'"'+(n===0?' checked':'')+'>'+
+                  '<span class="tk-ic">'+t.ic+'</span><span class="tk-tn">'+t.n+'</span><span class="tk-td">'+t.d+'</span></label>';
+              }).join('')+'</div></div>'+
+            '<div class="tk-campo"><label class="tk-l" for="tk-tit">Título</label>'+
+              '<input id="tk-tit" maxlength="120" placeholder="Resúmalo en una frase"></div>'+
+            '<div class="tk-campo"><label class="tk-l" for="tk-txt">Explicación</label>'+
+              '<textarea id="tk-txt" rows="5" maxlength="4000" placeholder="Qué pasa o qué haría falta. Si puede, añada un ejemplo: número de carta, expedición, conductor, matrícula…"></textarea>'+
+              '<div class="tk-ayuda"><span>Cuanto más detalle, antes se resuelve.</span><span id="tk-cont">0 / 4000</span></div></div>'+
+            '<div class="tk-dos">'+
+              '<div class="tk-campo"><span class="tk-l">Urgencia</span>'+
+                '<div class="tk-seg"><button type="button" class="on" data-v="normal">Normal</button>'+
+                  '<button type="button" data-v="urgente">Urgente</button></div>'+
+                '<div class="tk-ayuda"><span id="tk-urg-txt">Se atiende por orden de llegada.</span></div></div>'+
+              '<div class="tk-campo"><label class="tk-l" for="tk-nom">Su nombre</label>'+
+                '<input id="tk-nom" maxlength="60" placeholder="Para saber a quién responder" value="'+sgEsc(nombre)+'"></div>'+
+            '</div>'+
+            '<div class="tk-err" id="tk-err" hidden></div>'+
+          '</div>'+
+          '<div class="tk-hecho" id="tk-hecho" hidden></div>'+
+        '</section>'+
+        '<section class="tk-panel" data-p="lista" hidden>'+
+          '<div class="tk-filtro"><button type="button" class="tk-f on" data-f="pend">Pendientes</button>'+
+            '<button type="button" class="tk-f" data-f="todos">Todas</button></div>'+
+          '<div class="tk-lista" id="tk-lista"></div>'+
+        '</section>'+
+      '</div>'+
+      '<footer class="tk-pie">'+
+        '<span class="tk-nota">Llega un aviso al responsable al momento.</span>'+
+        '<div class="tk-acc"><button type="button" class="tk-btn tk-no">Cancelar</button>'+
+          '<button type="button" class="tk-btn tk-si tk-enviar">Enviar petición</button></div>'+
+      '</footer>'+
+    '</div>';
+  document.body.appendChild(velo);
+  document.body.style.overflow = 'hidden';
+  function cerrar(){ velo.remove(); document.body.style.overflow = ''; document.removeEventListener('keydown', tecla); }
+  function tecla(e){ if(e.key==='Escape' && !document.getElementById('dlg-app')) cerrar(); }
+  document.addEventListener('keydown', tecla);
+  velo.addEventListener('mousedown', function(e){ if(e.target===velo) cerrar(); });
+  velo.querySelector('.tk-cerrar').onclick = cerrar;
+  velo.querySelector('.tk-no').onclick = cerrar;
+  var enviar = velo.querySelector('.tk-enviar');
+  velo.querySelectorAll('.tk-tipo input').forEach(function(r){
+    r.onchange = function(){ velo.querySelectorAll('.tk-tipo').forEach(function(l){ l.classList.toggle('on', l.contains(r) && r.checked); }); };
+  });
+  var urgencia = 'normal';
+  velo.querySelectorAll('.tk-seg button').forEach(function(b){
+    b.onclick = function(){
+      urgencia = b.dataset.v;
+      velo.querySelectorAll('.tk-seg button').forEach(function(x){ x.classList.toggle('on', x===b); });
+      velo.querySelector('#tk-urg-txt').textContent = urgencia==='urgente' ? 'Úselo solo si impide trabajar.' : 'Se atiende por orden de llegada.';
+    };
+  });
+  var txt = velo.querySelector('#tk-txt');
+  txt.oninput = function(){ velo.querySelector('#tk-cont').textContent = txt.value.length + ' / 4000'; };
+  function pestana(p){
+    velo.querySelectorAll('.tk-p').forEach(function(b){ b.classList.toggle('on', b.dataset.p===p); });
+    velo.querySelectorAll('.tk-panel').forEach(function(x){ x.hidden = x.dataset.p!==p; });
+    enviar.hidden = p!=='nuevo' || !velo.querySelector('#tk-hecho').hidden;
+    velo.querySelector('.tk-no').textContent = (p==='nuevo' && enviar.hidden===false) ? 'Cancelar' : 'Cerrar';
+    if(p==='lista') tkLista(velo);
+  }
+  velo.querySelectorAll('.tk-p').forEach(function(b){ b.onclick = function(){ pestana(b.dataset.p); }; });
+  velo.querySelectorAll('.tk-f').forEach(function(b){ b.onclick = function(){
+    velo.querySelectorAll('.tk-f').forEach(function(x){ x.classList.toggle('on', x===b); });
+    tkLista(velo);
+  }; });
+  enviar.onclick = function(){
+    var err = velo.querySelector('#tk-err'); err.hidden = true;
+    var d = {app: SG_APP, tipo: (velo.querySelector('input[name=tk-tipo]:checked')||{}).value || 'mejora',
+             titulo: velo.querySelector('#tk-tit').value.trim(), texto: txt.value.trim(),
+             prioridad: urgencia, nombre: velo.querySelector('#tk-nom').value.trim()};
+    if(d.titulo.length < 3){ err.textContent='Escriba un título.'; err.hidden=false; velo.querySelector('#tk-tit').focus(); return; }
+    if(d.texto.length < 5){ err.textContent='Explique un poco más qué hace falta.'; err.hidden=false; txt.focus(); return; }
+    try{ localStorage.setItem('mt_tk_nombre', d.nombre); }catch(e){}
+    enviar.disabled = true; enviar.textContent = 'Enviando…';
+    sgApi('ticket_nuevo', d).then(function(j){
+      if(!j.ok) throw new Error(j.error || 'No se pudo enviar');
+      tkContar();
+      velo.querySelector('.tk-form').hidden = true;
+      var h = velo.querySelector('#tk-hecho'); h.hidden = false;
+      h.innerHTML = '<div class="tk-check"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>'+
+        '<h4>Petición enviada</h4><p>Su petición <b>'+sgEsc(j.id)+'</b> ha quedado registrada y el responsable ya tiene el aviso. '+
+        'Puede seguir su estado en <i>Peticiones</i>.</p>'+
+        '<div class="tk-hecho-b"><button type="button" class="tk-btn tk-otra">Enviar otra</button>'+
+        '<button type="button" class="tk-btn tk-si tk-ver">Ver mis peticiones</button></div>';
+      enviar.hidden = true; enviar.disabled = false; enviar.textContent = 'Enviar petición';
+      velo.querySelector('.tk-no').textContent = 'Cerrar';
+      h.querySelector('.tk-ver').onclick = function(){ pestana('lista'); };
+      h.querySelector('.tk-otra').onclick = function(){
+        velo.querySelector('#tk-tit').value=''; txt.value=''; txt.oninput();
+        h.hidden = true; velo.querySelector('.tk-form').hidden = false; enviar.hidden = false;
+        velo.querySelector('.tk-no').textContent = 'Cancelar';
+        velo.querySelector('#tk-tit').focus();
+      };
+    }).catch(function(e){
+      enviar.disabled = false; enviar.textContent = 'Enviar petición';
+      err.textContent = sgMotivo(e); err.hidden = false;
+    });
+  };
+  if(TK_PENDIENTES) pestana('lista');
+  else setTimeout(function(){ velo.querySelector('#tk-tit').focus(); }, 50);
+}
+// Mensaje claro si no se puede hablar con la API (normalmente, falta la cabecera CORS en api.php)
+function sgMotivo(e){
+  var m = (e && e.message) || '';
+  if(/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'No se puede conectar con el panel de Manchatrans. Revise la conexión; si sigue, falta permitir FlotaMancha en api.php.';
+  if(/autorizado/i.test(m)) return 'La clave del panel no es correcta. Pídale al Admin Superior que la vuelva a poner.';
+  return m || 'No se pudo enviar';
+}
+
+function tkLista(velo){
+  var caja = velo.querySelector('#tk-lista');
+  caja.innerHTML = '<div class="tk-vacio">Cargando…</div>';
+  var soloPend = velo.querySelector('.tk-f.on').dataset.f === 'pend';
+  sgApi('tickets', {app: SG_APP}).then(function(j){
+    if(j && j.ok === false) throw new Error(j.error || 'No se pudieron cargar');
+    var todos = (j && j.tickets) || [];
+    var pend = todos.filter(function(t){ return t.estado==='abierto' || t.estado==='en_curso'; });
+    velo.querySelector('.tk-f[data-f="pend"]').innerHTML = 'Pendientes <b>'+pend.length+'</b>';
+    velo.querySelector('.tk-f[data-f="todos"]').innerHTML = 'Todas <b>'+todos.length+'</b>';
+    var pc = velo.querySelector('#tk-pc'); pc.textContent = pend.length || ''; pc.hidden = !pend.length;
+    tkContar();
+    var l = soloPend ? pend : todos;
+    if(!l.length){
+      caja.innerHTML = '<div class="tk-vacio"><div class="tk-vic"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>'+
+        (soloPend && todos.length ? 'No hay peticiones pendientes.' : 'Todavía no se ha enviado ninguna petición.')+'</div>';
+      return;
+    }
+    caja.innerHTML = l.map(function(t){
+      var e = TK_ESTADOS[t.estado] || TK_ESTADOS.abierto, tp = TK_TIPOS[t.tipo] || TK_TIPOS.mejora;
+      return '<article class="tk-item tk-e-'+e[1]+'" data-id="'+sgEsc(t.id)+'">'+
+        '<div class="tk-i-cab">'+
+          '<span class="tk-i-ic">'+tp.ic+'</span>'+
+          '<div class="tk-i-tit"><h5>'+sgEsc(t.titulo)+'</h5>'+
+            '<div class="tk-i-meta"><span>'+sgEsc(t.id)+'</span><span>'+tp.n+'</span><span>'+sgFh(t.creado)+'</span>'+
+              (t.nombre?'<span>'+sgEsc(t.nombre)+'</span>':'')+
+              (t.prioridad==='urgente'?'<span class="tk-urg">Urgente</span>':'')+'</div></div>'+
+          '<span class="tk-est tk-est-'+e[1]+'">'+e[0]+'</span>'+
+        '</div>'+
+        '<p class="tk-i-txt">'+sgEsc(t.texto).replace(/\n/g,'<br>')+'</p>'+
+        (t.respuesta?'<div class="tk-resp"><div class="tk-resp-c">Respuesta'+(t.cambio?' · '+sgFh(t.cambio):'')+'</div>'+
+          sgEsc(t.respuesta).replace(/\n/g,'<br>')+'</div>':'')+
+        '<details class="tk-gest"><summary>Responder o cambiar el estado</summary>'+
+          '<div class="tk-gest-c">'+
+            '<div class="tk-seg tk-seg-est">'+Object.keys(TK_ESTADOS).map(function(k){
+              return '<button type="button" data-v="'+k+'"'+(k===t.estado?' class="on"':'')+'>'+TK_ESTADOS[k][0]+'</button>'; }).join('')+'</div>'+
+            '<textarea class="tk-res" rows="3" placeholder="Escriba la respuesta para quien lo pidió (opcional)">'+sgEsc(t.respuesta||'')+'</textarea>'+
+            '<div class="tk-gest-b"><button type="button" class="tk-btn tk-si tk-guardar">Guardar</button></div>'+
+          '</div></details>'+
+        '</article>';
+    }).join('');
+    caja.querySelectorAll('.tk-item').forEach(function(it){
+      it.querySelectorAll('.tk-seg-est button').forEach(function(b){
+        b.onclick = function(){ it.querySelectorAll('.tk-seg-est button').forEach(function(x){ x.classList.toggle('on', x===b); }); };
+      });
+      it.querySelector('.tk-guardar').onclick = function(){
+        var b = this; b.disabled = true; b.textContent = 'Guardando…';
+        sgApi('ticket_estado', {id: it.dataset.id, estado: it.querySelector('.tk-seg-est .on').dataset.v,
+                                respuesta: it.querySelector('.tk-res').value}).then(function(){ tkLista(velo); })
+          .catch(function(){ b.disabled = false; b.textContent = 'Guardar'; });
+      };
+    });
+  }).catch(function(e){ caja.innerHTML = '<div class="tk-vacio">No se pudieron cargar las peticiones.<br><small>'+sgEsc(sgMotivo(e))+'</small></div>'; });
+}
+
+/* ================== Enganche: al entrar en administración ================== */
+var sgIniciado = false;
+async function sgIniciar(){
+  if(sgIniciado) { novCargar(); tkContar(); return; }
+  sgIniciado = true;
+  document.getElementById('fm-novedades').onclick = novAbrir;
+  document.getElementById('fm-tickets').onclick = tkAbrir;
+  try { var d = await getDoc(doc(db,'configuracion','sugerencias')); if(d.exists()) SG_CLAVE = d.data().clave || ''; } catch(e) {}
+  novCargar(); tkContar();
+  setInterval(function(){ novCargar(); }, 10 * 60 * 1000);   // cada 10 minutos
+  setInterval(tkContar, 2 * 60 * 1000);                      // peticiones pendientes, cada 2 minutos
+}
+window.sgIniciar = sgIniciar;
+
 // PEDIDO DE ROPA POR TEMPORADA
 // ════════════════════════════════════════════════════════════════════════════
 // Calcula cuánta ropa hay que pedir cada temporada según las tallas guardadas
@@ -8862,7 +9290,7 @@ function homeResumen() {
     cifra('⏳', pend, 'Por pasar al sistema', pend ? '#f5a623' : null, 'almacen');
 }
 
-function renderAdminPage() { try { modPrepararFormularios(); } catch(e) { console.warn(e); } try { almEscucharRegistros(); } catch(e) {} actualizarSaludoHome(); populateFilters(); renderAdminStats(); renderDriverList(); updateAdrCapBadge(); updateSegurosBadge(); updateFleetBadge(); updatePendientesBadge(); }
+function renderAdminPage() { try { sgIniciar(); } catch(e) { console.warn(e); } try { modPrepararFormularios(); } catch(e) { console.warn(e); } try { almEscucharRegistros(); } catch(e) {} actualizarSaludoHome(); populateFilters(); renderAdminStats(); renderDriverList(); updateAdrCapBadge(); updateSegurosBadge(); updateFleetBadge(); updatePendientesBadge(); }
 
 function populateFilters() {
   // Conductores (todos, incluidos los de baja, para poder filtrar su histórico)
