@@ -2901,7 +2901,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v139 · 07/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v140 · 07/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -12896,13 +12896,29 @@ function segBarraEventos(p, pintar) {
 // ── Documentos (pólizas, recibos…) en cada ficha: se guardan en la web (documentos/subir.php) ──
 const DOC_URL = 'https://manchatrans.com/documentos/subir.php';
 const DOC_CLAVE = 'LVLcjgwfJ5ExVEFBGnLjLOUMK2LtkEDo';
+// Las fotos del móvil (3-5 MB) se reducen antes de subir: lado mayor 2000 px, JPEG al 82 %
+async function docReducirFoto(archivo) {
+  if (!/^image\/(jpeg|png|webp)$/.test(archivo.type) || archivo.size < 1.2 * 1048576) return archivo;
+  try {
+    const img = await new Promise((ok, mal) => { const i = new Image(); i.onload = () => ok(i); i.onerror = mal; i.src = URL.createObjectURL(archivo); });
+    const k = Math.min(1, 2000 / Math.max(img.width, img.height));
+    const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    const blob = await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.82));
+    URL.revokeObjectURL(img.src);
+    if (!blob || blob.size >= archivo.size) return archivo;
+    return new File([blob], archivo.name.replace(/\.(png|webp|jpe?g)$/i, '') + '.jpg', {type:'image/jpeg'});
+  } catch(e) { return archivo; }
+}
 async function docSubir(carpeta, archivo) {
+  archivo = await docReducirFoto(archivo);
   const f = new FormData();
   f.append('clave', DOC_CLAVE); f.append('carpeta', carpeta); f.append('archivo', archivo, archivo.name || 'documento.pdf');
   let r;
   try { r = await fetch(DOC_URL, {method:'POST', body:f}); }
   catch(e) { throw new Error('No se puede conectar con la web de Manchatrans (¿falta subir la carpeta "documentos"?)'); }
   const j = await r.json().catch(() => null);
+  if (r.status === 413) throw new Error(`El archivo (${(archivo.size/1048576).toFixed(1).replace('.',',')} MB) es demasiado grande para el servidor.`);
   if (!r.ok || !j || !j.ok) throw new Error((j && j.error) || ('La web respondió ' + r.status + (r.status === 404 ? ': falta subir documentos/subir.php' : '')));
   return {url:j.url, ruta:j.ruta, nombre:archivo.name || 'documento', tamano:j.tamano, mime:j.tipo, ts:Date.now()};
 }
