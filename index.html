@@ -2902,7 +2902,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v141 · 08/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v142 · 08/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -8327,6 +8327,8 @@ window.muEditar = (id) => {
   muTab('nueva'); window.scrollTo({top:0, behavior:'smooth'});
 };
 window.muSet = (k, v, repintar) => { muEstado[k] = v; if (repintar) muRenderForm(); };
+// Volver a la lista sin guardar (lo escrito se descarta)
+window.muVolver = () => { const id = muEstado && muEstado.id; muEstado = null; if (id) muAbiertas.add(id); muTab('lista'); window.scrollTo({top:0, behavior:'smooth'}); };
 window.muCambiarEstado = (est) => {
   const l = muEstados(muEstado);
   muEstado.estados = muNormalizarEstados(l.includes(est) ? l.filter(x => x !== est) : [...l, est], est);
@@ -8344,7 +8346,10 @@ function muRenderForm() {
     <datalist id="mu-mats">${matriculas.map(m => `<option value="${muEsc(m)}">`).join('')}</datalist>
     <datalist id="mu-conds">${conductores.map(c => `<option value="${muEsc(c)}">`).join('')}</datalist>
     <div class="refuel-card cp-card">
-      <div class="cp-tit">${editando ? '✏️ Editar multa ' + muEsc(e.orden) : '🚨 Nueva multa'}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;margin-bottom:0.4rem">
+        <div class="cp-tit" style="margin:0">${editando ? '✏️ Editar multa ' + muEsc(e.orden) : '🚨 Nueva multa'}</div>
+        <button type="button" class="alm-accion" onclick="muVolver()">← Volver a la lista</button>
+      </div>
       <div class="cp-fila">
         ${campo('orden', 'Nº de orden', {ancho:'cp-c3', ph:'2026/013'})}
         ${campo('expediente', 'Expediente', {ancho:'cp-c3'})}
@@ -8379,8 +8384,10 @@ function muRenderForm() {
       <div class="cp-campo"><label for="mu-obs">Observaciones</label><textarea id="mu-obs" rows="2" oninput="muSet('observaciones', this.value)">${muEsc(e.observaciones||'')}</textarea></div>
       ${editando ? docHtmlSeccion(e.documentos, 'muDocForm', e.id, ['multa','pago','otro']) : `<div class="doc-vacio" style="margin-top:0.3rem">📎 La multa y el recibo del pago en PDF se suben después de guardarla (al abrirla en la lista, o aquí mismo al editarla).</div>`}
       <div id="mu-aviso" class="alert" style="margin:0.5rem 0"></div>
-      <button class="btn btn-primary" style="font-size:16px;padding:0.9rem" onclick="muGuardar()">${editando ? '💾 Guardar cambios' : '💾 Guardar multa'}</button>
-      ${editando ? `<button class="btn btn-ghost" style="margin-top:0.4rem" onclick="muEstado=muNueva(); muRenderForm()">➕ Multa nueva</button>` : ''}
+      <div style="display:flex;gap:0.5rem">
+        <button class="btn btn-ghost" style="flex:0 0 35%;font-size:15px" onclick="muVolver()">Cancelar</button>
+        <button class="btn btn-primary" style="flex:1;font-size:16px;padding:0.9rem" onclick="muGuardar()">${editando ? '💾 Guardar cambios' : '💾 Guardar multa'}</button>
+      </div>
     </div>`;
 }
 window.muDocForm = async (id, accion, arg) => { await window.muDoc(id, accion, arg); const m = muMultas.find(x => x.id === id); if (m && muEstado && muEstado.id === id) { muEstado.documentos = m.documentos; muRenderForm(); } };
@@ -13293,6 +13300,14 @@ window.toggleListaAnios = (contId, btn) => {
   else { cont.style.display = 'none'; btn.textContent = btn.dataset.texto; }
 };
 
+// Ventanas de editar seguro/póliza: se cierran sin guardar al pulsar fuera o con Esc
+function segCerrableModal(id) {
+  const m = document.getElementById(id); if (!m) return;
+  m.addEventListener('mousedown', ev => { if (ev.target === m) m.remove(); });
+  const tecla = ev => { if (!document.getElementById(id)) { document.removeEventListener('keydown', tecla); return; }
+    if (ev.key === 'Escape' && !document.getElementById('dlg-app')) { m.remove(); document.removeEventListener('keydown', tecla); } };
+  document.addEventListener('keydown', tecla);
+}
 window.editarSeguroVehiculo = (id) => {
   const v = segurosVehiculosCache.find(x=>x.id===id);
   if (!v) return;
@@ -13303,7 +13318,10 @@ window.editarSeguroVehiculo = (id) => {
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999;display:flex;align-items:center;justify-content:center;padding:1rem;overflow-y:auto;';
   modal.innerHTML = `
     <div style="background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:1.5rem;width:100%;max-width:420px;max-height:90vh;overflow-y:auto;">
-      <div style="font-size:16px;font-weight:700;margin-bottom:1.25rem;color:var(--accent);">✏️ Editar seguro — ${v.matricula}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;margin-bottom:1.25rem;">
+        <div style="font-size:16px;font-weight:700;color:var(--accent);">✏️ Editar seguro — ${v.matricula}</div>
+        <button type="button" class="alm-sheet-x" title="Cerrar sin guardar" aria-label="Cerrar sin guardar" onclick="document.getElementById('edit-seg-veh-modal').remove()">✕</button>
+      </div>
       <div class="form-group"><label class="form-label">Matrícula / Identificador</label>
         <input class="form-input" id="edit-seg-veh-matricula" value="${v.matricula}" disabled style="opacity:0.6;">
         <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">No se puede cambiar; elimina y crea uno nuevo si es otro elemento.</div>
@@ -13353,7 +13371,7 @@ window.editarSeguroVehiculo = (id) => {
       </div>
       <div id="edit-seg-veh-alert" class="alert" style="margin-top:0.75rem;"></div>
     </div>`;
-  document.body.appendChild(modal);
+  document.body.appendChild(modal); segCerrableModal('edit-seg-veh-modal');
   actualizarCamposSegunTipo('edit-seg-veh');
   document.getElementById('edit-seg-veh-tipo').addEventListener('change', ()=>actualizarCamposSegunTipo('edit-seg-veh'));
 
@@ -13598,7 +13616,10 @@ window.editarSeguroPoliza = (id) => {
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999;display:flex;align-items:center;justify-content:center;padding:1rem;overflow-y:auto;';
   modal.innerHTML = `
     <div style="background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:1.5rem;width:100%;max-width:420px;max-height:90vh;overflow-y:auto;">
-      <div style="font-size:16px;font-weight:700;margin-bottom:1.25rem;color:var(--accent);">✏️ Editar póliza</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;margin-bottom:1.25rem;">
+        <div style="font-size:16px;font-weight:700;color:var(--accent);">✏️ Editar póliza</div>
+        <button type="button" class="alm-sheet-x" title="Cerrar sin guardar" aria-label="Cerrar sin guardar" onclick="document.getElementById('edit-seg-pol-modal').remove()">✕</button>
+      </div>
       <div class="form-group"><label class="form-label">Modelo</label><input class="form-input" id="edit-seg-pol-modelo" value="${p.modelo||''}"></div>
       <div class="form-group"><label class="form-label">Tipo de póliza</label><input class="form-input" id="edit-seg-pol-tipo" value="${p.tipoPoliza||''}"></div>
       <div class="form-group"><label class="form-label">Compañía</label><input class="form-input" id="edit-seg-pol-compania" value="${p.compania||''}"></div>
@@ -13617,7 +13638,7 @@ window.editarSeguroPoliza = (id) => {
       </div>
       <div id="edit-seg-pol-alert" class="alert" style="margin-top:0.75rem;"></div>
     </div>`;
-  document.body.appendChild(modal);
+  document.body.appendChild(modal); segCerrableModal('edit-seg-pol-modal');
 
   document.getElementById('btn-save-seg-pol-edit').addEventListener('click', async () => {
     const al = document.getElementById('edit-seg-pol-alert');
