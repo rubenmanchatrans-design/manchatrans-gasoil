@@ -2934,7 +2934,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v147 · 08/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v148 · 08/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -5453,7 +5453,7 @@ const CP_BULTOS_ADR = [
 const CP_FACTOR_CAT = {'0': null, '1': 50, '2': 3, '3': 1, '4': 0};
 
 let cpCartas = [], cpTrans = [], cpRemit = [], cpAdr = null, cpAdrCargando = null, cpUnsub = null;
-let cpListas = {destino: [], operador: []}, cpListasEscuchando = false;     // destinos y operadores de transporte guardados
+let cpListas = {cargador: [], destino: [], operador: []}, cpListasEscuchando = false;     // destinos y operadores de transporte guardados
 let cpEstado = null;          // carta en edición
 let cpResultado = null;       // {id, url, pdfBytes}
 
@@ -5718,7 +5718,7 @@ function cpRenderForm() {
         <button type="button" class="alm-accion" onclick="cpGuardarFijos()" title="Que salgan estos por defecto en cada carta nueva">⭐ Usar siempre estos</button>
       </div>
       <div class="cp-fichas">
-        ${cpHtmlFicha('cargador', '🏭', 'Cargador o remitente', 'cargadorTxt', false)}
+        ${cpHtmlFicha('cargador', '🏭', 'Cargador o remitente', 'cargadorTxt', true)}
         ${cpHtmlFicha('destino', '📍', 'Destino', 'destinoTxt', true)}
         ${cpHtmlFicha('operador', '🤝', 'Operador de transporte', 'operadorTxt', true)}
         ${cpHtmlFicha('lugar', '🗺️', 'Lugar de destino de la expedición', 'lugarDestino', false)}
@@ -6400,7 +6400,7 @@ function cpHtmlFicha(tipo, icono, etiqueta, ruta, conLista) {
       </div>`
     : `<div class="cp-ficha-vista">${vista}</div>
        ${conLista ? `<div class="cp-ficha-estado">${elegido ? `✓ De la lista${lista.length > 1 ? ` · ${lista.length} guardados (elige otro en "Cambiar ▾")` : ''}` : lineas.length ? '⚠️ No está en la lista: toca ✏️ y "Guardar en la lista"' : ''}</div>
-         ${lista.length <= 1 ? `<div class="cp-ficha-ayuda">Para poder elegir otro ${tipo === 'destino' ? 'destino' : 'operador'}, añádelo con ➕ y "Guardar en la lista". Después saldrá "Cambiar ▾" para escoger.</div>` : ''}` : ''}`}
+         ${lista.length <= 1 ? `<div class="cp-ficha-ayuda">Para poder elegir otro ${CP_LISTA_NOMBRE[tipo][0]}, añádelo con ➕ y "Guardar en la lista". Después saldrá "Cambiar ▾" para escoger.</div>` : ''}` : ''}`}
   </div>`;
 }
 window.cpEditarFijo = (tipo, on, ruta) => {
@@ -6427,7 +6427,8 @@ window.cpCancelarFijo = (tipo, ruta) => {
 };
 
 // ── Destinos y operadores de transporte guardados (para elegir en cada carta) ──
-const CP_LISTA_COL = {destino: 'cartasDestinos', operador: 'cartasOperadores'};
+const CP_LISTA_COL = {cargador: 'cartasCargadores', destino: 'cartasDestinos', operador: 'cartasOperadores'};
+const CP_LISTA_NOMBRE = {cargador: ['cargador', 'cargadores'], destino: ['destino', 'destinos'], operador: ['operador', 'operadores']};
 const cpPrimeraLinea = t => String(t||'').split('\n')[0].trim();
 function cpHtmlFijoLista(tipo, etiqueta, ruta, filas) {
   const c = cpEstado, actual = cpNormNombre(cpPrimeraLinea(c[ruta]));
@@ -6436,7 +6437,7 @@ function cpHtmlFijoLista(tipo, etiqueta, ruta, filas) {
   return `<div class="cp-campo cp-c2"><label for="cp-${tipo}">${etiqueta}</label>
     <div class="cp-fijo-barra">
       <select onchange="cpElegirFijo('${tipo}','${ruta}', this.value)">
-        <option value="">${lista.length ? `— Elegir ${tipo === 'destino' ? 'destino' : 'operador'} guardado (${lista.length}) —` : '— Aún no hay guardados —'}</option>
+        <option value="">${lista.length ? `— Elegir ${CP_LISTA_NOMBRE[tipo][0]} guardado (${lista.length}) —` : '— Aún no hay guardados —'}</option>
         ${lista.map(x => `<option value="${x.id}" ${elegido && elegido.id === x.id ? 'selected' : ''}>${cpEsc(cpPrimeraLinea(x.texto))}</option>`).join('')}
       </select>
       <button type="button" class="alm-accion" title="Guardar en la lista" onclick="cpGuardarFijo('${tipo}','${ruta}')">💾</button>
@@ -6465,7 +6466,7 @@ window.cpGuardarFijo = async (tipo, ruta) => {
 };
 window.cpBorrarFijo = async (tipo, id) => {
   const x = cpListas[tipo].find(y => y.id === id); if (!x) return;
-  if (!(await confirmarAccion(`¿Borrar "${cpPrimeraLinea(x.texto)}" de la lista de ${tipo === 'destino' ? 'destinos' : 'operadores'}?\n\nLas cartas ya hechas no cambian.`))) return;
+  if (!(await confirmarAccion(`¿Borrar "${cpPrimeraLinea(x.texto)}" de la lista de ${CP_LISTA_NOMBRE[tipo][1]}?\n\nLas cartas ya hechas no cambian.`))) return;
   try { await deleteDoc(doc(db, CP_LISTA_COL[tipo], id)); } catch(e) { alert(e.message); }
 };
 function cpEscucharListas() {
