@@ -1185,6 +1185,11 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .tk-pie{padding:10px 22px}
 .tk-btn{padding:9px 16px}
 @media(max-width:640px){ .tk-tres{grid-template-columns:1fr} }
+.tk-tres .tk-ayuda{margin-top:5px}
+.tk-tres .tk-seg{height:42px}
+.tk-tres .tk-seg button{display:flex;align-items:center}
+.tk-tres input{height:42px}
+.tk-opc{font-weight:500;text-transform:none!important;letter-spacing:0!important;color:var(--text-muted);opacity:.8}
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2928,7 +2933,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v144 · 08/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v145 · 08/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -7918,11 +7923,12 @@ async function tkAbrir(){
                   '<button type="button" data-v="urgente" title="Úselo solo si impide trabajar">Urgente</button></div>'+
                 '<div class="tk-ayuda"><span id="tk-urg-txt">Por orden de llegada.</span></div></div>'+
               '<div class="tk-campo"><label class="tk-l" for="tk-nom">Su nombre</label>'+
-                '<input id="tk-nom" maxlength="60" placeholder="Quién lo pide" value="'+sgEsc(nombre)+'"></div>'+
-              '<div class="tk-campo"><label class="tk-l" for="tk-mail">Su correo (opcional)</label>'+
-                '<input id="tk-mail" type="email" maxlength="100" placeholder="nombre@manchatrans.com" autocomplete="email" title="Le llegará un correo cuando su petición esté hecha"></div>'+
+                '<input id="tk-nom" maxlength="60" placeholder="Quién lo pide" value="'+sgEsc(nombre)+'">'+
+                '<div class="tk-ayuda"><span>Para saber a quién responder.</span></div></div>'+
+              '<div class="tk-campo"><label class="tk-l" for="tk-mail">Su correo <span class="tk-opc">(opcional)</span></label>'+
+                '<input id="tk-mail" type="email" maxlength="100" placeholder="nombre@manchatrans.com" autocomplete="email">'+
+                '<div class="tk-ayuda"><span>Le avisaremos cuando esté hecha.</span></div></div>'+
             '</div>'+
-            '<div class="tk-ayuda" style="margin-top:-8px"><span>✉️ Si pone su correo, le avisaremos cuando la petición esté hecha.</span></div>'+
             '<div class="tk-err" id="tk-err" hidden></div>'+
           '</div>'+
           '<div class="tk-hecho" id="tk-hecho" hidden></div>'+
