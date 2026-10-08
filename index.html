@@ -1161,6 +1161,30 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .mu-tabla th { text-align: right; font-size: 11px; color: var(--text-muted); text-transform: uppercase; padding: 0.3rem 0.4rem; }
 .mu-tabla td { padding: 0.3rem 0.4rem; border-top: 1px solid rgba(255,255,255,0.05); text-align: right; font-variant-numeric: tabular-nums; }
 .mu-tabla td:first-child, .mu-tabla th:first-child { text-align: left; }
+
+/* ---- Sugerencias: "Nueva petición" entera en la pantalla, sin deslizar ---- */
+.tk-caja{max-height:min(96vh,880px)}
+.tk-cab{padding:14px 22px 10px}
+.tk-cab h3{font-size:18px;margin:2px 0 0}
+.tk-cab p{font-size:13px}
+.tk-p{padding:9px 4px}
+.tk-cuerpo{padding:14px 22px}
+.tk-form{gap:11px}
+.tk-l{margin-bottom:5px}
+.tk-caja .tk-tipo{flex-direction:row;align-items:center;gap:10px;padding:9px 12px}
+.tk-caja .tk-tipo .tk-ic{margin:0;flex-shrink:0}
+.tk-caja .tk-tipo .tk-tn{font-size:14px}
+.tk-caja .tk-tipo .tk-td{display:none}
+.tk-caja .tk-tipo{display:grid;grid-template-columns:auto 1fr;column-gap:10px;row-gap:1px;align-content:center;align-items:center}
+.tk-caja .tk-tipo .tk-ic{grid-row:1 / span 2}
+.tk-caja .tk-tipo .tk-td{display:block;font-size:11.5px;line-height:1.25}
+.tk-caja textarea{min-height:76px}
+#tk-txt{height:82px}
+.tk-ayuda{margin-top:4px;font-size:12px}
+.tk-tres{display:grid;grid-template-columns:auto 1fr 1.3fr;gap:12px;align-items:start}
+.tk-pie{padding:10px 22px}
+.tk-btn{padding:9px 16px}
+@media(max-width:640px){ .tk-tres{grid-template-columns:1fr} }
 /* ── Pantalla fija en vertical en móviles y pistolas (aunque se gire el aparato) ── */
 html.giro-fijo, html.giro-fijo body { overflow: hidden; }
 html.giro-fijo body { position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; transform-origin: 0 0; }
@@ -2904,7 +2928,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v143 · 08/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v144 · 08/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -7888,17 +7912,17 @@ async function tkAbrir(){
             '<div class="tk-campo"><label class="tk-l" for="tk-txt">Explicación</label>'+
               '<textarea id="tk-txt" rows="5" maxlength="4000" placeholder="Qué pasa o qué haría falta. Si puede, añada un ejemplo: número de carta, expedición, conductor, matrícula…"></textarea>'+
               '<div class="tk-ayuda"><span>Cuanto más detalle, antes se resuelve.</span><span id="tk-cont">0 / 4000</span></div></div>'+
-            '<div class="tk-dos">'+
+            '<div class="tk-tres">'+
               '<div class="tk-campo"><span class="tk-l">Urgencia</span>'+
-                '<div class="tk-seg"><button type="button" class="on" data-v="normal">Normal</button>'+
-                  '<button type="button" data-v="urgente">Urgente</button></div>'+
-                '<div class="tk-ayuda"><span id="tk-urg-txt">Se atiende por orden de llegada.</span></div></div>'+
+                '<div class="tk-seg"><button type="button" class="on" data-v="normal" title="Se atiende por orden de llegada">Normal</button>'+
+                  '<button type="button" data-v="urgente" title="Úselo solo si impide trabajar">Urgente</button></div>'+
+                '<div class="tk-ayuda"><span id="tk-urg-txt">Por orden de llegada.</span></div></div>'+
               '<div class="tk-campo"><label class="tk-l" for="tk-nom">Su nombre</label>'+
-                '<input id="tk-nom" maxlength="60" placeholder="Para saber a quién responder" value="'+sgEsc(nombre)+'"></div>'+
+                '<input id="tk-nom" maxlength="60" placeholder="Quién lo pide" value="'+sgEsc(nombre)+'"></div>'+
+              '<div class="tk-campo"><label class="tk-l" for="tk-mail">Su correo (opcional)</label>'+
+                '<input id="tk-mail" type="email" maxlength="100" placeholder="nombre@manchatrans.com" autocomplete="email" title="Le llegará un correo cuando su petición esté hecha"></div>'+
             '</div>'+
-            '<div class="tk-campo"><label class="tk-l" for="tk-mail">Su correo de trabajo (opcional)</label>'+
-              '<input id="tk-mail" type="email" maxlength="100" placeholder="nombre@manchatrans.com" autocomplete="email">'+
-              '<div class="tk-ayuda"><span>Si lo pone, le llegará un correo cuando la petición esté hecha.</span></div></div>'+
+            '<div class="tk-ayuda" style="margin-top:-8px"><span>✉️ Si pone su correo, le avisaremos cuando la petición esté hecha.</span></div>'+
             '<div class="tk-err" id="tk-err" hidden></div>'+
           '</div>'+
           '<div class="tk-hecho" id="tk-hecho" hidden></div>'+
@@ -7932,7 +7956,7 @@ async function tkAbrir(){
     b.onclick = function(){
       urgencia = b.dataset.v;
       velo.querySelectorAll('.tk-seg button').forEach(function(x){ x.classList.toggle('on', x===b); });
-      velo.querySelector('#tk-urg-txt').textContent = urgencia==='urgente' ? 'Úselo solo si impide trabajar.' : 'Se atiende por orden de llegada.';
+      velo.querySelector('#tk-urg-txt').textContent = urgencia==='urgente' ? 'Solo si impide trabajar.' : 'Por orden de llegada.';
     };
   });
   var txt = velo.querySelector('#tk-txt');
