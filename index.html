@@ -1144,6 +1144,7 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .mu-pp.vencido { color: #ff8b80; }
 .mu-cab-der { text-align: right; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; }
 .mu-estado { font-size: 11.5px; font-weight: 800; border: 1px solid; border-radius: 10px; padding: 1px 8px; white-space: nowrap; }
+.mu-cab-der .mu-estado + .mu-estado { margin-top: 2px; }
 .mu-imp { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .mu-pag { font-size: 11.5px; color: var(--success); font-weight: 700; }
 .mu-cuerpo { padding: 0 0.9rem 0.9rem; border-top: 1px solid var(--card-border); }
@@ -2901,7 +2902,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v140 · 07/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v141 · 08/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -8129,7 +8130,19 @@ const MU_ESTADOS = [
   ['anulada', '🚫', 'Anulada', '#94a3b8'],
   ['cerrada', '📁', 'Cerrada sin pago anotado', '#64748b'],
 ];
-const MU_DIAS_PRONTO_PAGO = 20;          // días naturales desde la notificación para pagar con el 50 %
+const MU_DIAS_PRONTO_PAGO = 20;
+// Una multa puede tener varios estados a la vez (ej.: Pagada + Conductor identificado)
+const muEstados = m => Array.isArray(m.estados) && m.estados.length ? m.estados : (m.estado ? [m.estado] : ['pendiente']);
+const muTiene = (m, e) => muEstados(m).includes(e);
+const muPrincipal = l => (MU_ESTADOS.find(e => l.includes(e[0])) || MU_ESTADOS[0])[0];   // el primero según el orden de la lista
+// reglas: "Pagada" quita "Pendiente"; "Pendiente" quita "Pagada"; nunca vacío
+function muNormalizarEstados(l, cambiado) {
+  l = [...new Set(l)];
+  if (cambiado === 'pagada' && l.includes('pagada')) l = l.filter(x => x !== 'pendiente');
+  if (cambiado === 'pendiente' && l.includes('pendiente')) l = l.filter(x => x !== 'pagada');
+  if (!l.length) l = ['pendiente'];
+  return MU_ESTADOS.map(e => e[0]).filter(e => l.includes(e));
+}          // días naturales desde la notificación para pagar con el 50 %
 
 let muMultas = [], muUnsub = null, muEstado = null, muAbiertas = new Set(), muAvisoImp = '';
 let muFiltro = {q:'', anio:'', empresa:'', estado:'abiertas', orden:'reciente'};
@@ -8145,7 +8158,7 @@ function muEntrar() {
   if (!muUnsub) {
     muUnsub = onSnapshot(collection(dbFleet, 'multas'), snap => {
       muMultas = snap.docs.map(d => ({id: d.id, ...d.data()}));
-      const n = document.getElementById('mu-n'); if (n) n.textContent = muMultas.filter(m => m.estado === 'pendiente').length;
+      const n = document.getElementById('mu-n'); if (n) n.textContent = muMultas.filter(m => muTiene(m, 'pendiente')).length;
       if (document.getElementById('mu-pane-lista')?.style.display !== 'none') muRenderLista();
       if (document.getElementById('mu-pane-resumen')?.style.display !== 'none') muRenderResumen();
       muActualizarInicio();
@@ -8164,13 +8177,13 @@ function muTab(t) {
 }
 function muActualizarInicio() {
   const el = document.getElementById('home-info-multas'); if (!el) return;
-  const pend = muMultas.filter(m => m.estado === 'pendiente');
+  const pend = muMultas.filter(m => muTiene(m, 'pendiente'));
   const urgentes = pend.filter(m => { const d = muProntoPago(m); return d && d.dias >= 0 && d.dias <= 5; }).length;
   el.innerHTML = pend.length ? `⏳ <strong>${pend.length}</strong> pendiente${pend.length === 1 ? '' : 's'} · ${muEuros(pend.reduce((s, m) => s + (m.importe || 0), 0))}${urgentes ? ` · <span style="color:var(--warning)">${urgentes} con pronto pago a punto de vencer</span>` : ''}` : '';
 }
 // Pronto pago: 20 días naturales desde que se recibió la notificación
 function muProntoPago(m) {
-  if (m.estado !== 'pendiente' || !m.fechaRecibida) return null;
+  if (!muTiene(m, 'pendiente') || !m.fechaRecibida) return null;
   const lim = new Date(m.fechaRecibida + 'T12:00:00'); lim.setDate(lim.getDate() + MU_DIAS_PRONTO_PAGO);
   const dias = Math.ceil((lim - new Date()) / 86400000);
   return {limite: lim, dias};
@@ -8178,7 +8191,7 @@ function muProntoPago(m) {
 
 // ── Lista ──
 function muTexto(m) {
-  const partes = [m.orden, m.expediente, m.recurso, m.boletin, m.matricula, m.conductor, m.concepto, m.empresa, m.observaciones, m.cepyme, muEstadoDe(m.estado)[2], muFecha(m.fechaDenuncia), muFecha(m.fechaRecibida)];
+  const partes = [m.orden, m.expediente, m.recurso, m.boletin, m.matricula, m.conductor, m.concepto, m.empresa, m.observaciones, m.cepyme, ...muEstados(m).map(e => muEstadoDe(e)[2]), muFecha(m.fechaDenuncia), muFecha(m.fechaRecibida)];
   [m.importe, m.pagado].forEach(n => { if (n != null && !isNaN(n)) { const [ent, dec] = Number(n).toFixed(2).split('.'), miles = ent.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     partes.push(String(n), String(n).replace('.', ','), ent + ',' + dec, miles + ',' + dec, miles, String(Math.round(n))); } });
   const t = muNorm(partes.filter(Boolean).join(' · '));
@@ -8191,7 +8204,7 @@ function muRenderLista() {
   const empresas = [...new Set([...MU_EMPRESAS, ...muMultas.map(m => m.empresa).filter(Boolean)])];
   const q = muNorm(f.q).trim();
   let lista = muMultas.filter(m => (!f.anio || String(m.orden||'').startsWith(f.anio)) && (!f.empresa || m.empresa === f.empresa)
-    && (f.estado === 'abiertas' ? ['pendiente','recurrida'].includes(m.estado) : !f.estado || m.estado === f.estado));
+    && (f.estado === 'abiertas' ? (muTiene(m, 'pendiente') || muTiene(m, 'recurrida')) : !f.estado || muTiene(m, f.estado)));
   if (q) lista = lista.filter(m => { const t = muTexto(m); return q.split(/\s+/).every(w => t.includes(w) || t.includes(w.replace(/[\s-]/g, ''))); });
   const ordenes = {
     reciente: (a, b) => String(b.orden||'').localeCompare(String(a.orden||''), 'es', {numeric:true}),
@@ -8202,9 +8215,9 @@ function muRenderLista() {
     pronto: (a, b) => ((muProntoPago(a)||{dias:9999}).dias) - ((muProntoPago(b)||{dias:9999}).dias),
   };
   lista.sort(ordenes[f.orden] || ordenes.reciente);
-  const pend = muMultas.filter(m => m.estado === 'pendiente');
+  const pend = muMultas.filter(m => muTiene(m, 'pendiente'));
   const pagadoAnio = muMultas.filter(m => String(m.orden||'').startsWith(anioAct) && m.pagado).reduce((s, m) => s + m.pagado, 0);
-  const cuenta = e => muMultas.filter(m => m.estado === e).length;
+  const cuenta = e => muMultas.filter(m => muTiene(m, e)).length;
   el.innerHTML = `
     <div class="mu-kpis">
       <div class="mu-kpi" onclick="muFiltrar('estado','pendiente')"><b style="color:#f59e0b">${pend.length}</b><span>Pendientes de pagar</span><small>${muEuros(pend.reduce((s, m) => s + (m.importe||0), 0))}</small></div>
@@ -8235,7 +8248,7 @@ function muRenderLista() {
 }
 window.muFiltrar = (k, v) => { muFiltro[k] = v; muRenderLista(); };
 function muHtmlTarjeta(m) {
-  const e = muEstadoDe(m.estado), pp = muProntoPago(m), abierta = muAbiertas.has(m.id);
+  const e = muEstadoDe(muPrincipal(muEstados(m))), pp = muProntoPago(m), abierta = muAbiertas.has(m.id);
   const docs = m.documentos || [];
   const tieneMulta = docs.some(d => d.tipo === 'multa'), tienePago = docs.some(d => d.tipo === 'pago');
   return `<div class="mu-tarjeta" style="border-left-color:${e[3]}">
@@ -8247,7 +8260,7 @@ function muHtmlTarjeta(m) {
         ${pp ? `<div class="mu-pp ${pp.dias < 0 ? 'vencido' : pp.dias <= 5 ? 'urgente' : ''}">${pp.dias < 0 ? `⌛ Pronto pago (50 %) vencido el ${fechaCorta(pp.limite)}` : `⏳ Pronto pago (50 %) hasta el ${fechaCorta(pp.limite)} · ${pp.dias === 0 ? 'último día' : `quedan ${pp.dias} día${pp.dias===1?'':'s'}`}`}</div>` : ''}
       </div>
       <div class="mu-cab-der">
-        <span class="mu-estado" style="color:${e[3]};border-color:${e[3]}">${e[1]} ${e[2]}</span>
+        ${muEstados(m).map(x => { const ee = muEstadoDe(x); return `<span class="mu-estado" style="color:${ee[3]};border-color:${ee[3]}">${ee[1]} ${ee[2]}</span>`; }).join('')}
         <div class="mu-imp">${m.importe != null ? muEuros(m.importe) : '—'}</div>
         ${m.pagado != null ? `<div class="mu-pag">pagado ${muEuros(m.pagado)}</div>` : ''}
       </div>
@@ -8267,7 +8280,7 @@ function muHtmlTarjeta(m) {
       ${m.observaciones ? `<div class="mu-obs">📝 ${muEsc(m.observaciones)}</div>` : ''}
       ${docHtmlSeccion(docs, 'muDoc', m.id, ['multa','pago','otro'])}
       <div style="display:flex;gap:0.5rem;margin-top:0.6rem">
-        ${m.estado === 'pendiente' ? `<button class="btn-sm" style="flex:1" onclick="muMarcarPagada('${m.id}')">✅ Marcar pagada</button>` : ''}
+        ${muTiene(m, 'pendiente') ? `<button class="btn-sm" style="flex:1" onclick="muMarcarPagada('${m.id}')">✅ Marcar pagada</button>` : ''}
         <button class="btn-sm" style="flex:1" onclick="muEditar('${m.id}')">✏️ Editar</button>
         <button class="btn-del" style="flex:0 0 auto;padding:0 0.9rem" onclick="muBorrar('${m.id}')">🗑</button>
       </div>
@@ -8284,7 +8297,8 @@ window.muMarcarPagada = async (id) => {
   if (v === null) return;
   const pagado = muNum(v);
   try {
-    await updateDoc(doc(dbFleet, 'multas', id), {estado:'pagada', pagado, fechaPago: new Date().toISOString().slice(0,10), modTs: Date.now()});
+    const estados = muNormalizarEstados([...muEstados(m), 'pagada'], 'pagada');
+    await updateDoc(doc(dbFleet, 'multas', id), {estados, estado: muPrincipal(estados), pagado, fechaPago: new Date().toISOString().slice(0,10), modTs: Date.now()});
     mostrarMensajeFlotante?.(`✅ ${m.orden} pagada`);
   } catch(e) { alert('No se ha podido guardar: ' + e.message); }
 };
@@ -8305,14 +8319,20 @@ function muSiguienteOrden(anio) {
 function muNueva() {
   const anio = String(new Date().getFullYear());
   return {orden: muSiguienteOrden(anio), expediente:'', recurso:'', boletin:'', matricula:'', fechaDenuncia:'', fechaRecibida: new Date().toISOString().slice(0,10),
-          importe:'', pagado:'', estado:'pendiente', conductor:'', concepto:'', quienPaga:'empresa', cepyme:'', observaciones:'', empresa:'MANCHATRANS'};
+          importe:'', pagado:'', estado:'pendiente', estados:['pendiente'], conductor:'', concepto:'', quienPaga:'empresa', cepyme:'', observaciones:'', empresa:'MANCHATRANS'};
 }
 window.muEditar = (id) => {
   const m = muMultas.find(x => x.id === id); if (!m) return;
-  muEstado = {...muNueva(), ...JSON.parse(JSON.stringify(m)), importe: m.importe ?? '', pagado: m.pagado ?? ''};
+  muEstado = {...muNueva(), ...JSON.parse(JSON.stringify(m)), estados: muEstados(m), importe: m.importe ?? '', pagado: m.pagado ?? ''};
   muTab('nueva'); window.scrollTo({top:0, behavior:'smooth'});
 };
 window.muSet = (k, v, repintar) => { muEstado[k] = v; if (repintar) muRenderForm(); };
+window.muCambiarEstado = (est) => {
+  const l = muEstados(muEstado);
+  muEstado.estados = muNormalizarEstados(l.includes(est) ? l.filter(x => x !== est) : [...l, est], est);
+  muEstado.estado = muPrincipal(muEstado.estados);
+  muRenderForm();
+};
 function muRenderForm() {
   const el = document.getElementById('mu-pane-nueva'); if (!el) return;
   const e = muEstado, editando = !!e.id;
@@ -8346,11 +8366,11 @@ function muRenderForm() {
         ${campo('importe', 'Importe reclamado (€)', {ancho:'cp-c3', modo:'decimal', ph:'200'})}
         <div class="cp-campo cp-c3"><label for="mu-pagado">Importe pagado (€)</label>
           <div style="display:flex;gap:0.35rem"><input id="mu-pagado" inputmode="decimal" value="${muEsc(e.pagado ?? '')}" placeholder="—" oninput="muSet('pagado', this.value)" style="flex:1;min-width:0">
-          <button type="button" class="alm-accion" title="Pronto pago: la mitad del importe" onclick="const n=muNum(muEstado.importe); if(n!=null){ muEstado.pagado=String(Math.round(n*50)/100).replace('.',','); muEstado.estado='pagada'; muRenderForm(); }">50 %</button></div></div>
+          <button type="button" class="alm-accion" title="Pronto pago: la mitad del importe" onclick="const n=muNum(muEstado.importe); if(n!=null){ muEstado.pagado=String(Math.round(n*50)/100).replace('.',','); muEstado.estados=muNormalizarEstados([...muEstados(muEstado),'pagada'],'pagada'); muEstado.estado=muPrincipal(muEstado.estados); muRenderForm(); }">50 %</button></div></div>
         ${campo('fechaPago', 'Fecha del pago', {ancho:'cp-c3', tipo:'date'})}
       </div>
-      <div class="co-lab">Estado</div>
-      <div class="co-chips">${MU_ESTADOS.map(x => `<button type="button" class="${e.estado===x[0]?'on':''}" onclick="muSet('estado','${x[0]}', true)">${x[1]} ${x[2]}</button>`).join('')}</div>
+      <div class="co-lab">Estado (puedes marcar varios: ej. Pagada + Conductor identificado)</div>
+      <div class="co-chips">${MU_ESTADOS.map(x => `<button type="button" class="${muTiene(e, x[0])?'on':''}" onclick="muCambiarEstado('${x[0]}')">${x[1]} ${x[2]}</button>`).join('')}</div>
       <div class="cp-fila" style="margin-top:0.4rem">
         ${campo('recurso', 'Recurso', {ancho:'cp-c3', ph:'Nº o anotación'})}
         ${campo('boletin', 'Boletín denuncia', {ancho:'cp-c3'})}
@@ -8373,10 +8393,10 @@ window.muGuardar = async () => {
   if (!e.id && muMultas.some(m => m.id === id)) { showAlert(aviso, `Ya hay una multa con el nº ${orden}. Cambia el número.`, true); return; }
   const datos = {orden, expediente: String(e.expediente||'').trim(), recurso: String(e.recurso||'').trim(), boletin: String(e.boletin||'').trim(),
     matricula: String(e.matricula||'').trim().toUpperCase(), fechaDenuncia: e.fechaDenuncia || '', fechaRecibida: e.fechaRecibida || '', fechaPago: e.fechaPago || '',
-    importe: muNum(e.importe), pagado: muNum(e.pagado), estado: e.estado || 'pendiente', conductor: String(e.conductor||'').trim().toUpperCase(),
+    importe: muNum(e.importe), pagado: muNum(e.pagado), estados: muEstados(e), estado: muPrincipal(muEstados(e)), conductor: String(e.conductor||'').trim().toUpperCase(),
     concepto: String(e.concepto||'').trim(), quienPaga: e.quienPaga || 'empresa', cepyme: String(e.cepyme||'').trim(), observaciones: String(e.observaciones||'').trim(),
     empresa: e.empresa || '', documentos: e.documentos || [], ts: e.ts || Date.now(), modTs: Date.now()};
-  if (datos.pagado != null && datos.estado === 'pendiente') datos.estado = 'pagada';
+  if (datos.pagado != null && datos.estados.includes('pendiente')) { datos.estados = muNormalizarEstados([...datos.estados, 'pagada'], 'pagada'); datos.estado = muPrincipal(datos.estados); }
   try {
     await setDoc(doc(dbFleet, 'multas', id), datos);
     mostrarMensajeFlotante?.(`💾 Multa ${orden} guardada`);
@@ -8480,17 +8500,18 @@ window.muImportar = async (inp) => {
       const pagado = typeof pagRaw === 'number' ? pagRaw : null;
       const todo = [recurso, boletin, cepyme, muTxt(pagRaw), ...notas].join(' ').toUpperCase();
       const fechaRecibida = muFechaExcel(r[C.recib]);
-      let estado;
-      if (/RECURR/.test(todo) && pagado == null) estado = 'recurrida';
-      else if (pagado != null && pagado > 0) estado = 'pagada';
-      else if (/IDENTIF/.test(todo)) estado = 'identificado';
-      else if (importe && fechaRecibida && new Date(fechaRecibida).getTime() > hace120) estado = 'pendiente';
-      else estado = importe ? 'cerrada' : 'identificado';
+      let estados = [];
+      if (pagado != null && pagado > 0) estados.push('pagada');
+      if (/RECURR/.test(todo)) estados.push('recurrida');
+      if (/IDENTIF/.test(todo)) estados.push('identificado');
+      if (!estados.length) estados.push(importe && fechaRecibida && new Date(fechaRecibida).getTime() > hace120 ? 'pendiente' : (importe ? 'cerrada' : 'identificado'));
+      estados = muNormalizarEstados(estados);
+      const estado = muPrincipal(estados);
       const empOrig = muTxt(r[C.emp]).toUpperCase();
       if (!fechaRecibida && r[C.recib]) notas.push('Recibida: ' + muTxt(r[C.recib]));
       nuevas.push({id, orden, expediente: muTxt(r[C.exp]), recurso, boletin, matricula: mat,
         fechaDenuncia: muFechaExcel(r[C.fecha]), fechaRecibida, fechaPago: '', importe: importe ?? null, pagado,
-        estado, conductor: conductor.toUpperCase().replace(/\s+/g,' ').trim(), concepto, quienPaga: /PAGA (EL|[A-ZÁÉÍÓÚÑ]{3,})|LO PAGA/.test(todo) ? 'conductor' : 'empresa',
+        estado, estados, conductor: conductor.toUpperCase().replace(/\s+/g,' ').trim(), concepto, quienPaga: /PAGA (EL|[A-ZÁÉÍÓÚÑ]{3,})|LO PAGA/.test(todo) ? 'conductor' : 'empresa',
         cepyme, observaciones: notas.join(' · '), empresa: MU_MAPA_EMPRESA[empOrig] || empOrig, documentos: [], ts: Date.now(), importado: true});
     });
     if (!nuevas.length) { aviso.innerHTML = `ℹ️ No hay multas nuevas que importar${repetidas ? ` (${repetidas} ya estaban)` : ''}.`; return; }
@@ -8508,7 +8529,7 @@ window.muExportar = async () => {
       'Nº ORDEN': m.orden, 'EXPEDIENTE': m.expediente, 'RECURSO': m.recurso, 'BOLETIN DENUNCIA': m.boletin, 'MATRICULA': m.matricula,
       'FECHA': m.fechaDenuncia ? muFecha(m.fechaDenuncia) : '', 'RECIBIDO': m.fechaRecibida ? muFecha(m.fechaRecibida) : '',
       'IMP.RECLAMADO': m.importe, 'IMP.PAGADO': m.pagado, 'FECHA PAGO': m.fechaPago ? muFecha(m.fechaPago) : '', 'CONDUCTOR': m.conductor, 'CONCEPTO': m.concepto,
-      'ESTADO': muEstadoDe(m.estado)[2], 'LA PAGA': m.quienPaga === 'conductor' ? 'Conductor' : 'Empresa', 'F.A CEPYME': m.cepyme, 'OBSERVACIONES': m.observaciones,
+      'ESTADO': muEstados(m).map(e => muEstadoDe(e)[2]).join(' + '), 'LA PAGA': m.quienPaga === 'conductor' ? 'Conductor' : 'Empresa', 'F.A CEPYME': m.cepyme, 'OBSERVACIONES': m.observaciones,
       'EMPRESA': m.empresa, 'DOCUMENTOS': (m.documentos||[]).map(d => d.url).join(' ')}));
     const ws = XLSX.utils.json_to_sheet(filas); ws['!cols'] = [10,18,18,18,12,11,11,12,11,11,28,45,22,10,14,30,22,40].map(w => ({wch:w}));
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'MULTAS');
@@ -12937,6 +12958,7 @@ function docHtmlSeccion(docs, fn, id, tipos) {
         <a class="doc-nom" href="${d.url}" target="_blank" rel="noopener" title="Abrir">${almEsc(DOC_NOMBRES[d.tipo]||'Documento')}${d.anio ? ' ' + d.anio : ''} · <span>${almEsc(d.nombre||'')}</span></a>
         <span class="doc-fecha">${fechaCorta(new Date(d.ts||0))}${d.tamano ? ' · ' + (d.tamano > 1048576 ? (d.tamano/1048576).toFixed(1).replace('.',',') + ' MB' : Math.max(1, Math.round(d.tamano/1024)) + ' KB') : ''}</span>
         <a class="doc-btn" href="${d.url}" target="_blank" rel="noopener" title="Abrir">👁</a>
+        <a class="doc-btn" href="${DOC_URL}?descargar=${encodeURIComponent(d.ruta||'')}" title="Descargar" download>⬇</a>
         <button type="button" class="doc-btn doc-del" title="Quitar" onclick="${fn}('${id}', 'borrar', ${(docs||[]).indexOf(d)})">🗑</button>
       </div>`).join('') : `<div class="doc-vacio">Todavía no hay documentos. Sube aquí ${tipos.map(t => DOC_NOMBRES[t].toLowerCase()).join(', ').replace(/, ([^,]*)$/, ' o $1')} en PDF o foto.</div>`}
     <div class="doc-subir">${tipos.map(t => `<label class="doc-subir-btn">${DOC_ICONOS[t]} Subir ${DOC_NOMBRES[t].toLowerCase()}<input type="file" accept="application/pdf,image/*" style="display:none" onchange="${fn}('${id}', '${t}', this)"></label>`).join('')}</div>
