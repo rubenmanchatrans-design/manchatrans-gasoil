@@ -1056,6 +1056,11 @@ html.giro-fijo .alm-aviso-suelta { bottom: 18px; }
 .tk-pub b{color:var(--text);font-weight:800}
 .tk-caja .tk-aviso-mail{font-size:13px;color:#93c5fd;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.35);border-radius:10px;padding:8px 12px}
 .tk-caja .tk-aviso-mail[hidden]{display:none}
+.tk-caja .tk-nov{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px dashed rgba(46,204,113,.45);border-radius:10px;background:rgba(46,204,113,.05)}
+.tk-caja .tk-nov[hidden]{display:none}
+.tk-caja .tk-nov .tk-nov-t{font-weight:700}
+.tk-caja .tk-nov textarea{min-height:70px}
+.tk-nov-ayuda{font-size:11.5px;color:var(--text-muted)}
 .tk-item{transition:opacity .25s,transform .25s}
 .tk-item.tk-fuera{opacity:0;transform:translateX(12px)}
 .tk-btn:disabled{opacity:.6;cursor:default}
@@ -2934,7 +2939,7 @@ const TIPOS_PALET = {
   petro:     {label:'Petro palet',     dims:'1,20 × 1,20 m', largo:1.20, ancho:1.20},
   largo:     {label:'Largos / manual', dims:'medidas manuales', largo:null, ancho:null},
 };
-const ALM_VERSION = 'Almacén v148 · 08/10';   // se ve en la pantalla de escanear
+const ALM_VERSION = 'Almacén v149 · 08/10';   // se ve en la pantalla de escanear
 const ALM_DIAS_EXP = 21;     // días de alta que se cargan (hay mercancía que tarda más de una semana)
 const ALM_MARGEN_AVISO = 0.10;  // medido > declarado + 10 % → aviso
 
@@ -8057,6 +8062,22 @@ function sgDiagMostrar(r, resumen){
 window.sgDiagnostico = sgDiagnostico;
 window.sgCambiarClave = async function(){ SG_CLAVE = ''; await sgPedirClave(); };
 
+// ── Redacción de la novedad que se publica al cerrar una petición ──
+// Títulos escritos en mayúsculas → formato normal ("CARGADOR-REMITENTE" → "Cargador-remitente")
+function novTitulo(t){
+  t = String(t||'').trim();
+  if (t && t === t.toUpperCase() && /[A-ZÁÉÍÓÚÑ]{3}/.test(t)) t = t.charAt(0) + t.slice(1).toLowerCase();
+  return t;
+}
+function novRecorte(t, n){ t = String(t||'').replace(/\s+/g,' ').trim(); return t.length > n ? t.slice(0, n).replace(/\s+\S*$/, '') + '…' : t; }
+function novTexto(t, resp){
+  resp = String(resp||'').trim();
+  var hecho = resp || (t.tipo === 'error' ? 'Corregido: ya funciona como debe.' : t.tipo === 'cambio' ? 'Cambiado: ya está aplicado en la aplicación.' : 'Ya está disponible en la aplicación.');
+  if (!/[.!?…]$/.test(hecho)) hecho += '.';
+  var pedido = novRecorte(t.texto, 200);
+  return hecho + (pedido ? '\nLo pidió ' + (t.nombre ? t.nombre : 'la oficina') + ': «' + pedido.replace(/[.\s]+$/,'') + '».' : '');
+}
+
 function tkLista(velo){
   var caja = velo.querySelector('#tk-lista');
   caja.innerHTML = '<div class="tk-vacio">Cargando…</div>';
@@ -8097,7 +8118,12 @@ function tkLista(velo){
             '<textarea class="tk-res" rows="3" placeholder="Escriba la respuesta para quien lo pidió (opcional)">'+sgEsc(t.respuesta||'')+'</textarea>'+
             (t.email && !t.avisado ? '<div class="tk-aviso-mail"'+(t.estado==='hecho'?'':' hidden')+'>✉️ Al guardar como <b>Hecho</b> se enviará un correo a <b>'+sgEsc(t.email)+'</b> con su respuesta.</div>' : '')+
             '<label class="tk-pub"'+(t.estado==='hecho'?'':' hidden')+'><input type="checkbox" class="tk-pub-c" checked>'+
-              '<span><b>Publicar en Novedades</b> · sale en la campana para todos, con el título y la respuesta.</span></label>'+
+              '<span><b>Publicar en Novedades</b> · sale en la campana para todos. Revisa cómo quedará:</span></label>'+
+            '<div class="tk-nov"'+(t.estado==='hecho'?'':' hidden')+'>'+
+              '<input class="tk-nov-t" maxlength="90" placeholder="Título de la novedad" value="'+sgEsc(novTitulo(t.titulo))+'">'+
+              '<textarea class="tk-nov-x" rows="3" maxlength="600" placeholder="Explicación para todos">'+sgEsc(novTexto(t, t.respuesta||''))+'</textarea>'+
+              '<div class="tk-nov-ayuda">Se redacta solo con lo que se pidió y tu respuesta; puedes cambiarlo.</div>'+
+            '</div>'+
             '<div class="tk-gest-b"><button type="button" class="tk-btn tk-borrar">Eliminar</button>'+
               '<button type="button" class="tk-btn tk-si tk-guardar">Guardar</button></div>'+
             '<div class="tk-conf" hidden><span>¿Eliminar la petición <b>'+sgEsc(t.id)+'</b>? Desaparecerá de la lista.</span>'+
@@ -8111,9 +8137,15 @@ function tkLista(velo){
         b.onclick = function(){
           it.querySelectorAll('.tk-seg-est button').forEach(function(x){ x.classList.toggle('on', x===b); });
           it.querySelector('.tk-pub').hidden = b.dataset.v !== 'hecho';
+          it.querySelector('.tk-nov').hidden = b.dataset.v !== 'hecho' || !it.querySelector('.tk-pub-c').checked;
           var am = it.querySelector('.tk-aviso-mail'); if (am) am.hidden = b.dataset.v !== 'hecho';
         };
       });
+      var tt = ((j && j.tickets) || []).find(function(x){ return x.id === it.dataset.id; }) || {};
+      var novX = it.querySelector('.tk-nov-x'), novT = it.querySelector('.tk-nov-t');
+      it.querySelector('.tk-pub-c').onchange = function(){ it.querySelector('.tk-nov').hidden = !this.checked; };
+      novX.oninput = function(){ novX.dataset.tocado = '1'; };
+      it.querySelector('.tk-res').addEventListener('input', function(){ if (!novX.dataset.tocado) novX.value = novTexto(tt, this.value); });
       var conf = it.querySelector('.tk-conf'), botones = it.querySelector('.tk-gest-b');
       it.querySelector('.tk-borrar').onclick = function(){ conf.hidden = false; botones.hidden = true; };
       it.querySelector('.tk-conf-no').onclick = function(){ conf.hidden = true; botones.hidden = false; };
@@ -8132,7 +8164,8 @@ function tkLista(velo){
         var b = this; b.disabled = true; b.textContent = 'Guardando…';
         var est = it.querySelector('.tk-seg-est .on').dataset.v;
         sgApi('ticket_estado', {id: it.dataset.id, estado: est, respuesta: it.querySelector('.tk-res').value,
-                                publicar: est === 'hecho' && it.querySelector('.tk-pub-c').checked})
+                                publicar: est === 'hecho' && it.querySelector('.tk-pub-c').checked,
+                                nov_titulo: novT.value.trim(), nov_texto: novX.value.trim()})
           .then(function(j){
             if(j && j.publicada) novCargar();
             if(j && j.avisado) mostrarMensajeFlotante?.('✉️ Se ha avisado por correo a ' + j.email);
